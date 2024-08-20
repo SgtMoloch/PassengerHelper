@@ -1,0 +1,7 @@
+{
+  "manifestVersion": 1,
+  "id": "Moloch.PassengerHelper",
+  "name": "PassengerHelper",
+  "version": "$(AssemblyVersion)",
+  "assemblies": [ "PassengerHelper" ]
+}

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <GameAssembly Include="Assembly-CSharp" />
+    <GameAssembly Include="UnityEngine.CoreModule" />
+    <GameAssembly Include="0Harmony" />
+    <GameAssembly Include="Railloader.Interchange" />
+    <GameAssembly Include="Serilog" />
+    <GameAssembly Include="Definition" />
+    <GameAssembly Include="KeyValue.Runtime"/>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
