@@ -30,14 +30,14 @@ using Support;
 public static class AutoEngineerPassengerStopperPatches
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
-    static readonly Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
+
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelperPlugin shared = PassengerHelperPlugin.Shared;
-        if (!shared.IsEnabled)
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        if (!plugin.IsEnabled)
         {
             return true;
         }
@@ -50,14 +50,14 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
-        if (!_locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
+        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
         {
-            if (!shared.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
+            if (!plugin.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
             {
                 _settings = new PassengerLocomotiveSettings();
             }
             passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
-            _locomotives.Add(_locomotive, passengerLocomotive);
+            plugin._locomotives.Add(_locomotive, passengerLocomotive);
         }
 
 
@@ -138,6 +138,32 @@ public static class AutoEngineerPassengerStopperPatches
             return false;
         }
 
+        if (settings.WaitForConnectingTrain.Wait && passengerLocomotive.AtLastStop)
+        {
+            logger.Information("Checking location of connecting train based on setting");
+            // get connecting train current stop
+            int _baseLocoIndex = plugin._locomotives.Keys.ToList().FindIndex(x => x.id == settings.WaitForConnectingTrain.trainId);
+
+            if (_baseLocoIndex == -1)
+            {
+                logger.Error("Settings said wait for connecting train, but the connecting train was not found in the mods dictionary of known trains.");
+                return true;
+            }
+            PassengerLocomotive connectingLocomotive = plugin._locomotives.Values.ToList()[_baseLocoIndex];
+
+            if (connectingLocomotive.CurrentStop != null)
+            {
+                logger.Information("Connecting train is currently at {0}.", connectingLocomotive.CurrentStop.DisplayName);
+            }
+
+            if (connectingLocomotive.CurrentStop != _nextStop || connectingLocomotive.CurrentStop == null)
+            {
+                logger.Information("Connecting train is not yet at the current stop, waiting for it.");
+                __result = true;
+                return false;
+            }
+        }
+
         if (passengerLocomotive.HasMoreStops)
         {
             return true;
@@ -180,7 +206,7 @@ public static class AutoEngineerPassengerStopperPatches
             __result = true;
             return false;
         }
-        
+
         // we have reached the last station
         if (settings.StopAtLastStation)
         {

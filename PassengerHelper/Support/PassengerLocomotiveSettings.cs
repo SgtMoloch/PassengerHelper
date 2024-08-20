@@ -17,6 +17,7 @@ public class PassengerLocomotiveSettings
     public bool PointToPointMode { get; set; } = true;
     public bool LoopMode { get; set; } = false;
     public bool WaitForFullPassengersLastStation { get; set; } = false;
+    public ConnectingTrain WaitForConnectingTrain { get; set; } = new();
 
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
@@ -45,4 +46,10 @@ public class StationSetting {
 public enum StationAction {
     Normal,
     Pause
+}
+
+public class ConnectingTrain {
+    public bool Wait { get; set; }  = false;
+    public string trainId {get; set;} = "";
+    public string stationId {get; set;} = "";
 }

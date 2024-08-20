@@ -24,6 +24,7 @@ namespace PassengerHelperPlugin
         private readonly IModDefinition self;
         internal IUIHelper UIHelper { get; }
         internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
+        internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives { get; } = new();
         public PassengerHelperPlugin(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
         {
             new Harmony(self.Id).PatchAll(GetType().Assembly);
