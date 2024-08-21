@@ -129,14 +129,7 @@ public class PassengerSettingsWindow
                 }).Width(175f);
                 builder.AddToggle(() => passengerLocomotiveSettings.Stations[name].TerminusStation, delegate (bool on)
                 {
-                    int numTerminusStations = 0;
-                    passengerLocomotiveSettings.Stations.Values.ToList().ForEach(s =>
-                    {
-                        if (s.TerminusStation == true)
-                        {
-                            numTerminusStations++;
-                        }
-                    });
+                    int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
 
                     logger.Information("There are currently {0} terminus stations set", numTerminusStations);
                     if (numTerminusStations >= 2 && on == true)

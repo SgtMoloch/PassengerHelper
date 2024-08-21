@@ -6,11 +6,13 @@ using System.Linq;
 using Game;
 using Game.State;
 using Model;
+using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
 using Model.OpsNew;
 using RollingStock;
 using Serilog;
+using UI.EngineControls;
 using static Model.Car;
 
 
@@ -186,7 +188,8 @@ public class PassengerLocomotive
                     LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
                     int maxCapacity = (int)loadSlot.MaximumCapacity;
                     PassengerMarker actualMarker = marker.Value;
-                    if(actualMarker.TotalPassengers < maxCapacity) {
+                    if (actualMarker.TotalPassengers < maxCapacity)
+                    {
                         logger.Information("Passenger car not full, remaining stopped");
                         return true;
                     }
@@ -204,6 +207,13 @@ public class PassengerLocomotive
         }
 
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
+    }
+
+    public void ReverseLocoDirection()
+    {
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        helper.SetOrdersValue(null, !persistence.Orders.Forward);
     }
 
     private Car FuelCar()

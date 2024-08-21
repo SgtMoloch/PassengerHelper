@@ -25,7 +25,6 @@ using RollingStock;
 using Game.Notices;
 using Support;
 
-
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
 {
@@ -131,9 +130,9 @@ public static class AutoEngineerPassengerStopperPatches
         // get terminus stations
         List<string> terminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList();
 
-        if (terminusStations.Count > 2)
+        if (terminusStations.Count != 2)
         {
-            logger.Information("there are more than 2 terminus stations");
+            logger.Information("there are not exactly 2 terminus stations");
             // continue normal logic
             return true;
         }
@@ -174,7 +173,7 @@ public static class AutoEngineerPassengerStopperPatches
         passengerLocomotive.AtTerminusStationEast = false;
 
         logger.Information("Not at either terminus station, so there are more stops, continuing.");
-        logger.Information("Ensureing at least 1 passenger car has a terminus station selected");
+        logger.Information("Ensuring at least 1 passenger car has a terminus station selected");
         foreach (Car coach in coaches)
         {
             PassengerMarker? marker = coach.GetPassengerMarker();
@@ -194,7 +193,7 @@ public static class AutoEngineerPassengerStopperPatches
         if (_nextStop?.identifier == "alarka" && !settings.LoopMode)
         {
             logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
-            ReverseLocoDirection(_locomotive);
+            passengerLocomotive.ReverseLocoDirection();
         }
     }
 
@@ -243,7 +242,7 @@ public static class AutoEngineerPassengerStopperPatches
 
         Say($"{Hyperlink.To(_locomotive)} reversing direction.");
         // reverse the direction of the loco
-        ReverseLocoDirection(_locomotive);
+        passengerLocomotive.ReverseLocoDirection();
 
         return false;
     }
