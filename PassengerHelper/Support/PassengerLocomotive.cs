@@ -6,11 +6,13 @@ using System.Linq;
 using Game;
 using Game.State;
 using Model;
+using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
 using Model.OpsNew;
 using RollingStock;
 using Serilog;
+using UI.EngineControls;
 using static Model.Car;
 
 
@@ -18,11 +20,13 @@ public class PassengerLocomotive
 {
     readonly ILogger logger = Log.ForContext(typeof(PassengerLocomotive));
     public bool CurrentlyStopped = false;
+    public bool Continue = false;
     public string CurrentReasonForStop = "";
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
-    public bool AtLastStop = false;
+    public bool AtTerminusStationEast = false;
+    public bool AtTerminusStationWest = false;
     private readonly BaseLocomotive _locomotive;
     private readonly bool hasTender = false;
     public bool HasMoreStops = false;
@@ -30,8 +34,11 @@ public class PassengerLocomotive
     public PassengerLocomotiveSettings Settings;
 
     private int _dieselFuelSlotIndex;
+    private float _dieselSlotMax;
     private int _coalSlotIndex;
+    private float _coalSlotMax;
     private int _waterSlotIndex;
+    private float _waterSlotMax;
 
     public PassengerLocomotive(BaseLocomotive _locomotive, PassengerLocomotiveSettings Settings)
     {
@@ -47,7 +54,7 @@ public class PassengerLocomotive
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar().GetLoadInfo(_dieselFuelSlotIndex);
-        if (loadInfo.HasValue)
+        if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveDiesel)
         {
             logger.Information("{0} has {1}gal of diesel fuel", _locomotive.DisplayName, loadInfo.Value.Quantity);
             level = loadInfo.Value.Quantity;
@@ -60,7 +67,7 @@ public class PassengerLocomotive
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar().GetLoadInfo(_coalSlotIndex);
-        if (loadInfo.HasValue)
+        if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
             logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity / 2000);
             level = loadInfo.Value.Quantity / 2000;
@@ -73,7 +80,7 @@ public class PassengerLocomotive
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar().GetLoadInfo(_waterSlotIndex);
-        if (loadInfo.HasValue)
+        if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
             logger.Information("{0} has {1}gal of water", _locomotive.DisplayName, loadInfo.Value.Quantity);
             level = loadInfo.Value.Quantity;
@@ -82,11 +89,14 @@ public class PassengerLocomotive
         return level;
     }
 
-    public bool CheckDieselFuelLevel(float minLevel, out float level)
+    public bool CheckDieselFuelLevel(out float level)
     {
         level = GetDieselLevelForLoco();
+        float minLevel = Settings.DieselLevel;
+        float actualLevel = level / _dieselSlotMax;
+        logger.Information("diesel: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _dieselSlotMax);
 
-        StoppedForDiesel = _locomotive.Archetype == CarArchetype.LocomotiveDiesel && level < minLevel;
+        StoppedForDiesel = _locomotive.Archetype == CarArchetype.LocomotiveDiesel && actualLevel < minLevel;
 
         if (StoppedForDiesel)
         {
@@ -97,11 +107,14 @@ public class PassengerLocomotive
         return StoppedForDiesel;
     }
 
-    public bool CheckCoalLevel(float minLevel, out float level)
+    public bool CheckCoalLevel(out float level)
     {
         level = GetCoalLevelForLoco();
+        float minLevel = Settings.CoalLevel;
+        float actualLevel = level / _coalSlotMax;
+        logger.Information("coal: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _coalSlotMax);
 
-        StoppedForCoal = hasTender && level < minLevel;
+        StoppedForCoal = hasTender && actualLevel < minLevel;
 
         if (StoppedForCoal)
         {
@@ -112,11 +125,14 @@ public class PassengerLocomotive
         return StoppedForCoal;
     }
 
-    public bool CheckWaterLevel(float minLevel, out float level)
+    public bool CheckWaterLevel( out float level)
     {
         level = GetWaterLevelForLoco();
+        float minLevel = Settings.WaterLevel;
+        float actualLevel = level / _waterSlotMax;
+        logger.Information("water: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _waterSlotMax);
 
-        StoppedForWater = hasTender && level < minLevel;
+        StoppedForWater = hasTender && actualLevel < minLevel;
 
         if (StoppedForWater)
         {
@@ -139,6 +155,11 @@ public class PassengerLocomotive
     public bool ShouldStayStopped()
     {
         logger.Information("checking if {0} should stay Stopd at current station", _locomotive.DisplayName);
+        if (Continue)
+        {
+            logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
+            return false;
+        }
         // train was requested to remain stopped
         if (Settings.StopAtNextStation || Settings.StopAtLastStation)
         {
@@ -170,7 +191,7 @@ public class PassengerLocomotive
             }
         }
 
-        if (AtLastStop && Settings.WaitForFullPassengersLastStation)
+        if ((AtTerminusStationWest || AtTerminusStationEast) && Settings.WaitForFullPassengersLastStation)
         {
             logger.Information("Checking to see if all passenger cars are full");
             IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
@@ -185,24 +206,32 @@ public class PassengerLocomotive
                     LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
                     int maxCapacity = (int)loadSlot.MaximumCapacity;
                     PassengerMarker actualMarker = marker.Value;
-                    if(actualMarker.TotalPassengers < maxCapacity) {
+                    if (actualMarker.TotalPassengers < maxCapacity)
+                    {
                         logger.Information("Passenger car not full, remaining stopped");
                         return true;
                     }
                 }
             }
-            AtLastStop = false;
+            AtTerminusStationWest = false;
         }
 
         // for sandbox use, check every time
         if (StateManager.IsSandbox)
         {
-            CheckCoalLevel(0, out float coal);
-            CheckWaterLevel(0, out float water);
-            CheckDieselFuelLevel(0, out float diesel);
+            CheckCoalLevel(out float coal);
+            CheckWaterLevel(out float water);
+            CheckDieselFuelLevel(out float diesel);
         }
 
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
+    }
+
+    public void ReverseLocoDirection()
+    {
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        helper.SetOrdersValue(null, !persistence.Orders.Forward);
     }
 
     private Car FuelCar()
@@ -210,13 +239,18 @@ public class PassengerLocomotive
         if (!hasTender)
         {
             _dieselFuelSlotIndex = _locomotive.Definition.LoadSlots.FindIndex((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "diesel-fuel");
+            _dieselSlotMax = _locomotive.Definition.LoadSlots.Where((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "diesel-fuel").First().MaximumCapacity;
+
             return _locomotive;
         }
 
         if (TryGetTender(out var tender))
         {
             _coalSlotIndex = tender.Definition.LoadSlots.FindIndex((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "coal");
+            _coalSlotMax = tender.Definition.LoadSlots.Where((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "coal").First().MaximumCapacity;
+
             _waterSlotIndex = tender.Definition.LoadSlots.FindIndex((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "water");
+            _waterSlotMax = tender.Definition.LoadSlots.Where((LoadSlot loadSlot) => loadSlot.RequiredLoadIdentifier == "water").First().MaximumCapacity;
 
             return tender;
         }

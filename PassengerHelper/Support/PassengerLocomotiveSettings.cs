@@ -10,13 +10,17 @@ using System.Threading.Tasks;
 public class PassengerLocomotiveSettings
 {
     public bool StopForDiesel { get; set; } = false;
+    public float DieselLevel { get; set; } = 0.10f;
     public bool StopForCoal { get; set; } = false;
+    public float CoalLevel { get; set; } = 0.10f;
     public bool StopForWater { get; set; } = false;
+    public float WaterLevel { get; set; } = 0.10f;
     public bool StopAtNextStation { get; set; } = false;
     public bool StopAtLastStation { get; set; } = false;
     public bool PointToPointMode { get; set; } = true;
     public bool LoopMode { get; set; } = false;
     public bool WaitForFullPassengersLastStation { get; set; } = false;
+    public bool Disable { get; set; } = false; 
 
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
@@ -37,12 +41,20 @@ public class PassengerLocomotiveSettings
         };
 }
 
-public class StationSetting {
-    public bool include = false;
-    public StationAction stationAction = StationAction.Normal;
+public class StationSetting
+{
+    public bool include { get; set; } = false;
+    public StationAction stationAction { get; set; } = StationAction.Normal;
+    public bool TerminusStation { get; set; } = false;
+
+    public override string ToString()
+    {
+        return "StationSetting[ include=" + include + ", stationAction=" + stationAction + ", TerminusStation=" + TerminusStation + "]";
+    }
 }
 
-public enum StationAction {
+public enum StationAction
+{
     Normal,
     Pause
 }

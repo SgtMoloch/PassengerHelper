@@ -24,6 +24,13 @@ namespace PassengerHelperPlugin
         private readonly IModDefinition self;
         internal IUIHelper UIHelper { get; }
         internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
+        internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
+
+        internal readonly List<string> orderedStations = new List<string>()
+                {
+                "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka",
+                "almond", "nantahala", "topton", "rhodo", "andrews"
+                };
         public PassengerHelperPlugin(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
         {
             new Harmony(self.Id).PatchAll(GetType().Assembly);
