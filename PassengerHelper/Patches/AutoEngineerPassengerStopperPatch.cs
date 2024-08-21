@@ -196,7 +196,12 @@ public static class AutoEngineerPassengerStopperPatches
                 if (!actualMarker.Destinations.Contains(terminusStations[0]) || !actualMarker.Destinations.Contains(terminusStations[1]))
                 {
                     logger.Information("Selecting both terminus stations on {0}", coach.DisplayName);
-                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, terminusStations.ToList()));
+                    HashSet<string> stations = actualMarker.Destinations;
+
+                    stations.Add(terminusStations[0]);
+                    stations.Add(terminusStations[1]);
+
+                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stations.ToList()));
                 }
             }
         }
