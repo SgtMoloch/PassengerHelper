@@ -20,14 +20,15 @@ using UI.Common;
 [HarmonyPatch]
 public static class CarInspectorPatches
 {
+    static readonly Serilog.ILogger logger = Log.ForContext(typeof(CarInspectorPatches));
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
     private static bool PopulateAIPanel(UIPanelBuilder builder, CarInspector __instance)
     {
-        PassengerHelperPlugin? shared = SingletonPluginBase<PassengerHelperPlugin>.Shared;
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
 
-        if (!PassengerHelperPlugin.Shared.IsEnabled)
+        if (!plugin.IsEnabled)
         {
             return true;
         }
@@ -143,7 +144,6 @@ public static class CarInspectorPatches
             }, 4);
             builder.AddField("Car Lengths", control2);
         }
-        builder.AddExpandingVerticalSpacer();
         builder.AddObserver(persistence.ObservePassengerModeStatusChanged(delegate
         {
             builder.Rebuild();
@@ -156,10 +156,25 @@ public static class CarInspectorPatches
             /* 
              * Begin custom logic
              */
-            builder.AddButtonCompact("PassengerSettings", delegate
+            builder.HStack(delegate (UIPanelBuilder builder)
             {
-                PassengerSettingsWindow.Show(_car);
-            }).Tooltip("Open Passeneger Settings menu", "Open Passeneger Settings menu");
+
+                builder.AddButton("PassengerSettings", delegate
+                {
+                    PassengerSettingsWindow.Show(_car);
+                }).Tooltip("Open Passeneger Settings menu", "Open Passeneger Settings menu");
+                builder.AddObserver(persistence.ObservePassengerModeStatusChanged(delegate
+                {
+                    builder.Rebuild();
+                }));
+                if (plugin._locomotives.TryGetValue(_car, out var locomotive) && locomotive.CurrentlyStopped)
+                {
+                    builder.AddButton("Continue", delegate
+                    {
+                        locomotive.Continue = true;
+                    }).Tooltip("Resume travel", "Resume travel");
+                }
+            });
             /* 
              * End custom logic
              */
@@ -175,7 +190,25 @@ public static class CarInspectorPatches
             helper.SetOrdersValue(mode, forward, maxSpeedMph, distance);
         }
 
+        builder.AddExpandingVerticalSpacer();
         return false;
 
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
+    [HarmonyAfter(new string[] {"FlyShuntUI", "SmartOrders"})]
+    private static void PopulateAIPanel(Window ____window)
+    {
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+
+        if (!plugin.IsEnabled)
+        {
+            return;
+        }
+
+        var size = ____window.GetContentSize();
+
+        ____window.SetContentSize(new Vector2(400, 515));
     }
 }

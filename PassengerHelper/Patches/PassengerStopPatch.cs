@@ -34,7 +34,7 @@ public static class PassengerStopPatches
                 if (passengerLocomotive.CurrentStop != __instance)
                 {
                     logger.Information("Train {0} has not stopped at {1} yet, waiting to unload cars until it stops", engine.DisplayName, __instance.DisplayName);
-                    __result = false;
+                    // __result = false;
                 }
                 break;
             }

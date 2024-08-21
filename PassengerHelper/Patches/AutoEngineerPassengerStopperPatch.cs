@@ -30,7 +30,6 @@ public static class AutoEngineerPassengerStopperPatches
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
 
-
     [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
@@ -59,6 +58,7 @@ public static class AutoEngineerPassengerStopperPatches
             plugin._locomotives.Add(_locomotive, passengerLocomotive);
         }
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
+
         if (settings.Disable)
         {
             return true;
@@ -67,15 +67,19 @@ public static class AutoEngineerPassengerStopperPatches
         if (_nextStop != passengerLocomotive.CurrentStop)
         {
             passengerLocomotive.CurrentStop = _nextStop;
+            // can set the continue flag back to false, as we have reached the next station
+            passengerLocomotive.Continue = false;
         }
 
         // if train is currently Stopped
-        if (passengerLocomotive.CurrentlyStopped)
+        if (passengerLocomotive.CurrentlyStopped && !passengerLocomotive.Continue)
         {
             logger.Information("Train is currently Stopped due to: {0}", passengerLocomotive.CurrentReasonForStop);
             bool stayStopped = passengerLocomotive.ShouldStayStopped();
             if (stayStopped)
             {
+                AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+                persistence.PassengerModeStatus = "Paused";
                 __result = true;
                 return false;
             }
@@ -106,6 +110,10 @@ public static class AutoEngineerPassengerStopperPatches
 
     private static bool CheckPauseAtCurrentStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive)
     {
+        if(passengerLocomotive.Continue) {
+            return true;
+        }
+
         if (settings.StopAtNextStation)
         {
             logger.Information("Pausing at next station due to setting");
@@ -251,6 +259,10 @@ public static class AutoEngineerPassengerStopperPatches
     }
     private static bool CheckFuelLevels(PassengerLocomotive passengerLocomotive, BaseLocomotive _locomotive, PassengerLocomotiveSettings settings, PassengerStop _nextStop)
     {
+        if(passengerLocomotive.Continue) {
+            return true;
+        }
+
         if (settings.StopForCoal)
         {
             logger.Information("Requested stop for low coal, checking level");

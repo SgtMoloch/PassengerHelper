@@ -20,6 +20,7 @@ public class PassengerLocomotive
 {
     readonly ILogger logger = Log.ForContext(typeof(PassengerLocomotive));
     public bool CurrentlyStopped = false;
+    public bool Continue = false;
     public string CurrentReasonForStop = "";
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
@@ -142,6 +143,11 @@ public class PassengerLocomotive
     public bool ShouldStayStopped()
     {
         logger.Information("checking if {0} should stay Stopd at current station", _locomotive.DisplayName);
+        if (Continue)
+        {
+            logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
+            return false;
+        }
         // train was requested to remain stopped
         if (Settings.StopAtNextStation || Settings.StopAtLastStation)
         {
@@ -173,7 +179,7 @@ public class PassengerLocomotive
             }
         }
 
-        if (AtTerminusStationWest && Settings.WaitForFullPassengersLastStation)
+        if ((AtTerminusStationWest || AtTerminusStationEast) && Settings.WaitForFullPassengersLastStation)
         {
             logger.Information("Checking to see if all passenger cars are full");
             IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
