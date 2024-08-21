@@ -15,9 +15,6 @@ using UnityEngine;
 
 public class PassengerSettingsWindow
 {
-    private static Window? passengerSettingsWindow;
-    
-
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
     public static void Show(Car car)
     {
@@ -31,17 +28,15 @@ public class PassengerSettingsWindow
         }
 
         IUIHelper uIHelper = plugin.UIHelper;
-        if (passengerSettingsWindow == null)
+        Window passengerSettingsWindow = uIHelper.CreateWindow(500, 250, Window.Position.Center);
+        passengerSettingsWindow.OnShownDidChange += (s) =>
         {
-            passengerSettingsWindow = uIHelper.CreateWindow(500, 250, Window.Position.Center);
-            passengerSettingsWindow.OnShownDidChange += (s) =>
+            if (!s)
             {
-                if (!s)
-                {
-                    plugin.SaveSettings();
-                }
-            };
-        }
+                plugin.SaveSettings();
+            }
+        };
+
         passengerSettingsWindow.Title = "Passenger Helper Settings for " + _locomotive.DisplayName;
 
         if (!plugin.passengerLocomotivesSettings.TryGetValue(locomotiveName, out PassengerLocomotiveSettings passengerLocomotiveSettings))
@@ -60,7 +55,7 @@ public class PassengerSettingsWindow
             builder.VStack(delegate (UIPanelBuilder builder)
             {
                 logger.Information("Populating stations for {0}", _locomotive.DisplayName);
-                PopulateStations(uIHelper, builder, passengerLocomotiveSettings, plugin);
+                PopulateStations(passengerSettingsWindow, uIHelper, builder, passengerLocomotiveSettings, plugin);
                 builder.AddExpandingVerticalSpacer();
             });
 
@@ -70,6 +65,18 @@ public class PassengerSettingsWindow
                 logger.Information("Populating settings for {0}", _locomotive.DisplayName);
                 PopulateSettings(builder, passengerLocomotiveSettings, plugin);
                 builder.AddExpandingVerticalSpacer();
+            });
+            builder.VStack(delegate (UIPanelBuilder builder)
+            {
+                builder.AddExpandingVerticalSpacer();
+                builder.HStack(delegate (UIPanelBuilder builder)
+                {
+                    builder.Spacer().FlexibleWidth(1f);
+                    builder.AddButton("Save Settings", () =>
+                    {
+                        passengerSettingsWindow.CloseWindow();
+                    });
+                });
             });
         });
         passengerSettingsWindow.ShowWindow();
@@ -83,7 +90,7 @@ public class PassengerSettingsWindow
         .ToList();
     }
 
-    private static void PopulateStations(IUIHelper uIHelper, UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, PassengerHelperPlugin plugin)
+    private static void PopulateStations(Window passengerSettingsWindow, IUIHelper uIHelper, UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, PassengerHelperPlugin plugin)
     {
         builder.AddLabel("Station Stops:", delegate (TMP_Text text)
         {
@@ -210,7 +217,29 @@ public class PassengerSettingsWindow
             {
                 text.textWrappingMode = TextWrappingModes.NoWrap;
                 text.overflowMode = TextOverflowModes.Ellipsis;
+            }).Width(200f);
+            builder.AddInputField((passengerLocomotiveSettings.DieselLevel * 100).ToString(), delegate (string val)
+            {
+                if (float.TryParse(val, out float value))
+                {
+                    if (value < 0 || value > 100)
+                    {
+                        logger.Information("Entered a Diesel Level greater than 100 or lower than 0");
+                        return;
+                    }
+
+                    passengerLocomotiveSettings.DieselLevel = value / 100;
+                }
+            }, null, 2)
+            .Tooltip("Diesel Level Percentage", "Set the percentage of diesel remaining should trigger a stop for low diesel")
+            .Width(50f)
+            .Height(20f);
+            builder.AddLabel("%", delegate (TMP_Text text)
+            {
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
             }).FlexibleWidth(1f);
+            builder.Spacer();
         });
         builder.HStack(delegate (UIPanelBuilder builder)
         {
@@ -224,7 +253,29 @@ public class PassengerSettingsWindow
             {
                 text.textWrappingMode = TextWrappingModes.NoWrap;
                 text.overflowMode = TextOverflowModes.Ellipsis;
+            }).Width(200f);
+            builder.AddInputField((passengerLocomotiveSettings.CoalLevel * 100).ToString(), delegate (string val)
+            {
+                if (float.TryParse(val, out float value))
+                {
+                    if (value < 0 || value > 100)
+                    {
+                        logger.Information("Entered a Coal Level greater than 100 or lower than 0");
+                        return;
+                    }
+
+                    passengerLocomotiveSettings.CoalLevel = value / 100;
+                }
+            }, null, 2)
+            .Tooltip("Coal Level Percentage", "Set the percentage of coal remaining should trigger a stop for low coal")
+            .Width(50f)
+            .Height(20f);
+            builder.AddLabel("%", delegate (TMP_Text text)
+            {
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
             }).FlexibleWidth(1f);
+            builder.Spacer();
         });
         builder.HStack(delegate (UIPanelBuilder builder)
             {
@@ -238,7 +289,29 @@ public class PassengerSettingsWindow
                 {
                     text.textWrappingMode = TextWrappingModes.NoWrap;
                     text.overflowMode = TextOverflowModes.Ellipsis;
+                }).Width(200f);
+                builder.AddInputField((passengerLocomotiveSettings.WaterLevel * 100).ToString(), delegate (string val)
+            {
+                if (float.TryParse(val, out float value))
+                {
+                    if (value < 0 || value > 100)
+                    {
+                        logger.Information("Entered a Water Level greater than 100 or lower than 0");
+                        return;
+                    }
+
+                    passengerLocomotiveSettings.WaterLevel = value / 100;
+                }
+            }, null, 2)
+            .Tooltip("Water Level Percentage", "Set the percentage of water remaining should trigger a stop for low water")
+            .Width(50f)
+            .Height(20f);
+                builder.AddLabel("%", delegate (TMP_Text text)
+                {
+                    text.textWrappingMode = TextWrappingModes.NoWrap;
+                    text.overflowMode = TextOverflowModes.Ellipsis;
                 }).FlexibleWidth(1f);
+                builder.Spacer();
             });
         builder.HStack(delegate (UIPanelBuilder builder)
         {

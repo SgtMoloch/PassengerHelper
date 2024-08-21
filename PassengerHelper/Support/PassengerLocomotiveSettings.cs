@@ -10,8 +10,11 @@ using System.Threading.Tasks;
 public class PassengerLocomotiveSettings
 {
     public bool StopForDiesel { get; set; } = false;
+    public float DieselLevel { get; set; } = 0.10f;
     public bool StopForCoal { get; set; } = false;
+    public float CoalLevel { get; set; } = 0.10f;
     public bool StopForWater { get; set; } = false;
+    public float WaterLevel { get; set; } = 0.10f;
     public bool StopAtNextStation { get; set; } = false;
     public bool StopAtLastStation { get; set; } = false;
     public bool PointToPointMode { get; set; } = true;

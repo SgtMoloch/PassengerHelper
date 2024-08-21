@@ -110,7 +110,8 @@ public static class AutoEngineerPassengerStopperPatches
 
     private static bool CheckPauseAtCurrentStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive)
     {
-        if(passengerLocomotive.Continue) {
+        if (passengerLocomotive.Continue)
+        {
             return true;
         }
 
@@ -259,29 +260,31 @@ public static class AutoEngineerPassengerStopperPatches
     }
     private static bool CheckFuelLevels(PassengerLocomotive passengerLocomotive, BaseLocomotive _locomotive, PassengerLocomotiveSettings settings, PassengerStop _nextStop)
     {
-        if(passengerLocomotive.Continue) {
+        if (passengerLocomotive.Continue)
+        {
             return true;
+        }
+
+        bool retVal = true;
+        if (settings.StopForDiesel)
+        {
+            logger.Information("Requested stop for low diesel, checking level");
+            // check diesel
+            if (passengerLocomotive.CheckDieselFuelLevel(out float diesel))
+            {
+                _locomotive.PostNotice("ai-stop", $"Stopped, low diesel at {Hyperlink.To(_nextStop)}.");
+                retVal = false;
+            }
         }
 
         if (settings.StopForCoal)
         {
             logger.Information("Requested stop for low coal, checking level");
             // check coal
-            if (passengerLocomotive.CheckCoalLevel(0.5f, out float coal))
+            if (passengerLocomotive.CheckCoalLevel(out float coal))
             {
-                _locomotive.PostNotice("ai-stop", $"Stopped at {Hyperlink.To(_nextStop)}, low coal.");
-                return false;
-            }
-        }
-
-        if (settings.StopForDiesel)
-        {
-            logger.Information("Requested stop for low diesel, checking level");
-            // check diesel
-            if (passengerLocomotive.CheckDieselFuelLevel(100, out float diesel))
-            {
-                _locomotive.PostNotice("ai-stop", $"Stopped at {Hyperlink.To(_nextStop)}, low diesel.");
-                return false;
+                _locomotive.PostNotice("ai-stop", $"Stopped, low coal at {Hyperlink.To(_nextStop)}.");
+                retVal = false;
             }
         }
 
@@ -289,21 +292,14 @@ public static class AutoEngineerPassengerStopperPatches
         {
             logger.Information("Requested stop for low water, checking level");
             // check water
-            if (passengerLocomotive.CheckWaterLevel(500, out float water))
+            if (passengerLocomotive.CheckWaterLevel(out float water))
             {
-                _locomotive.PostNotice("ai-stop", $"Stopped at {Hyperlink.To(_nextStop)}, low water.");
-                return false;
+                _locomotive.PostNotice("ai-stop", $"Stopped, low water at {Hyperlink.To(_nextStop)}.");
+                retVal = false;
             }
         }
 
-        return true;
-    }
-    private static void ReverseLocoDirection(BaseLocomotive _locomotive)
-    {
-        logger.Information("Reversing direction of _locomotive");
-        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-        helper.SetOrdersValue(null, !persistence.Orders.Forward);
+        return retVal;
     }
 
     private static void Say(string message)
