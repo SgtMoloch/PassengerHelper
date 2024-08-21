@@ -69,7 +69,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar().GetLoadInfo(_coalSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity / 2000);
             level = loadInfo.Value.Quantity;
         }
 
@@ -125,7 +125,7 @@ public class PassengerLocomotive
         return StoppedForCoal;
     }
 
-    public bool CheckWaterLevel( out float level)
+    public bool CheckWaterLevel(out float level)
     {
         level = GetWaterLevelForLoco();
         float minLevel = Settings.WaterLevel;
