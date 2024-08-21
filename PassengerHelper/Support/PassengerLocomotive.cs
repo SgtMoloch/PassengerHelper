@@ -22,7 +22,8 @@ public class PassengerLocomotive
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
-    public bool AtLastStop = false;
+    public bool AtTerminusStationEast = false;
+    public bool AtTerminusStationWest = false;
     private readonly BaseLocomotive _locomotive;
     private readonly bool hasTender = false;
     public bool HasMoreStops = false;
@@ -170,7 +171,7 @@ public class PassengerLocomotive
             }
         }
 
-        if (AtLastStop && Settings.WaitForFullPassengersLastStation)
+        if (AtTerminusStationWest && Settings.WaitForFullPassengersLastStation)
         {
             logger.Information("Checking to see if all passenger cars are full");
             IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
@@ -191,7 +192,7 @@ public class PassengerLocomotive
                     }
                 }
             }
-            AtLastStop = false;
+            AtTerminusStationWest = false;
         }
 
         // for sandbox use, check every time

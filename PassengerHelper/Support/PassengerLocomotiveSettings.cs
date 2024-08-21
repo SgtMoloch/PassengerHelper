@@ -37,12 +37,20 @@ public class PassengerLocomotiveSettings
         };
 }
 
-public class StationSetting {
-    public bool include = false;
-    public StationAction stationAction = StationAction.Normal;
+public class StationSetting
+{
+    public bool include { get; set; } = false;
+    public StationAction stationAction { get; set; } = StationAction.Normal;
+    public bool TerminusStation { get; set; } = false;
+
+    public override string ToString()
+    {
+        return "StationSetting[ include=" + include + ", stationAction=" + stationAction + ", TerminusStation=" + TerminusStation + "]";
+    }
 }
 
-public enum StationAction {
+public enum StationAction
+{
     Normal,
     Pause
 }
