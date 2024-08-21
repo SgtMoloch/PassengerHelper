@@ -69,8 +69,8 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar().GetLoadInfo(_coalSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity / 2000);
-            level = loadInfo.Value.Quantity / 2000;
+            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            level = loadInfo.Value.Quantity;
         }
 
         return level;
