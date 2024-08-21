@@ -58,7 +58,11 @@ public static class AutoEngineerPassengerStopperPatches
             passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
             plugin._locomotives.Add(_locomotive, passengerLocomotive);
         }
-
+        PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
+        if (settings.Disable)
+        {
+            return true;
+        }
 
         if (_nextStop != passengerLocomotive.CurrentStop)
         {
@@ -78,7 +82,6 @@ public static class AutoEngineerPassengerStopperPatches
         }
 
         passengerLocomotive.ResetStoppedFlags();
-        PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
 
         if (!CheckFuelLevels(passengerLocomotive, _locomotive, settings, _nextStop))
         {
@@ -236,7 +239,7 @@ public static class AutoEngineerPassengerStopperPatches
         // if we don't want to reverse, return to orignal logic
         if (settings.LoopMode)
         {
-            logger.Information("Setting to disable reversing at last station is set to true. Continuing in current direction.");
+            logger.Information("Loop Mode is set to true. Continuing in current direction.");
             return true;
         }
 

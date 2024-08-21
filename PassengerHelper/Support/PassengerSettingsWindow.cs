@@ -186,6 +186,20 @@ public class PassengerSettingsWindow
         }).FlexibleWidth(1f);
         builder.HStack(delegate (UIPanelBuilder builder)
         {
+            builder.AddToggle(() => passengerLocomotiveSettings.Disable, delegate (bool on)
+            {
+                logger.Information("Disable set to {0}", on);
+                passengerLocomotiveSettings.Disable = on;
+            }).Tooltip("Enabled", $"Toggle whether PassengerHelper should be disabled or not")
+            .Width(25f);
+            builder.AddLabel("Disable", delegate (TMP_Text text)
+            {
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
+            }).FlexibleWidth(1f);
+        });
+        builder.HStack(delegate (UIPanelBuilder builder)
+        {
             builder.AddToggle(() => passengerLocomotiveSettings.StopForDiesel, delegate (bool on)
             {
                 logger.Information("Stop for Diesel set to {0}", on);

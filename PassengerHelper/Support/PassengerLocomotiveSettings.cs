@@ -17,6 +17,7 @@ public class PassengerLocomotiveSettings
     public bool PointToPointMode { get; set; } = true;
     public bool LoopMode { get; set; } = false;
     public bool WaitForFullPassengersLastStation { get; set; } = false;
+    public bool Disable { get; set; } = false; 
 
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
