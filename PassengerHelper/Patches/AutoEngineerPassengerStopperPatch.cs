@@ -141,6 +141,7 @@ public static class AutoEngineerPassengerStopperPatches
 
         // get terminus stations
         List<string> terminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList();
+        logger.Information("terminus stations are: {0}", terminusStations);
 
         if (terminusStations.Count != 2)
         {
@@ -149,28 +150,36 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
+        logger.Information("Current stop is: {0}", _nextStop.DisplayName);
+
         if (!terminusStations.Contains(_nextStop.identifier))
         {
-
+            logger.Information("Not at a terminus station");
             StationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches, terminusStations);
             // continue normal logic
             return true;
         }
         else
         {
+            logger.Information("At terminus station");
             bool atTerminusStationWest = terminusStations[1] == _nextStop.identifier;
-            bool atTerminusStationEat = terminusStations[0] == _nextStop.identifier;
+            bool atTerminusStationEast = terminusStations[0] == _nextStop.identifier;
+            logger.Information("at west terminus: {0} at east terminus {1}", atTerminusStationWest, atTerminusStationEast);
+            logger.Information("passenger locomotive atTerminusWest settings: (0)", passengerLocomotive.AtTerminusStationWest);
+            logger.Information("passenger locomotive atTerminusEast settings: (0)", passengerLocomotive.AtTerminusStationEast);
 
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
                 passengerLocomotive.AtTerminusStationWest = true;
+                passengerLocomotive.AtTerminusStationEast = false;
 
                 return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
             }
 
-            if (atTerminusStationEat && !passengerLocomotive.AtTerminusStationEast)
+            if (atTerminusStationEast && !passengerLocomotive.AtTerminusStationEast)
             {
                 passengerLocomotive.AtTerminusStationEast = true;
+                passengerLocomotive.AtTerminusStationWest = false;
 
                 return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
             }
@@ -233,12 +242,15 @@ public static class AutoEngineerPassengerStopperPatches
         }
 
         logger.Information("Reselecting station stops based on settings.");
+        logger.Information("{0} reached terminus station at {1}", _locomotive.DisplayName, _nextStop.DisplayName);
         Say($"{Hyperlink.To(_locomotive)} reached terminus station at {Hyperlink.To(_nextStop)}.");
 
         HashSet<string> filteredStations = settings.Stations
         .Where(station => station.Value.include == true)
         .Select(station => station.Key)
         .ToHashSet();
+
+        logger.Information("Setting the following stations: {0}", filteredStations);
 
         foreach (Car coach in coaches)
         {
@@ -250,6 +262,7 @@ public static class AutoEngineerPassengerStopperPatches
             StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, filteredStations.ToList()));
         }
 
+        logger.Information("Checking if in loop mode");
         // if we don't want to reverse, return to orignal logic
         if (settings.LoopMode)
         {
@@ -257,6 +270,7 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
+        logger.Information("Reversing direction");
         Say($"{Hyperlink.To(_locomotive)} reversing direction.");
         // reverse the direction of the loco
         passengerLocomotive.ReverseLocoDirection();
