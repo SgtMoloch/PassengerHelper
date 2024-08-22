@@ -217,22 +217,17 @@ public class PassengerLocomotive
             AtTerminusStationWest = false;
         }
 
-        // for sandbox use, check every time
-        if (StateManager.IsSandbox)
-        {
-            CheckCoalLevel(out float coal);
-            CheckWaterLevel(out float water);
-            CheckDieselFuelLevel(out float diesel);
-        }
-
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
     }
 
     public void ReverseLocoDirection()
     {
+        logger.Information("reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        logger.Information("Current direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
+        logger.Information("new direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
     }
 
     private Car FuelCar()
