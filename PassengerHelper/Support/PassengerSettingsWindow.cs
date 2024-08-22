@@ -141,21 +141,26 @@ public class PassengerSettingsWindow
                                 text.overflowMode = TextOverflowModes.Ellipsis;
                             }).Width(175f);
                 builder.AddToggle(() => passengerLocomotiveSettings.Stations[name].TerminusStation, delegate (bool on)
-            {
-                int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
+                {
+                    int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
 
-                logger.Information("There are currently {0} terminus stations set", numTerminusStations);
-                if (numTerminusStations >= 2 && on == true)
-                {
-                    logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
-                }
-                else
-                {
-                    logger.Information("{0} terminus station set to {1}", name, on);
-                    passengerLocomotiveSettings.Stations[name].TerminusStation = on;
-                }
-            }).Tooltip("Enabled", $"Toggle whether {formalName} should be a terminus station")
-            .Width(25f);
+                    logger.Information("There are currently {0} terminus stations set", numTerminusStations);
+                    if (numTerminusStations >= 2 && on == true)
+                    {
+                        logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
+                    }
+                    else
+                    {
+                        logger.Information("{0} terminus station set to {1}", name, on);
+                        passengerLocomotiveSettings.Stations[name].TerminusStation = on;
+
+                        if (on)
+                        {
+                            passengerLocomotiveSettings.Stations[name].include = on;
+                        }
+                    }
+                }).Tooltip("Enabled", $"Toggle whether {formalName} should be a terminus station")
+                .Width(25f);
                 builder.AddLabel("Terminus", delegate (TMP_Text text)
             {
                 text.textWrappingMode = TextWrappingModes.NoWrap;
