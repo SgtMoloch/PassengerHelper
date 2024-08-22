@@ -152,7 +152,7 @@ public static class AutoEngineerPassengerStopperPatches
         if (!terminusStations.Contains(_nextStop.identifier))
         {
 
-            StationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches, terminusStations);
+            StationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, terminusStations);
             // continue normal logic
             return true;
         }
@@ -164,6 +164,7 @@ public static class AutoEngineerPassengerStopperPatches
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
                 passengerLocomotive.AtTerminusStationWest = true;
+                settings.directionOfTravel = DirectionOfTravel.EAST;
 
                 return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
             }
@@ -171,6 +172,7 @@ public static class AutoEngineerPassengerStopperPatches
             if (atTerminusStationEat && !passengerLocomotive.AtTerminusStationEast)
             {
                 passengerLocomotive.AtTerminusStationEast = true;
+                settings.directionOfTravel = DirectionOfTravel.WEST;
 
                 return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
             }
@@ -179,10 +181,13 @@ public static class AutoEngineerPassengerStopperPatches
         return true;
     }
 
-    private static void StationProcedure(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches, List<string> terminusStations)
+    private static void StationProcedure(PassengerHelperPlugin plugin, PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches, List<string> terminusStations)
     {
         passengerLocomotive.AtTerminusStationWest = false;
         passengerLocomotive.AtTerminusStationEast = false;
+
+        int indexWestTerminus = plugin.orderedStations.IndexOf(terminusStations[1]);
+        int indexEastTerminus = plugin.orderedStations.IndexOf(terminusStations[0]);
 
         logger.Information("Not at either terminus station, so there are more stops, continuing.");
         logger.Information("Ensuring at least 1 passenger car has a terminus station selected");
@@ -192,16 +197,104 @@ public static class AutoEngineerPassengerStopperPatches
             if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
             {
                 PassengerMarker actualMarker = marker.Value;
-
-                if (!actualMarker.Destinations.Contains(terminusStations[0]) || !actualMarker.Destinations.Contains(terminusStations[1]))
+                if (actualMarker.Destinations.Count == 0 && settings.directionOfTravel == DirectionOfTravel.UNKNOWN)
                 {
-                    logger.Information("Selecting both terminus stations on {0}", coach.DisplayName);
-                    HashSet<string> stations = actualMarker.Destinations;
+                    logger.Information("There are no stations selected. Need to determine which direction train is going");
 
-                    stations.Add(terminusStations[0]);
-                    stations.Add(terminusStations[1]);
+                    logger.Information("Setting Previous stop to the current stop");
+                    passengerLocomotive.PreviousStop = _nextStop;
 
-                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stations.ToList()));
+                    logger.Information("Selecting the neighboring stops to the current stop: {0} and {1}", _nextStop.neighbors[0].DisplayName, _nextStop.neighbors[1].DisplayName);
+                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, _nextStop.neighbors.Select(n => n.identifier).ToList()));
+
+                    continue;
+                }
+
+                if (actualMarker.Destinations.Count == 1 && settings.directionOfTravel == DirectionOfTravel.UNKNOWN && passengerLocomotive.PreviousStop != null && passengerLocomotive.PreviousStop != _nextStop)
+                {
+                    logger.Information("There is only 1 station selected. Should now be able to determine which direction train is going");
+
+                    int indexPrev = plugin.orderedStations.IndexOf(passengerLocomotive.PreviousStop.identifier);
+                    int indexCurr = plugin.orderedStations.IndexOf(_nextStop.identifier);
+
+                    if (indexPrev < indexCurr)
+                    {
+                        settings.directionOfTravel = DirectionOfTravel.WEST;
+                    }
+                    else
+                    {
+                        settings.directionOfTravel = DirectionOfTravel.EAST;
+                    }
+                }
+
+                if (actualMarker.Destinations.Count == 1 && settings.directionOfTravel != DirectionOfTravel.UNKNOWN)
+                {
+                    logger.Information("There is only 1 station selected and the direction of travel is known");
+
+                    if (settings.directionOfTravel == DirectionOfTravel.WEST)
+                    {
+                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) + 1;
+                        List<string> stationsToSelect = new();
+
+                        for (int i = indexNext; i <= indexWestTerminus; i++)
+                        {
+                            stationsToSelect.Add(plugin.orderedStations[i]);
+                        }
+
+                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+
+                        continue;
+                    }
+
+                    if (settings.directionOfTravel == DirectionOfTravel.EAST)
+                    {
+                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) - 1;
+                        List<string> stationsToSelect = new();
+
+                        for (int i = indexEastTerminus; i <= indexNext; i++)
+                        {
+                            stationsToSelect.Add(plugin.orderedStations[i]);
+                        }
+
+                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+
+                        continue;
+                    }
+                }
+
+                if (actualMarker.Destinations.Count == 0 && settings.directionOfTravel != DirectionOfTravel.UNKNOWN)
+                {
+                    logger.Information("There are no stations selected and the direction of travel is known");
+
+                    if (settings.directionOfTravel == DirectionOfTravel.WEST)
+                    {
+                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) + 1;
+                        List<string> stationsToSelect = new();
+
+                        for (int i = indexNext; i <= indexWestTerminus; i++)
+                        {
+                            stationsToSelect.Add(plugin.orderedStations[i]);
+                        }
+
+                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+
+                        continue;
+                    }
+
+                    if (settings.directionOfTravel == DirectionOfTravel.EAST)
+                    {
+                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) - 1;
+                        List<string> stationsToSelect = new();
+
+                        for (int i = indexEastTerminus; i <= indexNext; i++)
+                        {
+                            stationsToSelect.Add(plugin.orderedStations[i]);
+                        }
+
+                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+
+                        continue;
+                    }
                 }
             }
         }

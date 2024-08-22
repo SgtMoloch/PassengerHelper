@@ -31,6 +31,7 @@ public class PassengerLocomotive
     private readonly bool hasTender = false;
     public bool HasMoreStops = false;
     public PassengerStop? CurrentStop;
+    public PassengerStop? PreviousStop;
     public PassengerLocomotiveSettings Settings;
 
     private int _dieselFuelSlotIndex;

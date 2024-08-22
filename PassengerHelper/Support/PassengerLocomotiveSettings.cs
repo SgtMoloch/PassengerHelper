@@ -21,6 +21,7 @@ public class PassengerLocomotiveSettings
     public bool LoopMode { get; set; } = false;
     public bool WaitForFullPassengersLastStation { get; set; } = false;
     public bool Disable { get; set; } = false; 
+    public DirectionOfTravel directionOfTravel{ get; set; } = DirectionOfTravel.UNKNOWN;
 
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
@@ -57,4 +58,10 @@ public enum StationAction
 {
     Normal,
     Pause
+}
+
+public enum DirectionOfTravel {
+    EAST,
+    WEST,
+    UNKNOWN
 }
