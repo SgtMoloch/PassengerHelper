@@ -198,14 +198,23 @@ public static class AutoEngineerPassengerStopperPatches
         int indexWestTerminus = plugin.orderedStations.IndexOf(terminusStations[1]);
         int indexEastTerminus = plugin.orderedStations.IndexOf(terminusStations[0]);
 
+        List<string> orderedSelectedStations = settings.Stations.Where(kv => kv.Value.include == true).Select(kv => kv.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList();
+
         logger.Information("Not at either terminus station, so there are more stops, continuing.");
         logger.Information("Ensuring at least 1 passenger car has a terminus station selected");
+
         foreach (Car coach in coaches)
         {
             PassengerMarker? marker = coach.GetPassengerMarker();
             if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
             {
                 PassengerMarker actualMarker = marker.Value;
+                logger.Information("Direction Intelligence. Selected Destinations Count = {0}, Current direction of travel: {1}, previousStop known: {2}, currentStop {3}",
+                    actualMarker.Destinations.Count,
+                    settings.directionOfTravel,
+                    passengerLocomotive.PreviousStop != null ? passengerLocomotive.PreviousStop.DisplayName : false,
+                    _nextStop.DisplayName);
+
                 if (actualMarker.Destinations.Count == 0 && settings.directionOfTravel == DirectionOfTravel.UNKNOWN)
                 {
                     logger.Information("There are no stations selected. Need to determine which direction train is going");
@@ -213,8 +222,13 @@ public static class AutoEngineerPassengerStopperPatches
                     logger.Information("Setting Previous stop to the current stop");
                     passengerLocomotive.PreviousStop = _nextStop;
 
-                    logger.Information("Selecting the neighboring stops to the current stop: {0} and {1}", _nextStop.neighbors[0].DisplayName, _nextStop.neighbors[1].DisplayName);
-                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, _nextStop.neighbors.Select(n => n.identifier).ToList()));
+                    logger.Information("Getting neighboring stations based on selected stations in settings");
+                    int currentStationIndex = orderedSelectedStations.IndexOf(_nextStop.identifier);
+                    string neighborA = orderedSelectedStations[currentStationIndex - 1];
+                    string neighborB = orderedSelectedStations[currentStationIndex + 1];
+
+                    logger.Information("Selecting the neighboring stops to the current stop: {0} and {1}", PassengerStop.NameForIdentifier(neighborA), PassengerStop.NameForIdentifier(neighborB));
+                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, new List<string> { neighborA, neighborB }));
 
                     continue;
                 }
@@ -223,8 +237,8 @@ public static class AutoEngineerPassengerStopperPatches
                 {
                     logger.Information("There is only 1 station selected. Should now be able to determine which direction train is going");
 
-                    int indexPrev = plugin.orderedStations.IndexOf(passengerLocomotive.PreviousStop.identifier);
-                    int indexCurr = plugin.orderedStations.IndexOf(_nextStop.identifier);
+                    int indexPrev = orderedSelectedStations.IndexOf(passengerLocomotive.PreviousStop.identifier);
+                    int indexCurr = orderedSelectedStations.IndexOf(_nextStop.identifier);
 
                     if (indexPrev < indexCurr)
                     {
@@ -242,12 +256,12 @@ public static class AutoEngineerPassengerStopperPatches
 
                     if (settings.directionOfTravel == DirectionOfTravel.WEST)
                     {
-                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) + 1;
+                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
                         List<string> stationsToSelect = new();
 
                         for (int i = indexNext; i <= indexWestTerminus; i++)
                         {
-                            stationsToSelect.Add(plugin.orderedStations[i]);
+                            stationsToSelect.Add(orderedSelectedStations[i]);
                         }
 
                         StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
@@ -257,12 +271,12 @@ public static class AutoEngineerPassengerStopperPatches
 
                     if (settings.directionOfTravel == DirectionOfTravel.EAST)
                     {
-                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) - 1;
+                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
                         List<string> stationsToSelect = new();
 
                         for (int i = indexEastTerminus; i <= indexNext; i++)
                         {
-                            stationsToSelect.Add(plugin.orderedStations[i]);
+                            stationsToSelect.Add(orderedSelectedStations[i]);
                         }
 
                         StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
@@ -277,12 +291,12 @@ public static class AutoEngineerPassengerStopperPatches
 
                     if (settings.directionOfTravel == DirectionOfTravel.WEST)
                     {
-                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) + 1;
+                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
                         List<string> stationsToSelect = new();
 
                         for (int i = indexNext; i <= indexWestTerminus; i++)
                         {
-                            stationsToSelect.Add(plugin.orderedStations[i]);
+                            stationsToSelect.Add(orderedSelectedStations[i]);
                         }
 
                         StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
@@ -292,12 +306,12 @@ public static class AutoEngineerPassengerStopperPatches
 
                     if (settings.directionOfTravel == DirectionOfTravel.EAST)
                     {
-                        int indexNext = plugin.orderedStations.IndexOf(_nextStop.identifier) - 1;
+                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
                         List<string> stationsToSelect = new();
 
                         for (int i = indexEastTerminus; i <= indexNext; i++)
                         {
-                            stationsToSelect.Add(plugin.orderedStations[i]);
+                            stationsToSelect.Add(orderedSelectedStations[i]);
                         }
 
                         StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
@@ -309,10 +323,15 @@ public static class AutoEngineerPassengerStopperPatches
         }
 
         logger.Information("Checking if train is in alarka");
-        if (_nextStop?.identifier == "alarka" && !settings.LoopMode)
+        if (_nextStop?.identifier == "alarka" && !settings.LoopMode && !passengerLocomotive.AtLarka)
         {
+            passengerLocomotive.AtLarka = true;
             logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
             passengerLocomotive.ReverseLocoDirection();
+        }
+        else if (_nextStop?.identifier != "alarka")
+        {
+            passengerLocomotive.AtLarka = false;
         }
     }
 

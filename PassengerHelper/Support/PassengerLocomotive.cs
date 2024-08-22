@@ -25,6 +25,7 @@ public class PassengerLocomotive
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
+    public bool AtLarka = false;
     public bool AtTerminusStationEast = false;
     public bool AtTerminusStationWest = false;
     private readonly BaseLocomotive _locomotive;
