@@ -257,14 +257,7 @@ public static class AutoEngineerPassengerStopperPatches
                     if (settings.directionOfTravel == DirectionOfTravel.WEST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
-                        List<string> stationsToSelect = new();
-
-                        for (int i = indexNext; i <= indexWestTerminus; i++)
-                        {
-                            stationsToSelect.Add(orderedSelectedStations[i]);
-                        }
-
-                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+                        selectStationsBasedOnIndex(indexNext, indexWestTerminus, orderedSelectedStations, coach);
 
                         continue;
                     }
@@ -272,14 +265,7 @@ public static class AutoEngineerPassengerStopperPatches
                     if (settings.directionOfTravel == DirectionOfTravel.EAST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
-                        List<string> stationsToSelect = new();
-
-                        for (int i = indexEastTerminus; i <= indexNext; i++)
-                        {
-                            stationsToSelect.Add(orderedSelectedStations[i]);
-                        }
-
-                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+                        selectStationsBasedOnIndex(indexEastTerminus, indexNext, orderedSelectedStations, coach);
 
                         continue;
                     }
@@ -292,14 +278,7 @@ public static class AutoEngineerPassengerStopperPatches
                     if (settings.directionOfTravel == DirectionOfTravel.WEST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
-                        List<string> stationsToSelect = new();
-
-                        for (int i = indexNext; i <= indexWestTerminus; i++)
-                        {
-                            stationsToSelect.Add(orderedSelectedStations[i]);
-                        }
-
-                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+                        selectStationsBasedOnIndex(indexNext, indexWestTerminus, orderedSelectedStations, coach);
 
                         continue;
                     }
@@ -307,14 +286,8 @@ public static class AutoEngineerPassengerStopperPatches
                     if (settings.directionOfTravel == DirectionOfTravel.EAST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
-                        List<string> stationsToSelect = new();
 
-                        for (int i = indexEastTerminus; i <= indexNext; i++)
-                        {
-                            stationsToSelect.Add(orderedSelectedStations[i]);
-                        }
-
-                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
+                        selectStationsBasedOnIndex(indexEastTerminus, indexNext, orderedSelectedStations, coach);
 
                         continue;
                     }
@@ -333,6 +306,18 @@ public static class AutoEngineerPassengerStopperPatches
         {
             passengerLocomotive.AtLarka = false;
         }
+    }
+
+    private static void selectStationsBasedOnIndex(int startIndex, int endIndex, List<string> orderedSelectedStations, Car coach)
+    {
+        List<string> stationsToSelect = new();
+
+        for (int i = startIndex; i <= endIndex; i++)
+        {
+            stationsToSelect.Add(orderedSelectedStations[i]);
+        }
+
+        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
     }
 
     private static bool TerminusStationProcedure(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches)
