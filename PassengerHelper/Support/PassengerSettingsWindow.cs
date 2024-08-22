@@ -377,9 +377,10 @@ public class PassengerSettingsWindow
                                     "If you would like to enable it, it will become adjustabled again after manually issuing any " +
                                     "order to the engine, whether that be changing the AI mode, changing direction, or changing speed. ";
 
-            string tooltipUnlocked = "This setting helps PassengerHelper with determining which stations it should auto select " +
-                                    "in the event not all stations that should be selected, are. " +
-                                    "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. ";
+            string tooltipUnlocked = "This setting helps PassengerHelper, as without it, if you changed terminus station mid route " +
+                                    "it would probably reverse direction when you wouldn't want that. " +
+                                    "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. " +
+                                    "This is more of an edge case than anything else.";
 
             builder.AddField("Direction of Travel", builder.AddSliderQuantized(() => ((int)passengerLocomotiveSettings.DirectionOfTravel), () => passengerLocomotiveSettings.DirectionOfTravel.ToString(), delegate (float value)
             {
