@@ -25,6 +25,7 @@ namespace PassengerHelperPlugin
         internal IUIHelper UIHelper { get; }
         internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
         internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
+        internal bool _gameLoad = true;
 
         internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -35,6 +36,7 @@ namespace PassengerHelperPlugin
         {
             new Harmony(self.Id).PatchAll(GetType().Assembly);
             passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();
+            logger.Information("loaded settings: {0}", passengerLocomotivesSettings);
             this.self = self;
             this.ctx = ctx;
             UIHelper = uiHelper;

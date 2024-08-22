@@ -25,7 +25,7 @@ public class PassengerLocomotive
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
-    public bool AtLarka = false;
+    public bool AtAlarka = false;
     public bool AtTerminusStationEast = false;
     public bool AtTerminusStationWest = false;
     private readonly BaseLocomotive _locomotive;
@@ -42,6 +42,8 @@ public class PassengerLocomotive
     private int _waterSlotIndex;
     private float _waterSlotMax;
 
+    private bool _selfSentOrders = false;
+
     public PassengerLocomotive(BaseLocomotive _locomotive, PassengerLocomotiveSettings Settings)
     {
         this._locomotive = _locomotive;
@@ -50,6 +52,30 @@ public class PassengerLocomotive
             hasTender = true;
         }
         this.Settings = Settings;
+
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+
+        persistence.ObserveOrders(delegate (Orders orders)
+        {
+            logger.Information("Orders changed. Orders are now: {0}", orders);
+            if (!_selfSentOrders)
+            {
+                if (!PassengerHelperPlugin.Shared._gameLoad)
+                {
+                    Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
+                    Settings.DoTLocked = false;
+                }
+
+                PassengerHelperPlugin.Shared._gameLoad = false;
+            }
+            _selfSentOrders = false;
+        });
+
+        if (Settings.PreviousStation.Length > 0)
+        {
+            this.PreviousStop = PassengerStop.FindAll().FirstOrDefault((PassengerStop stop) => stop.identifier == Settings.PreviousStation);
+        }
     }
 
     private float GetDieselLevelForLoco()
@@ -223,6 +249,7 @@ public class PassengerLocomotive
 
     public void ReverseLocoDirection()
     {
+        _selfSentOrders = true;
         logger.Information("reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
@@ -263,5 +290,11 @@ public class PassengerLocomotive
         }
 
         throw new Exception("steam engine with no tender. How????");
+    }
+
+    internal void SetPreviousStop(PassengerStop prevStop)
+    {
+        PreviousStop = prevStop;
+        Settings.PreviousStation = prevStop.identifier;
     }
 }

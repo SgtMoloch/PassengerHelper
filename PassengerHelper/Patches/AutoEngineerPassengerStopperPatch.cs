@@ -24,6 +24,7 @@ using UI.Common;
 using RollingStock;
 using Game.Notices;
 using Support;
+using Network;
 
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
@@ -156,6 +157,10 @@ public static class AutoEngineerPassengerStopperPatches
         {
             logger.Information("Not at a terminus station");
             StationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, terminusStations);
+
+            logger.Information("Setting Previous stop to the current stop (not at terminus)");
+            passengerLocomotive.PreviousStop = _nextStop;
+
             // continue normal logic
             return true;
         }
@@ -165,25 +170,39 @@ public static class AutoEngineerPassengerStopperPatches
             bool atTerminusStationWest = terminusStations[1] == _nextStop.identifier;
             bool atTerminusStationEast = terminusStations[0] == _nextStop.identifier;
             logger.Information("at west terminus: {0} at east terminus {1}", atTerminusStationWest, atTerminusStationEast);
-            logger.Information("passenger locomotive atTerminusWest settings: (0)", passengerLocomotive.AtTerminusStationWest);
-            logger.Information("passenger locomotive atTerminusEast settings: (0)", passengerLocomotive.AtTerminusStationEast);
-
+            logger.Information("passenger locomotive atTerminusWest settings: {0}", passengerLocomotive.AtTerminusStationWest);
+            logger.Information("passenger locomotive atTerminusEast settings: {0}", passengerLocomotive.AtTerminusStationEast);
+            bool tspRetVal = false;
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
-                settings.directionOfTravel = DirectionOfTravel.EAST;
+                tspRetVal = TerminusStationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, DirectionOfTravel.EAST);
+
+                logger.Information("Setting Previous stop to the current stop (west terminus)");
+                passengerLocomotive.PreviousStop = _nextStop;
+
                 passengerLocomotive.AtTerminusStationWest = true;
                 passengerLocomotive.AtTerminusStationEast = false;
 
-                return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
+                settings.DoTLocked = true;
+                plugin.SaveSettings();
+
+                return tspRetVal;
             }
 
             if (atTerminusStationEast && !passengerLocomotive.AtTerminusStationEast)
             {
-                settings.directionOfTravel = DirectionOfTravel.WEST;
+                tspRetVal = TerminusStationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, DirectionOfTravel.WEST);
+
+                logger.Information("Setting Previous stop to the current stop (east terminus)");
+                passengerLocomotive.PreviousStop = _nextStop;
+
                 passengerLocomotive.AtTerminusStationEast = true;
                 passengerLocomotive.AtTerminusStationWest = false;
 
-                return TerminusStationProcedure(settings, _nextStop, _locomotive, passengerLocomotive, coaches);
+                settings.DoTLocked = true;
+                plugin.SaveSettings();
+
+                return tspRetVal;
             }
         }
 
@@ -195,13 +214,94 @@ public static class AutoEngineerPassengerStopperPatches
         passengerLocomotive.AtTerminusStationWest = false;
         passengerLocomotive.AtTerminusStationEast = false;
 
-        int indexWestTerminus = plugin.orderedStations.IndexOf(terminusStations[1]);
-        int indexEastTerminus = plugin.orderedStations.IndexOf(terminusStations[0]);
-
         List<string> orderedSelectedStations = settings.Stations.Where(kv => kv.Value.include == true).Select(kv => kv.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList();
 
+        int indexWestTerminus = orderedSelectedStations.IndexOf(terminusStations[1]);
+        int indexEastTerminus = orderedSelectedStations.IndexOf(terminusStations[0]);
+
         logger.Information("Not at either terminus station, so there are more stops, continuing.");
-        logger.Information("Ensuring at least 1 passenger car has a terminus station selected");
+        logger.Information("Checking to see if train is at station outside of terminus bounds");
+        bool notAtASelectedStation = !orderedSelectedStations.Contains(_nextStop.identifier);
+        bool useAllStations = false;
+
+        if (notAtASelectedStation)
+        {
+            logger.Information("Train is at a station that is not selected in settings.");
+
+            if (settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+            {
+                logger.Information("Travel direction is unknown, so unable to correct. Continuing in the current direction and will check again at the next station");
+                useAllStations = true;
+            }
+            else
+            {
+                logger.Information("Travel direction is known.");
+                logger.Information("Getting direction train should continue in");
+
+                int currentStationIndex = plugin.orderedStations.IndexOf(_nextStop.identifier);
+                int indexWestTerminus_All = plugin.orderedStations.IndexOf(terminusStations[1]);
+                int indexEastTerminus_All = plugin.orderedStations.IndexOf(terminusStations[0]);
+
+                if (currentStationIndex > indexEastTerminus_All && currentStationIndex < indexWestTerminus_All)
+                {
+                    logger.Information("station is inbounds of the terminus stations");
+                }
+
+                if (currentStationIndex < indexEastTerminus_All)
+                {
+
+                    if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                    {
+                        logger.Information("train is already going in right direction to east terminus station {0} -> {1}", _nextStop.identifier, terminusStations[0]);
+                    }
+                    else if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                    {
+                        logger.Information("train is going wrong way from east teminus, revering direction based on loop/point to point setting");
+                        logger.Information("Checking if in loop mode");
+
+                        if (settings.LoopMode)
+                        {
+                            logger.Information("Loop Mode is set to true. Continuing in current direction.");
+                            Say($"{Hyperlink.To(_locomotive)} continuing direction to loop back to east terminus");
+                        }
+                        else
+                        {
+                            logger.Information("Reversing direction");
+                            Say($"{Hyperlink.To(_locomotive)} reversing direction to return to east terminus");
+
+                            // reverse the direction of the loco
+                            passengerLocomotive.ReverseLocoDirection();
+                        }
+                    }
+                }
+                else if (currentStationIndex > indexWestTerminus_All)
+                {
+                    if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                    {
+                        logger.Information("train is already going in right direction to west terminus station {0} -> {1}", _nextStop.identifier, terminusStations[1]);
+                    }
+                    else if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                    {
+                        logger.Information("train is going wrong way from west teminus, revering direction based on loop/point to point setting");
+                        logger.Information("Checking if in loop mode");
+
+                        if (settings.LoopMode)
+                        {
+                            logger.Information("Loop Mode is set to true. Continuing in current direction.");
+                            Say($"{Hyperlink.To(_locomotive)} continuing direction to loop back to west terminus");
+                        }
+                        else
+                        {
+                            logger.Information("Reversing direction");
+                            Say($"{Hyperlink.To(_locomotive)} reversing direction to return to west terminus.");
+
+                            // reverse the direction of the loco
+                            passengerLocomotive.ReverseLocoDirection();
+                        }
+                    }
+                }
+            }
+        }
 
         foreach (Car coach in coaches)
         {
@@ -211,21 +311,34 @@ public static class AutoEngineerPassengerStopperPatches
                 PassengerMarker actualMarker = marker.Value;
                 logger.Information("Direction Intelligence. Selected Destinations Count = {0}, Current direction of travel: {1}, previousStop known: {2}, currentStop {3}",
                     actualMarker.Destinations.Count,
-                    settings.directionOfTravel,
+                    settings.DirectionOfTravel,
                     passengerLocomotive.PreviousStop != null ? passengerLocomotive.PreviousStop.DisplayName : false,
                     _nextStop.DisplayName);
 
-                if (actualMarker.Destinations.Count == 0 && settings.directionOfTravel == DirectionOfTravel.UNKNOWN)
+                if (actualMarker.Destinations.Count == 0 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
                 {
                     logger.Information("There are no stations selected. Need to determine which direction train is going");
 
-                    logger.Information("Setting Previous stop to the current stop");
-                    passengerLocomotive.PreviousStop = _nextStop;
+                    int currentStationIndex;
+                    string neighborA;
+                    string neighborB;
 
-                    logger.Information("Getting neighboring stations based on selected stations in settings");
-                    int currentStationIndex = orderedSelectedStations.IndexOf(_nextStop.identifier);
-                    string neighborA = orderedSelectedStations[currentStationIndex - 1];
-                    string neighborB = orderedSelectedStations[currentStationIndex + 1];
+                    if (!useAllStations)
+                    {
+                        logger.Information("Using selected ordered stations");
+                        logger.Information("Getting neighboring stations based on selected stations in settings");
+                        currentStationIndex = orderedSelectedStations.IndexOf(_nextStop.identifier);
+                        neighborA = orderedSelectedStations[currentStationIndex - 1];
+                        neighborB = orderedSelectedStations[currentStationIndex + 1];
+                    }
+                    else
+                    {
+                        logger.Information("Using all (global) ordered stations");
+                        logger.Information("Getting neighboring stations based on all stations");
+                        currentStationIndex = plugin.orderedStations.IndexOf(_nextStop.identifier);
+                        neighborA = plugin.orderedStations[currentStationIndex - 1];
+                        neighborB = plugin.orderedStations[currentStationIndex + 1];
+                    }
 
                     logger.Information("Selecting the neighboring stops to the current stop: {0} and {1}", PassengerStop.NameForIdentifier(neighborA), PassengerStop.NameForIdentifier(neighborB));
                     StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, new List<string> { neighborA, neighborB }));
@@ -233,7 +346,7 @@ public static class AutoEngineerPassengerStopperPatches
                     continue;
                 }
 
-                if (actualMarker.Destinations.Count == 1 && settings.directionOfTravel == DirectionOfTravel.UNKNOWN && passengerLocomotive.PreviousStop != null && passengerLocomotive.PreviousStop != _nextStop)
+                if (actualMarker.Destinations.Count == 1 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && passengerLocomotive.PreviousStop != null)
                 {
                     logger.Information("There is only 1 station selected. Should now be able to determine which direction train is going");
 
@@ -242,52 +355,45 @@ public static class AutoEngineerPassengerStopperPatches
 
                     if (indexPrev < indexCurr)
                     {
-                        settings.directionOfTravel = DirectionOfTravel.WEST;
+                        settings.DirectionOfTravel = DirectionOfTravel.WEST;
+
                     }
                     else
                     {
-                        settings.directionOfTravel = DirectionOfTravel.EAST;
+                        settings.DirectionOfTravel = DirectionOfTravel.EAST;
                     }
+                    plugin.SaveSettings();
                 }
 
-                if (actualMarker.Destinations.Count == 1 && settings.directionOfTravel != DirectionOfTravel.UNKNOWN)
+                HashSet<string> expectedSelectedDestinations;
+                if (settings.DirectionOfTravel != DirectionOfTravel.UNKNOWN)
                 {
-                    logger.Information("There is only 1 station selected and the direction of travel is known");
+                    logger.Information("The direction of travel is known, checking to make sure stations are selected");
 
-                    if (settings.directionOfTravel == DirectionOfTravel.WEST)
+                    if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
-                        selectStationsBasedOnIndex(indexNext, indexWestTerminus, orderedSelectedStations, coach);
+
+                        expectedSelectedDestinations = orderedSelectedStations.GetRange(indexNext, indexWestTerminus - indexNext + 1).ToHashSet();
+
+                        if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
+                        {
+                            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedSelectedDestinations.ToList()));
+                        }
 
                         continue;
                     }
 
-                    if (settings.directionOfTravel == DirectionOfTravel.EAST)
-                    {
-                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
-                        selectStationsBasedOnIndex(indexEastTerminus, indexNext, orderedSelectedStations, coach);
-
-                        continue;
-                    }
-                }
-
-                if (actualMarker.Destinations.Count == 0 && settings.directionOfTravel != DirectionOfTravel.UNKNOWN)
-                {
-                    logger.Information("There are no stations selected and the direction of travel is known");
-
-                    if (settings.directionOfTravel == DirectionOfTravel.WEST)
-                    {
-                        int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
-                        selectStationsBasedOnIndex(indexNext, indexWestTerminus, orderedSelectedStations, coach);
-
-                        continue;
-                    }
-
-                    if (settings.directionOfTravel == DirectionOfTravel.EAST)
+                    if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
                     {
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
 
-                        selectStationsBasedOnIndex(indexEastTerminus, indexNext, orderedSelectedStations, coach);
+                        expectedSelectedDestinations = orderedSelectedStations.GetRange(indexEastTerminus, indexNext - indexEastTerminus + 1).ToHashSet();
+
+                        if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
+                        {
+                           StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedSelectedDestinations.ToList()));
+                        }
 
                         continue;
                     }
@@ -296,31 +402,19 @@ public static class AutoEngineerPassengerStopperPatches
         }
 
         logger.Information("Checking if train is in alarka");
-        if (_nextStop?.identifier == "alarka" && !settings.LoopMode && !passengerLocomotive.AtLarka)
+        if (_nextStop.identifier == "alarka" && !settings.LoopMode && !passengerLocomotive.AtAlarka)
         {
-            passengerLocomotive.AtLarka = true;
+            passengerLocomotive.AtAlarka = true;
             logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
             passengerLocomotive.ReverseLocoDirection();
         }
-        else if (_nextStop?.identifier != "alarka")
+        else if (_nextStop.identifier != "alarka")
         {
-            passengerLocomotive.AtLarka = false;
+            passengerLocomotive.AtAlarka = false;
         }
     }
 
-    private static void selectStationsBasedOnIndex(int startIndex, int endIndex, List<string> orderedSelectedStations, Car coach)
-    {
-        List<string> stationsToSelect = new();
-
-        for (int i = startIndex; i <= endIndex; i++)
-        {
-            stationsToSelect.Add(orderedSelectedStations[i]);
-        }
-
-        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, stationsToSelect));
-    }
-
-    private static bool TerminusStationProcedure(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches)
+    private static bool TerminusStationProcedure(PassengerHelperPlugin plugin, PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches, DirectionOfTravel directionOfTravel)
     {
         if (passengerLocomotive.ShouldStayStopped())
         {
@@ -342,38 +436,102 @@ public static class AutoEngineerPassengerStopperPatches
         logger.Information("{0} reached terminus station at {1}", _locomotive.DisplayName, _nextStop.DisplayName);
         Say($"{Hyperlink.To(_locomotive)} reached terminus station at {Hyperlink.To(_nextStop)}.");
 
-        HashSet<string> filteredStations = settings.Stations
+        List<string> selectedOrderedStations = settings.Stations
         .Where(station => station.Value.include == true)
         .Select(station => station.Key)
-        .ToHashSet();
+        .OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList();
 
-        logger.Information("Setting the following stations: {0}", filteredStations);
+
+        logger.Information("Setting the following stations: {0}", selectedOrderedStations);
 
         foreach (Car coach in coaches)
         {
-            foreach (string identifier in filteredStations)
+            foreach (string identifier in selectedOrderedStations)
             {
                 logger.Debug(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
             }
 
-            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, filteredStations.ToList()));
+            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, selectedOrderedStations.ToList()));
         }
 
-        logger.Information("Checking if in loop mode");
-        // if we don't want to reverse, return to orignal logic
-        if (settings.LoopMode)
+        logger.Information("Checking to see if train is approaching terminus from outside of terminus bounds");
+        if (settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
         {
-            logger.Information("Loop Mode is set to true. Continuing in current direction.");
-            return true;
+            logger.Information("Direction is currently unknown");
+
+            if (passengerLocomotive.PreviousStop == null)
+            {
+                logger.Information("train was not previously at a station.");
+                logger.Information("treating this terminus station as a regular station for now, to determine direction");
+                StationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList());
+                return true;
+            }
+            else
+            {
+                logger.Information("train was  previously at a station.");
+                string prevStopId = passengerLocomotive.PreviousStop.identifier;
+
+                logger.Information("Checking if previous stop was inside teminus bounds");
+                if (selectedOrderedStations.Contains(prevStopId))
+                {
+                    logger.Information("Previous stop was inside terminus bounds, therefore proceed with normal loop/point to point logic");
+                    settings.DirectionOfTravel = directionOfTravel;
+
+                    logger.Information("Checking if in loop mode");
+                    // if we don't want to reverse, return to orignal logic
+                    if (settings.LoopMode)
+                    {
+                        logger.Information("Loop Mode is set to true. Continuing in current direction.");
+                        return true;
+                    }
+
+                    logger.Information("Reversing direction");
+                    Say($"{Hyperlink.To(_locomotive)} reversing direction.");
+
+                    // reverse the direction of the loco
+                    passengerLocomotive.ReverseLocoDirection();
+                }
+                else
+                {
+                    logger.Information("We arrived at the terminus station from outside the bounds, therefore we should proceed in the current direction");
+                }
+
+                return false;
+            }
         }
+        else
+        {
+            logger.Information("Direction of travel is known, proceed normally");
 
-        logger.Information("Reversing direction");
-        Say($"{Hyperlink.To(_locomotive)} reversing direction.");
-        // reverse the direction of the loco
-        passengerLocomotive.ReverseLocoDirection();
+            if (settings.DirectionOfTravel == directionOfTravel)
+            {
+                logger.Information("The new direction of travel is the same as the new direction of travel.");
+            }
+            else
+            {
+                logger.Information("The new direction of travel is opposite current direction of travel");
 
-        return false;
+                settings.DirectionOfTravel = directionOfTravel;
+                plugin.SaveSettings();
+
+                logger.Information("Checking if in loop mode");
+                // if we don't want to reverse, return to orignal logic
+                if (settings.LoopMode)
+                {
+                    logger.Information("Loop Mode is set to true. Continuing in current direction.");
+                    return true;
+                }
+
+                logger.Information("Reversing direction");
+                Say($"{Hyperlink.To(_locomotive)} reversing direction.");
+
+                // reverse the direction of the loco
+                passengerLocomotive.ReverseLocoDirection();
+            }
+            return false;
+        }
     }
+
     private static bool CheckFuelLevels(PassengerLocomotive passengerLocomotive, BaseLocomotive _locomotive, PassengerLocomotiveSettings settings, PassengerStop _nextStop)
     {
         if (passengerLocomotive.Continue)
@@ -420,7 +578,6 @@ public static class AutoEngineerPassengerStopperPatches
 
     private static void Say(string message)
     {
-        Alert alert = new Alert(AlertStyle.Console, message, TimeWeather.Now.TotalSeconds);
-        WindowManager.Shared.Present(alert);
+        Multiplayer.Broadcast(message);
     }
 }
