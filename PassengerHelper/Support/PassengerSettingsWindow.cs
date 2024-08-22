@@ -133,6 +133,11 @@ public class PassengerSettingsWindow
                         StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, passengerStopsToSelect));
                     }
 
+                    if (!on && passengerLocomotiveSettings.Stations[name].TerminusStation)
+                    {
+                        passengerLocomotiveSettings.Stations[name].TerminusStation = false;
+                    }
+
                 }).Tooltip("Enabled", $"Toggle whether {formalName} should be a station stop")
                     .Width(25f);
                 builder.AddLabel(formalName, delegate (TMP_Text text)
