@@ -244,6 +244,7 @@ public class PassengerSettingsWindow
                         return;
                     }
 
+                    logger.Information("Entered a Diesel Level: {0}%", value);
                     passengerLocomotiveSettings.DieselLevel = value / 100;
                 }
             }, null, 2)
@@ -280,6 +281,7 @@ public class PassengerSettingsWindow
                         return;
                     }
 
+                    logger.Information("Entered a Coal Level: {0}%", value);
                     passengerLocomotiveSettings.CoalLevel = value / 100;
                 }
             }, null, 2)
@@ -316,6 +318,7 @@ public class PassengerSettingsWindow
                         return;
                     }
 
+                    logger.Information("Entered a Water Level: {0}%", value);
                     passengerLocomotiveSettings.WaterLevel = value / 100;
                 }
             }, null, 2)
@@ -387,7 +390,9 @@ public class PassengerSettingsWindow
                 int newValue = (int)value;
                 if (!passengerLocomotiveSettings.DoTLocked)
                 {
-                    passengerLocomotiveSettings.DirectionOfTravel = (DirectionOfTravel)Enum.GetValues(typeof(DirectionOfTravel)).GetValue(newValue);
+                    DirectionOfTravel newDirectionOfTravel = (DirectionOfTravel)Enum.GetValues(typeof(DirectionOfTravel)).GetValue(newValue);
+                    logger.Information("Set direction of travel to: {0}", newDirectionOfTravel.ToString());
+                    passengerLocomotiveSettings.DirectionOfTravel = newDirectionOfTravel;
                 }
 
             }, 1f, 0, 2).Width(150f)).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
@@ -400,6 +405,7 @@ public class PassengerSettingsWindow
             {
                 builder.AddToggle(() => passengerLocomotiveSettings.LoopMode, delegate (bool on)
                 {
+                    logger.Information("Setting Loop mode to: {0} and Point to Point Mode to", on, !on);
                     passengerLocomotiveSettings.LoopMode = on;
                     passengerLocomotiveSettings.PointToPointMode = !on;
                 }).Tooltip("Enabled", $"Toggle whether the AI should continue forward at the terminus station. Checking the box assumes that you are using loops of some kind for your passenger trains. If you are NOT using loops, this setting should NOT be checked. The two settings are mutually exclusive with one another.")
@@ -414,6 +420,7 @@ public class PassengerSettingsWindow
         {
             builder.AddToggle(() => passengerLocomotiveSettings.PointToPointMode, delegate (bool on)
             {
+                logger.Information("Setting Point to Point mode to: {0} and Loop Mode to", on, !on);
                 passengerLocomotiveSettings.PointToPointMode = on;
                 passengerLocomotiveSettings.LoopMode = !on;
             }).Tooltip("Enabled", $"Toggle whether the AI should continue reverse at the terminus station. Checking the box assumes that you are not using loops for your passenger trains, as such the train will reverse direction at the terminus station. If you want to use loops, this setting should NOT be checked. The two settings are mutually exclusive with one another.")

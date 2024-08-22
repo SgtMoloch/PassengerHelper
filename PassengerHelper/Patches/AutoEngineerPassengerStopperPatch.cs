@@ -305,17 +305,19 @@ public static class AutoEngineerPassengerStopperPatches
 
         foreach (Car coach in coaches)
         {
+            logger.Information("Car: {0}", coach.DisplayName);
             PassengerMarker? marker = coach.GetPassengerMarker();
             if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
             {
                 PassengerMarker actualMarker = marker.Value;
-                logger.Information("Direction Intelligence. Selected Destinations Count = {0}, Current direction of travel: {1}, previousStop known: {2}, currentStop {3}",
+                logger.Information("Direction Intelligence. Selected Destinations Count = {0}, Current selected destinations: {1}, Current direction of travel: {2}, previousStop known: {3}, currentStop {4}",
                     actualMarker.Destinations.Count,
+                    actualMarker.Destinations,
                     settings.DirectionOfTravel,
                     passengerLocomotive.PreviousStop != null ? passengerLocomotive.PreviousStop.DisplayName : false,
                     _nextStop.DisplayName);
 
-                if (actualMarker.Destinations.Count == 0 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+                if (actualMarker.Destinations.Count == 0 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && (passengerLocomotive.PreviousStop == null || passengerLocomotive.PreviousStop == _nextStop))
                 {
                     logger.Information("There are no stations selected. Need to determine which direction train is going");
 
@@ -346,9 +348,9 @@ public static class AutoEngineerPassengerStopperPatches
                     continue;
                 }
 
-                if (actualMarker.Destinations.Count == 1 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && passengerLocomotive.PreviousStop != null)
+                if (actualMarker.Destinations.Count >= 0 && settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && passengerLocomotive.PreviousStop != null && passengerLocomotive.PreviousStop != _nextStop)
                 {
-                    logger.Information("There is only 1 station selected. Should now be able to determine which direction train is going");
+                    logger.Information("There are stations selected. Should now be able to determine which direction train is going");
 
                     int indexPrev = orderedSelectedStations.IndexOf(passengerLocomotive.PreviousStop.identifier);
                     int indexCurr = orderedSelectedStations.IndexOf(_nextStop.identifier);
@@ -375,6 +377,7 @@ public static class AutoEngineerPassengerStopperPatches
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
 
                         expectedSelectedDestinations = orderedSelectedStations.GetRange(indexNext, indexWestTerminus - indexNext + 1).ToHashSet();
+                        logger.Information("Expected stations: {0} actual stations: {1}", expectedSelectedDestinations, actualMarker.Destinations);
 
                         if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
                         {
@@ -389,10 +392,11 @@ public static class AutoEngineerPassengerStopperPatches
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
 
                         expectedSelectedDestinations = orderedSelectedStations.GetRange(indexEastTerminus, indexNext - indexEastTerminus + 1).ToHashSet();
+                        logger.Information("Expected stations: {0} actual stations: {1}", expectedSelectedDestinations, actualMarker.Destinations);
 
                         if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
                         {
-                           StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedSelectedDestinations.ToList()));
+                            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedSelectedDestinations.ToList()));
                         }
 
                         continue;
@@ -406,7 +410,27 @@ public static class AutoEngineerPassengerStopperPatches
         {
             passengerLocomotive.AtAlarka = true;
             logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
+            Say($"{Hyperlink.To(_locomotive)}  is in Alarka, there are more stops, and loop mode is not activated, reversing direction.");
             passengerLocomotive.ReverseLocoDirection();
+
+            logger.Information("Since we are in alarka, we need to recheck cochran station. Doing so now.");
+            foreach (Car coach in coaches)
+            {
+                logger.Information("Car: {0}", coach.DisplayName);
+                PassengerMarker? marker = coach.GetPassengerMarker();
+                if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
+                {
+                    PassengerMarker actualMarker = marker.Value;
+                    List<string> currentDestinations = actualMarker.Destinations.ToList();
+
+                    List<string> newDestinations = new List<string>(currentDestinations);
+                    newDestinations.Add("cochran");
+
+                    logger.Information("Current stations: {0} new stations: {1}", currentDestinations, newDestinations);
+
+                    StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, newDestinations));
+                }
+            }
         }
         else if (_nextStop.identifier != "alarka")
         {
