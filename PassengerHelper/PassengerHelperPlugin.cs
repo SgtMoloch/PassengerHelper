@@ -32,6 +32,12 @@ namespace PassengerHelperPlugin
                 "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka",
                 "almond", "nantahala", "topton", "rhodo", "andrews"
                 };
+
+        internal readonly List<string> orderedStations_Full = new List<string>()
+                {
+                "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka", "cochran",
+                "almond", "nantahala", "topton", "rhodo", "andrews"
+                };
         public PassengerHelperPlugin(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
         {
             new Harmony(self.Id).PatchAll(GetType().Assembly);
