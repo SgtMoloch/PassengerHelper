@@ -32,6 +32,64 @@ public static class AutoEngineerPassengerStopperPatches
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
 
     [HarmonyPrefix]
+    [HarmonyPatch(typeof(AutoEngineerPassengerStopper), nameof(AutoEngineerPassengerStopper.UpdateCars))]
+    private static bool UpdateCars(List<Car> coupledCars, AutoEngineerPassengerStopper __instance)
+    {
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        if (!plugin.IsEnabled)
+        {
+            return true;
+        }
+
+        var _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
+
+        if (_locomotive == null)
+        {
+            return true;
+        }
+
+        logger.Information("Updating cachedPassengerStopIds");
+        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
+        {
+            if (!plugin.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
+            {
+                _settings = new PassengerLocomotiveSettings();
+            }
+            passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
+            plugin._locomotives.Add(_locomotive, passengerLocomotive);
+        }
+
+        PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
+
+
+        List<Car> _coupledCars = typeof(AutoEngineerPassengerStopper).GetField("_coupledCars", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as List<Car>;
+        List<string> _cachedPassengerStopIds = typeof(AutoEngineerPassengerStopper).GetField("_cachedPassengerStopIds", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as List<string>;
+        bool _cachedHasCoaches = (bool)typeof(AutoEngineerPassengerStopper).GetField("_cachedHasCoaches", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance);
+
+        _coupledCars = coupledCars;
+        _cachedPassengerStopIds.Clear();
+        _cachedHasCoaches = false;
+
+        logger.Information("Checking if coupled cars have coaches");
+        foreach (Car coupledCar in coupledCars)
+        {
+            if (_cachedHasCoaches)
+            {
+                break;
+            }
+            _cachedHasCoaches = _cachedHasCoaches || coupledCar.Archetype.IsPassenger();
+        }
+
+        if (_cachedHasCoaches)
+        {
+            logger.Information("Train has coaches, setting _cachedPassengerStopIds to the ones selected in the settings");
+            _cachedPassengerStopIds = settings.Stations.Where(kv => kv.Value.include == true).Select(kv => kv.Key).ToList();
+        }
+
+        return false;
+    }
+
+    [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
     {
@@ -42,9 +100,9 @@ public static class AutoEngineerPassengerStopperPatches
         }
 
         var _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
-        var _nextStop = typeof(AutoEngineerPassengerStopper).GetField("_nextStop", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as PassengerStop;
+        var _currentStop = typeof(AutoEngineerPassengerStopper).GetField("_nextStop", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as PassengerStop;
 
-        if (_locomotive == null || _nextStop == null)
+        if (_locomotive == null || _currentStop == null)
         {
             return true;
         }
@@ -58,6 +116,7 @@ public static class AutoEngineerPassengerStopperPatches
             passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
             plugin._locomotives.Add(_locomotive, passengerLocomotive);
         }
+
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
 
         if (settings.Disable)
@@ -65,9 +124,9 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
-        if (_nextStop != passengerLocomotive.CurrentStop)
+        if (_currentStop != passengerLocomotive.CurrentStop)
         {
-            passengerLocomotive.CurrentStop = _nextStop;
+            passengerLocomotive.CurrentStop = _currentStop;
             // can set the continue flag back to false, as we have reached the next station
             passengerLocomotive.Continue = false;
         }
@@ -88,19 +147,19 @@ public static class AutoEngineerPassengerStopperPatches
 
         passengerLocomotive.ResetStoppedFlags();
 
-        if (!CheckFuelLevels(passengerLocomotive, _locomotive, settings, _nextStop))
+        if (PauseAtCurrentStation(settings, _currentStop, _locomotive, passengerLocomotive))
         {
             __result = true;
             return false;
         }
 
-        if (!CheckPauseAtCurrentStation(settings, _nextStop, _locomotive, passengerLocomotive))
+        if (HaveLowFuel(passengerLocomotive, _locomotive, settings, _currentStop))
         {
             __result = true;
             return false;
         }
 
-        if (!CheckTerminusStation(settings, _nextStop, _locomotive, passengerLocomotive, plugin))
+        if (StationProcedure(settings, _currentStop, _locomotive, passengerLocomotive, plugin))
         {
             __result = true;
             return false;
@@ -109,11 +168,11 @@ public static class AutoEngineerPassengerStopperPatches
         return true;
     }
 
-    private static bool CheckPauseAtCurrentStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive)
+    private static bool PauseAtCurrentStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive)
     {
         if (passengerLocomotive.Continue)
         {
-            return true;
+            return false;
         }
 
         if (settings.StopAtNextStation)
@@ -122,7 +181,7 @@ public static class AutoEngineerPassengerStopperPatches
             _locomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(_nextStop)}.");
             passengerLocomotive.CurrentlyStopped = true;
             passengerLocomotive.CurrentReasonForStop = "Requested pause at next station";
-            return false;
+            return true;
         }
 
         if (settings.Stations[_nextStop.identifier].stationAction == StationAction.Pause)
@@ -131,12 +190,12 @@ public static class AutoEngineerPassengerStopperPatches
             _locomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(_nextStop)}.");
             passengerLocomotive.CurrentlyStopped = true;
             passengerLocomotive.CurrentReasonForStop = "Requested pause at " + _nextStop.DisplayName;
-            return false;
+            return true;
         }
 
-        return true;
+        return false;
     }
-    private static bool CheckTerminusStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, PassengerHelperPlugin plugin)
+    private static bool StationProcedure(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, PassengerHelperPlugin plugin)
     {
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
 
@@ -148,7 +207,7 @@ public static class AutoEngineerPassengerStopperPatches
         {
             logger.Information("there are not exactly 2 terminus stations");
             // continue normal logic
-            return true;
+            return false;
         }
 
         logger.Information("Current stop is: {0}", _nextStop.DisplayName);
@@ -162,7 +221,7 @@ public static class AutoEngineerPassengerStopperPatches
             passengerLocomotive.PreviousStop = _nextStop;
 
             // continue normal logic
-            return true;
+            return false;
         }
         else
         {
@@ -172,7 +231,7 @@ public static class AutoEngineerPassengerStopperPatches
             logger.Information("at west terminus: {0} at east terminus {1}", atTerminusStationWest, atTerminusStationEast);
             logger.Information("passenger locomotive atTerminusWest settings: {0}", passengerLocomotive.AtTerminusStationWest);
             logger.Information("passenger locomotive atTerminusEast settings: {0}", passengerLocomotive.AtTerminusStationEast);
-            bool tspRetVal = false;
+            bool tspRetVal = true;
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
                 tspRetVal = TerminusStationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, DirectionOfTravel.EAST);
@@ -206,7 +265,7 @@ public static class AutoEngineerPassengerStopperPatches
             }
         }
 
-        return true;
+        return false;
     }
 
     private static void StationProcedure(PassengerHelperPlugin plugin, PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, IEnumerable<Car> coaches, List<string> terminusStations)
@@ -307,9 +366,10 @@ public static class AutoEngineerPassengerStopperPatches
         {
             logger.Information("Car: {0}", coach.DisplayName);
             PassengerMarker? marker = coach.GetPassengerMarker();
-            if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
+            if (marker != null && marker.HasValue)
             {
                 PassengerMarker actualMarker = marker.Value;
+
                 logger.Information("Direction Intelligence. Selected Destinations Count = {0}, Current selected destinations: {1}, Current direction of travel: {2}, previousStop known: {3}, currentStop {4}",
                     actualMarker.Destinations.Count,
                     actualMarker.Destinations,
@@ -358,7 +418,6 @@ public static class AutoEngineerPassengerStopperPatches
                     if (indexPrev < indexCurr)
                     {
                         settings.DirectionOfTravel = DirectionOfTravel.WEST;
-
                     }
                     else
                     {
@@ -377,6 +436,12 @@ public static class AutoEngineerPassengerStopperPatches
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) + 1;
 
                         expectedSelectedDestinations = orderedSelectedStations.GetRange(indexNext, indexWestTerminus - indexNext + 1).ToHashSet();
+                        if (actualMarker.Destinations.Contains(_nextStop.identifier))
+                        {
+                            logger.Information("Passengers for current stop have not finsihed unloading yet, keeping current stop as part of expected stations");
+                            expectedSelectedDestinations.Add(_nextStop.identifier);
+                        }
+
                         logger.Information("Expected stations: {0} actual stations: {1}", expectedSelectedDestinations, actualMarker.Destinations);
 
                         if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
@@ -392,6 +457,12 @@ public static class AutoEngineerPassengerStopperPatches
                         int indexNext = orderedSelectedStations.IndexOf(_nextStop.identifier) - 1;
 
                         expectedSelectedDestinations = orderedSelectedStations.GetRange(indexEastTerminus, indexNext - indexEastTerminus + 1).ToHashSet();
+                        if (actualMarker.Destinations.Contains(_nextStop.identifier))
+                        {
+                            logger.Information("Passengers for current stop have not finsihed unloading yet, keeping current stop as part of expected stations");
+                            expectedSelectedDestinations.Add(_nextStop.identifier);
+                        }
+
                         logger.Information("Expected stations: {0} actual stations: {1}", expectedSelectedDestinations, actualMarker.Destinations);
 
                         if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
@@ -410,7 +481,7 @@ public static class AutoEngineerPassengerStopperPatches
         {
             passengerLocomotive.AtAlarka = true;
             logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
-            Say($"{Hyperlink.To(_locomotive)}  is in Alarka, there are more stops, and loop mode is not activated, reversing direction.");
+            Say($"AI Engineer {Hyperlink.To(_locomotive)}: Arrived in Alarka, reversing direction to continue.");
             passengerLocomotive.ReverseLocoDirection();
 
             logger.Information("Since we are in alarka, we need to recheck cochran station. Doing so now.");
@@ -418,7 +489,7 @@ public static class AutoEngineerPassengerStopperPatches
             {
                 logger.Information("Car: {0}", coach.DisplayName);
                 PassengerMarker? marker = coach.GetPassengerMarker();
-                if (marker != null && marker.HasValue && !passengerLocomotive.HasMoreStops)
+                if (marker != null && marker.HasValue)
                 {
                     PassengerMarker actualMarker = marker.Value;
                     List<string> currentDestinations = actualMarker.Destinations.ToList();
@@ -443,7 +514,7 @@ public static class AutoEngineerPassengerStopperPatches
         if (passengerLocomotive.ShouldStayStopped())
         {
             // stay stopped
-            return false;
+            return true;
         }
 
         // we have reached the last station
@@ -453,12 +524,12 @@ public static class AutoEngineerPassengerStopperPatches
             _locomotive.PostNotice("ai-stop", $"Paused at last station stop {Hyperlink.To(_nextStop)}.");
             passengerLocomotive.CurrentlyStopped = true;
             passengerLocomotive.CurrentReasonForStop = "Requested pause at last station";
-            return false;
+            return true;
         }
 
         logger.Information("Reselecting station stops based on settings.");
         logger.Information("{0} reached terminus station at {1}", _locomotive.DisplayName, _nextStop.DisplayName);
-        Say($"{Hyperlink.To(_locomotive)} reached terminus station at {Hyperlink.To(_nextStop)}.");
+        Say($"AI Engineer {Hyperlink.To(_locomotive)}: Reached terminus station at {Hyperlink.To(_nextStop)}.");
 
         List<string> selectedOrderedStations = settings.Stations
         .Where(station => station.Value.include == true)
@@ -475,10 +546,11 @@ public static class AutoEngineerPassengerStopperPatches
                 logger.Debug(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
             }
 
-            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, selectedOrderedStations.ToList()));
+            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, selectedOrderedStations));
         }
 
         logger.Information("Checking to see if train is approaching terminus from outside of terminus bounds");
+
         if (settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
         {
             logger.Information("Direction is currently unknown");
@@ -488,7 +560,7 @@ public static class AutoEngineerPassengerStopperPatches
                 logger.Information("train was not previously at a station.");
                 logger.Information("treating this terminus station as a regular station for now, to determine direction");
                 StationProcedure(plugin, settings, _nextStop, _locomotive, passengerLocomotive, coaches, settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => plugin.orderedStations.IndexOf(d)).ToList());
-                return true;
+                return false;
             }
             else
             {
@@ -506,11 +578,11 @@ public static class AutoEngineerPassengerStopperPatches
                     if (settings.LoopMode)
                     {
                         logger.Information("Loop Mode is set to true. Continuing in current direction.");
-                        return true;
+                        return false;
                     }
 
                     logger.Information("Reversing direction");
-                    Say($"{Hyperlink.To(_locomotive)} reversing direction.");
+                    Say($"AI Engineer {Hyperlink.To(_locomotive)}: Reversing direction.");
 
                     // reverse the direction of the loco
                     passengerLocomotive.ReverseLocoDirection();
@@ -520,7 +592,7 @@ public static class AutoEngineerPassengerStopperPatches
                     logger.Information("We arrived at the terminus station from outside the bounds, therefore we should proceed in the current direction");
                 }
 
-                return false;
+                return true;
             }
         }
         else
@@ -543,27 +615,27 @@ public static class AutoEngineerPassengerStopperPatches
                 if (settings.LoopMode)
                 {
                     logger.Information("Loop Mode is set to true. Continuing in current direction.");
-                    return true;
+                    return false;
                 }
 
                 logger.Information("Reversing direction");
-                Say($"{Hyperlink.To(_locomotive)} reversing direction.");
+                Say($"AI Engineer {Hyperlink.To(_locomotive)}: Reversing direction.");
 
                 // reverse the direction of the loco
                 passengerLocomotive.ReverseLocoDirection();
             }
-            return false;
+            return true;
         }
     }
 
-    private static bool CheckFuelLevels(PassengerLocomotive passengerLocomotive, BaseLocomotive _locomotive, PassengerLocomotiveSettings settings, PassengerStop _nextStop)
+    private static bool HaveLowFuel(PassengerLocomotive passengerLocomotive, BaseLocomotive _locomotive, PassengerLocomotiveSettings settings, PassengerStop _nextStop)
     {
         if (passengerLocomotive.Continue)
         {
-            return true;
+            return false;
         }
 
-        bool retVal = true;
+        bool retVal = false;
         if (settings.StopForDiesel)
         {
             logger.Information("Requested stop for low diesel, checking level");
@@ -571,7 +643,7 @@ public static class AutoEngineerPassengerStopperPatches
             if (passengerLocomotive.CheckDieselFuelLevel(out float diesel))
             {
                 _locomotive.PostNotice("ai-stop", $"Stopped, low diesel at {Hyperlink.To(_nextStop)}.");
-                retVal = false;
+                retVal = true;
             }
         }
 
@@ -582,7 +654,7 @@ public static class AutoEngineerPassengerStopperPatches
             if (passengerLocomotive.CheckCoalLevel(out float coal))
             {
                 _locomotive.PostNotice("ai-stop", $"Stopped, low coal at {Hyperlink.To(_nextStop)}.");
-                retVal = false;
+                retVal = true;
             }
         }
 
@@ -593,12 +665,13 @@ public static class AutoEngineerPassengerStopperPatches
             if (passengerLocomotive.CheckWaterLevel(out float water))
             {
                 _locomotive.PostNotice("ai-stop", $"Stopped, low water at {Hyperlink.To(_nextStop)}.");
-                retVal = false;
+                retVal = true;
             }
         }
 
         return retVal;
     }
+
 
     private static void Say(string message)
     {
