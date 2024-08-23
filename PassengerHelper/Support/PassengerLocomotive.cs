@@ -241,7 +241,6 @@ public class PassengerLocomotive
                     }
                 }
             }
-            AtTerminusStationWest = false;
         }
 
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
