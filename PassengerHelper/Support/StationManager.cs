@@ -196,7 +196,7 @@ public class StationManager
         if (!orderedTerminusStations.Contains(CurrentStopIdentifier))
         {
             logger.Information("Not at a terminus station");
-            NonTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations);
+            RunNonTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations);
 
             logger.Information("Setting Previous stop to the current stop (not at terminus)");
             passengerLocomotive.PreviousStop = CurrentStop;
@@ -220,7 +220,7 @@ public class StationManager
 
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
-                terminusStationProceduteRetVal = TerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.EAST);
+                terminusStationProceduteRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.EAST);
 
                 logger.Information("Setting Previous stop to the current stop (west terminus)");
 
@@ -228,7 +228,7 @@ public class StationManager
 
             if (atTerminusStationEast && !passengerLocomotive.AtTerminusStationEast)
             {
-                terminusStationProceduteRetVal = TerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.WEST);
+                terminusStationProceduteRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.WEST);
 
                 logger.Information("Setting Previous stop to the current stop (east terminus)");
             }
@@ -278,7 +278,7 @@ public class StationManager
         return false;
     }
 
-    private void NonTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, List<string> orderedTerminusStations)
+    private void RunNonTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, List<string> orderedTerminusStations)
     {
         if (passengerLocomotive.NonTerminusStationProcedureComplete)
         {
@@ -379,7 +379,7 @@ public class StationManager
         passengerLocomotive.NonTerminusStationProcedureComplete = true;
     }
 
-    private bool TerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, DirectionOfTravel directionOfTravel)
+    private bool RunTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, DirectionOfTravel directionOfTravel)
     {
         // we have reached the last station
         if (settings.StopAtLastStation)

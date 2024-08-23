@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game;
+using Game.Notices;
 using Game.State;
+using KeyValue.Runtime;
 using Model;
 using Model.AI;
 using Model.Definition;
@@ -28,12 +30,13 @@ public class PassengerLocomotive
     public bool AtAlarka = false;
     public bool AtTerminusStationEast = false;
     public bool AtTerminusStationWest = false;
-    private readonly BaseLocomotive _locomotive;
+    internal readonly BaseLocomotive _locomotive;
+    public KeyValueObject KeyValueObject { get => _locomotive.KeyValueObject; }
     private readonly bool hasTender = false;
-    public bool HasMoreStops = false;
     public PassengerStop? CurrentStop;
     public PassengerStop? PreviousStop;
     public PassengerLocomotiveSettings Settings;
+    public bool NonTerminusStationProcedureComplete = false;
 
     private int _dieselFuelSlotIndex;
     private float _dieselSlotMax;
@@ -219,29 +222,7 @@ public class PassengerLocomotive
             }
         }
 
-        if ((AtTerminusStationWest || AtTerminusStationEast) && Settings.WaitForFullPassengersLastStation)
-        {
-            logger.Information("Checking to see if all passenger cars are full");
-            IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
-
-            foreach (Car coach in coaches)
-            {
-                PassengerMarker? marker = coach.GetPassengerMarker();
-
-
-                if (marker != null && marker.HasValue)
-                {
-                    LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
-                    int maxCapacity = (int)loadSlot.MaximumCapacity;
-                    PassengerMarker actualMarker = marker.Value;
-                    if (actualMarker.TotalPassengers < maxCapacity)
-                    {
-                        logger.Information("Passenger car not full, remaining stopped");
-                        return true;
-                    }
-                }
-            }
-        }
+        
 
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
     }
@@ -295,5 +276,10 @@ public class PassengerLocomotive
     {
         PreviousStop = prevStop;
         Settings.PreviousStation = prevStop.identifier;
+    }
+
+    public void PostNotice(string key, string message)
+    {
+        _locomotive.PostNotice(key, message);
     }
 }

@@ -25,69 +25,12 @@ using RollingStock;
 using Game.Notices;
 using Support;
 using Network;
+using System.Reflection.Emit;
 
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
-
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(AutoEngineerPassengerStopper), nameof(AutoEngineerPassengerStopper.UpdateCars))]
-    private static bool UpdateCars(List<Car> coupledCars, AutoEngineerPassengerStopper __instance)
-    {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
-        {
-            return true;
-        }
-
-        var _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
-
-        if (_locomotive == null)
-        {
-            return true;
-        }
-
-        logger.Information("Updating cachedPassengerStopIds");
-        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
-        {
-            if (!plugin.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
-            {
-                _settings = new PassengerLocomotiveSettings();
-            }
-            passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
-            plugin._locomotives.Add(_locomotive, passengerLocomotive);
-        }
-
-        PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
-
-
-        List<Car> _coupledCars = typeof(AutoEngineerPassengerStopper).GetField("_coupledCars", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as List<Car>;
-        List<string> _cachedPassengerStopIds = typeof(AutoEngineerPassengerStopper).GetField("_cachedPassengerStopIds", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as List<string>;
-        bool _cachedHasCoaches = (bool)typeof(AutoEngineerPassengerStopper).GetField("_cachedHasCoaches", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance);
-
-        _coupledCars = coupledCars;
-        _cachedPassengerStopIds.Clear();
-        _cachedHasCoaches = false;
-
-        logger.Information("Checking if coupled cars have coaches");
-        foreach (Car coupledCar in coupledCars)
-        {
-            if (_cachedHasCoaches)
-            {
-                break;
-            }
-            _cachedHasCoaches = _cachedHasCoaches || coupledCar.Archetype.IsPassenger();
-        }
-
-        if (_cachedHasCoaches)
-        {
-            logger.Information("Train has coaches, setting _cachedPassengerStopIds to the ones selected in the settings");
-            _cachedPassengerStopIds = settings.Stations.Where(kv => kv.Value.include == true).Select(kv => kv.Key).ToList();
-        }
-
-        return false;
-    }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
@@ -107,59 +50,7 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
-        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
-        {
-            if (!plugin.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
-            {
-                _settings = new PassengerLocomotiveSettings();
-            }
-            passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
-            plugin._locomotives.Add(_locomotive, passengerLocomotive);
-        }
-
-        PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
-
-        if (settings.Disable)
-        {
-            return true;
-        }
-
-        if (_currentStop != passengerLocomotive.CurrentStop)
-        {
-            passengerLocomotive.CurrentStop = _currentStop;
-            // can set the continue flag back to false, as we have reached the next station
-            passengerLocomotive.Continue = false;
-        }
-
-        // if train is currently Stopped
-        if (passengerLocomotive.CurrentlyStopped && !passengerLocomotive.Continue)
-        {
-            logger.Information("Train is currently Stopped due to: {0}", passengerLocomotive.CurrentReasonForStop);
-            bool stayStopped = passengerLocomotive.ShouldStayStopped();
-            if (stayStopped)
-            {
-                AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-                persistence.PassengerModeStatus = "Paused";
-                __result = true;
-                return false;
-            }
-        }
-
-        passengerLocomotive.ResetStoppedFlags();
-
-        if (PauseAtCurrentStation(settings, _currentStop, _locomotive, passengerLocomotive))
-        {
-            __result = true;
-            return false;
-        }
-
-        if (HaveLowFuel(passengerLocomotive, _locomotive, settings, _currentStop))
-        {
-            __result = true;
-            return false;
-        }
-
-        if (StationProcedure(settings, _currentStop, _locomotive, passengerLocomotive, plugin))
+        if (plugin.stationManager.HandleTrainAtStation(_locomotive, _currentStop))
         {
             __result = true;
             return false;
@@ -195,7 +86,7 @@ public static class AutoEngineerPassengerStopperPatches
 
         return false;
     }
-    private static bool StationProcedure(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, PassengerHelperPlugin plugin)
+    private static bool StayStoppedAtStation(PassengerLocomotiveSettings settings, PassengerStop _nextStop, BaseLocomotive _locomotive, PassengerLocomotive passengerLocomotive, PassengerHelperPlugin plugin)
     {
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
 

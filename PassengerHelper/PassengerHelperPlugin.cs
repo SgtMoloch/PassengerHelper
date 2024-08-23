@@ -26,6 +26,7 @@ namespace PassengerHelperPlugin
         internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
         internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
         internal bool _gameLoad = true;
+        internal StationManager stationManager{ get; }
 
         internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -46,6 +47,8 @@ namespace PassengerHelperPlugin
             this.self = self;
             this.ctx = ctx;
             UIHelper = uiHelper;
+
+            this.stationManager = new StationManager(this);
         }
 
         public void SaveSettings()
