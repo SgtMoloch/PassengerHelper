@@ -195,9 +195,10 @@ public static class CarInspectorPatches
 
     }
 
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
-    [HarmonyAfter(new string[] {"FlyShuntUI", "SmartOrders"})]
+    [HarmonyAfter(new string[] { "FlyShuntUI", "SmartOrders" })]
     private static void PopulateAIPanel(Window ____window)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
@@ -207,8 +208,6 @@ public static class CarInspectorPatches
             return;
         }
 
-        var size = ____window.GetContentSize();
-
-        ____window.SetContentSize(new Vector2(400, 515));
+        ____window.SetResizable(new Vector2(400, 350), new Vector2(400, 515));
     }
 }

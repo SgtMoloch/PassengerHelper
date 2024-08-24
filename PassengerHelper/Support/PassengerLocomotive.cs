@@ -4,7 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game;
+using Game.Notices;
 using Game.State;
+using KeyValue.Runtime;
 using Model;
 using Model.AI;
 using Model.Definition;
@@ -25,13 +27,21 @@ public class PassengerLocomotive
     public bool StoppedForDiesel = false;
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
+    public bool AtAlarka = false;
+    public bool AtCochran = false;
     public bool AtTerminusStationEast = false;
     public bool AtTerminusStationWest = false;
-    private readonly BaseLocomotive _locomotive;
+    internal readonly BaseLocomotive _locomotive;
+    public KeyValueObject KeyValueObject { get => _locomotive.KeyValueObject; }
     private readonly bool hasTender = false;
-    public bool HasMoreStops = false;
     public PassengerStop? CurrentStop;
+    public PassengerStop? PreviousStop;
+    public bool Arrived = false;
+    public GameDateTime arrivalTime = new GameDateTime(0);
+    public bool Departed = false;
+    public GameDateTime departureTime = new GameDateTime(0);
     public PassengerLocomotiveSettings Settings;
+    public bool NonTerminusStationProcedureComplete = false;
 
     private int _dieselFuelSlotIndex;
     private float _dieselSlotMax;
@@ -39,6 +49,11 @@ public class PassengerLocomotive
     private float _coalSlotMax;
     private int _waterSlotIndex;
     private float _waterSlotMax;
+
+    internal int settingsHash = 0;
+    internal int stationSettingsHash = 0;
+
+    private bool _selfSentOrders = false;
 
     public PassengerLocomotive(BaseLocomotive _locomotive, PassengerLocomotiveSettings Settings)
     {
@@ -48,6 +63,44 @@ public class PassengerLocomotive
             hasTender = true;
         }
         this.Settings = Settings;
+
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+
+        persistence.ObserveOrders(delegate (Orders orders)
+        {
+            logger.Information("Orders changed. Orders are now: {0}", orders);
+            if (!_selfSentOrders)
+            {
+                // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
+                if (Settings.gameLoadFlag)
+                {
+                    Settings.gameLoadFlag = false;
+                    return;
+                }
+
+                // if we aren't locked, we shouldn't change to unknown
+                if (!Settings.DoTLocked)
+                {
+                    return;
+                }
+
+                Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
+                Settings.DoTLocked = false;
+
+            }
+            _selfSentOrders = false;
+        });
+
+        if (Settings.PreviousStation.Length > 0)
+        {
+            this.PreviousStop = PassengerStop.FindAll().FirstOrDefault((PassengerStop stop) => stop.identifier == Settings.PreviousStation);
+        }
+
+        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+        {
+            Settings.DoTLocked = false;
+        }
     }
 
     private float GetDieselLevelForLoco()
@@ -154,16 +207,36 @@ public class PassengerLocomotive
     }
     public bool ShouldStayStopped()
     {
-        logger.Information("checking if {0} should stay Stopd at current station", _locomotive.DisplayName);
+        logger.Information("checking if {0} should stay Stopped at current station", _locomotive.DisplayName);
+
         if (Continue)
         {
             logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
             return false;
         }
+
         // train was requested to remain stopped
-        if (Settings.StopAtNextStation || Settings.StopAtLastStation)
+        if (Settings.StopAtNextStation)
         {
-            logger.Information("StopAtNextStation or StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.StopAtLastStation && Settings.Stations[CurrentStop.identifier].TerminusStation == true)
+        {
+            logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.Stations[CurrentStop.identifier].stationAction == StationAction.Pause)
+        {
+            logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+        {
+            logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
             return true;
         }
 
@@ -191,36 +264,12 @@ public class PassengerLocomotive
             }
         }
 
-        if ((AtTerminusStationWest || AtTerminusStationEast) && Settings.WaitForFullPassengersLastStation)
-        {
-            logger.Information("Checking to see if all passenger cars are full");
-            IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
-
-            foreach (Car coach in coaches)
-            {
-                PassengerMarker? marker = coach.GetPassengerMarker();
-
-
-                if (marker != null && marker.HasValue)
-                {
-                    LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
-                    int maxCapacity = (int)loadSlot.MaximumCapacity;
-                    PassengerMarker actualMarker = marker.Value;
-                    if (actualMarker.TotalPassengers < maxCapacity)
-                    {
-                        logger.Information("Passenger car not full, remaining stopped");
-                        return true;
-                    }
-                }
-            }
-            AtTerminusStationWest = false;
-        }
-
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
     }
 
     public void ReverseLocoDirection()
     {
+        _selfSentOrders = true;
         logger.Information("reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
@@ -261,5 +310,16 @@ public class PassengerLocomotive
         }
 
         throw new Exception("steam engine with no tender. How????");
+    }
+
+    internal void SetPreviousStop(PassengerStop prevStop)
+    {
+        PreviousStop = prevStop;
+        Settings.PreviousStation = prevStop.identifier;
+    }
+
+    public void PostNotice(string key, string message)
+    {
+        _locomotive.PostNotice(key, message);
     }
 }

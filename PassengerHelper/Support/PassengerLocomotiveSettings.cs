@@ -20,8 +20,12 @@ public class PassengerLocomotiveSettings
     public bool PointToPointMode { get; set; } = true;
     public bool LoopMode { get; set; } = false;
     public bool WaitForFullPassengersLastStation { get; set; } = false;
-    public bool Disable { get; set; } = false; 
+    public bool Disable { get; set; } = false;
+    public DirectionOfTravel DirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
+    public bool DoTLocked { get; set; } = false;
+    public bool gameLoadFlag { get; set; } = false;
 
+    public string PreviousStation { get; set; } = "";
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
             { "dillsboro", new StationSetting() },
@@ -39,6 +43,40 @@ public class PassengerLocomotiveSettings
             { "rhodo", new StationSetting() },
             { "andrews", new StationSetting() }
         };
+
+    internal int getSettingsHash()
+    {
+        int prime = 31;
+        int result = 1;
+        result = prime * result + StopForDiesel.GetHashCode();
+        result = prime * result + DieselLevel.GetHashCode();
+
+        result = prime * result + StopForCoal.GetHashCode();
+        result = prime * result + CoalLevel.GetHashCode();
+
+        result = prime * result + StopForWater.GetHashCode();
+        result = prime * result + WaterLevel.GetHashCode();
+
+        result = prime * result + StopAtNextStation.GetHashCode();
+        result = prime * result + StopAtLastStation.GetHashCode();
+
+        result = prime * result + PointToPointMode.GetHashCode();
+        result = prime * result + LoopMode.GetHashCode();
+
+        result = prime * result + WaitForFullPassengersLastStation.GetHashCode();
+
+        result = prime * result + Disable.GetHashCode();
+
+        result = prime * result + DirectionOfTravel.GetHashCode();
+        result = prime * result + DoTLocked.GetHashCode();
+
+        result = prime * result + gameLoadFlag.GetHashCode();
+
+        result = prime * result + PreviousStation.GetHashCode();
+        result = prime * result + Stations.GetHashCode();
+        
+        return result;
+    }
 }
 
 public class StationSetting
@@ -57,4 +95,12 @@ public enum StationAction
 {
     Normal,
     Pause
+}
+
+public enum DirectionOfTravel
+{
+
+    EAST,
+    UNKNOWN,
+    WEST
 }
