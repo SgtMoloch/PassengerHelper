@@ -28,6 +28,7 @@ public class PassengerLocomotive
     public bool StoppedForCoal = false;
     public bool StoppedForWater = false;
     public bool AtAlarka = false;
+    public bool AtCochran = false;
     public bool AtTerminusStationEast = false;
     public bool AtTerminusStationWest = false;
     internal readonly BaseLocomotive _locomotive;
@@ -35,6 +36,10 @@ public class PassengerLocomotive
     private readonly bool hasTender = false;
     public PassengerStop? CurrentStop;
     public PassengerStop? PreviousStop;
+    public bool Arrived = false;
+    public GameDateTime arrivalTime = new GameDateTime(0);
+    public bool Departed = false;
+    public GameDateTime departureTime = new GameDateTime(0);
     public PassengerLocomotiveSettings Settings;
     public bool NonTerminusStationProcedureComplete = false;
 
@@ -44,6 +49,9 @@ public class PassengerLocomotive
     private float _coalSlotMax;
     private int _waterSlotIndex;
     private float _waterSlotMax;
+
+    internal int settingsHash = 0;
+    internal int stationSettingsHash = 0;
 
     private bool _selfSentOrders = false;
 
@@ -64,13 +72,22 @@ public class PassengerLocomotive
             logger.Information("Orders changed. Orders are now: {0}", orders);
             if (!_selfSentOrders)
             {
-                if (!PassengerHelperPlugin.Shared._gameLoad)
+                // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
+                if (Settings.gameLoadFlag)
                 {
-                    Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
-                    Settings.DoTLocked = false;
+                    Settings.gameLoadFlag = false;
+                    return;
                 }
 
-                PassengerHelperPlugin.Shared._gameLoad = false;
+                // if we aren't locked, we shouldn't change to unknown
+                if (!Settings.DoTLocked)
+                {
+                    return;
+                }
+
+                Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
+                Settings.DoTLocked = false;
+
             }
             _selfSentOrders = false;
         });
@@ -78,6 +95,11 @@ public class PassengerLocomotive
         if (Settings.PreviousStation.Length > 0)
         {
             this.PreviousStop = PassengerStop.FindAll().FirstOrDefault((PassengerStop stop) => stop.identifier == Settings.PreviousStation);
+        }
+
+        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+        {
+            Settings.DoTLocked = false;
         }
     }
 
@@ -185,16 +207,36 @@ public class PassengerLocomotive
     }
     public bool ShouldStayStopped()
     {
-        logger.Information("checking if {0} should stay Stopd at current station", _locomotive.DisplayName);
+        logger.Information("checking if {0} should stay Stopped at current station", _locomotive.DisplayName);
+
         if (Continue)
         {
             logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
             return false;
         }
+
         // train was requested to remain stopped
-        if (Settings.StopAtNextStation || Settings.StopAtLastStation)
+        if (Settings.StopAtNextStation)
         {
-            logger.Information("StopAtNextStation or StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.StopAtLastStation && Settings.Stations[CurrentStop.identifier].TerminusStation == true)
+        {
+            logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.Stations[CurrentStop.identifier].stationAction == StationAction.Pause)
+        {
+            logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
+            return true;
+        }
+
+        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+        {
+            logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
             return true;
         }
 
@@ -221,8 +263,6 @@ public class PassengerLocomotive
                 StoppedForWater = false;
             }
         }
-
-        
 
         return StoppedForDiesel || StoppedForCoal || StoppedForWater;
     }
