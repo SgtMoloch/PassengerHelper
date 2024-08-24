@@ -2,10 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Model;
+using Model.AI;
 using Model.Definition;
 using PassengerHelperPlugin.Support;
 using RollingStock;
 using Serilog;
+using UI.EngineControls;
 
 namespace PassengerHelperPlugin.Patches;
 
@@ -31,12 +33,30 @@ public static class PassengerStopPatches
         {
             if (plugin._locomotives.TryGetValue((BaseLocomotive)engine, out PassengerLocomotive passengerLocomotive))
             {
-                if (passengerLocomotive.CurrentStop != __instance)
+                AutoEngineerPersistence persistence = new(passengerLocomotive._locomotive.KeyValueObject);
+                if (!persistence.Orders.Enabled || persistence.Orders.Yard)
                 {
-                    logger.Information("Train {0} has not stopped at {1} yet, waiting to unload cars until it stops", engine.DisplayName, __instance.DisplayName);
-                    __result = false;
+                    // manual mode or yard mode
+                    return;
                 }
-                break;
+
+                if (passengerLocomotive.Settings.Disable)
+                {
+                    // Passenger Helper disabled
+                    return;
+                }
+
+                if (!passengerLocomotive.Arrived)
+                {
+                    if (passengerLocomotive.Departed)
+                    {
+                        return;
+                    }
+                    
+                    logger.Information("Train {0} has not arrived at {1} yet, waiting to unload cars until it arrives", engine.DisplayName, __instance.DisplayName);
+                    __result = false;
+                    break;
+                }
             }
         }
 
