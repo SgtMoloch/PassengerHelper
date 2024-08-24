@@ -25,8 +25,7 @@ namespace PassengerHelperPlugin
         internal IUIHelper UIHelper { get; }
         internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
         internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
-        internal bool _gameLoad = true;
-        internal StationManager stationManager{ get; }
+        internal StationManager stationManager { get; }
 
         internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -49,11 +48,20 @@ namespace PassengerHelperPlugin
             UIHelper = uiHelper;
 
             this.stationManager = new StationManager(this);
+
+            Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
         }
 
         public void SaveSettings()
         {
             ctx.SaveSettingsData(self.Id, passengerLocomotivesSettings);
+        }
+
+        private void OnMapDidUnload(MapDidUnloadEvent @event)
+        {
+            passengerLocomotivesSettings.Values.ToList().ForEach(x => x.gameLoadFlag = true);
+
+            SaveSettings();
         }
 
     }
