@@ -38,11 +38,12 @@ public class PassengerLocomotive
     public PassengerStop? PreviousStop;
     public bool Arrived = false;
     public GameDateTime arrivalTime = new GameDateTime(0);
+    public bool ReadyToDepart = false;
     public bool Departed = false;
     public GameDateTime departureTime = new GameDateTime(0);
     public PassengerLocomotiveSettings Settings;
     public bool NonTerminusStationProcedureComplete = false;
-
+    private Orders? cachedOrders = null;
     private int _dieselFuelSlotIndex;
     private float _dieselSlotMax;
     private int _coalSlotIndex;
@@ -69,7 +70,7 @@ public class PassengerLocomotive
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
-            logger.Information("Orders changed. Orders are now: {0}", orders);
+            logger.Information("Orders changed. Orders are now: {0} and selfSentOrders is: {1}", orders, _selfSentOrders);
             if (!_selfSentOrders)
             {
                 // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
@@ -87,7 +88,6 @@ public class PassengerLocomotive
 
                 Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
                 Settings.DoTLocked = false;
-
             }
             _selfSentOrders = false;
         });
@@ -208,36 +208,51 @@ public class PassengerLocomotive
     public bool ShouldStayStopped()
     {
         logger.Information("checking if {0} should stay Stopped at current station", _locomotive.DisplayName);
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+
+        if (cachedOrders == null)
+        {
+            cachedOrders = persistence.Orders;
+        }
 
         if (Continue)
         {
             logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
+            CurrentlyStopped = false;
+
+            _selfSentOrders = true;
+            logger.Information("Cached orders are: ", cachedOrders);
+            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, cachedOrders?.MaxSpeedMph);
+            cachedOrders = null;
+            
             return false;
         }
 
+        bool stayStopped = false;
         // train was requested to remain stopped
         if (Settings.StopAtNextStation)
         {
             logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            return true;
+            stayStopped = true;
         }
 
         if (Settings.StopAtLastStation && Settings.Stations[CurrentStop.identifier].TerminusStation == true)
         {
             logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            return true;
+            stayStopped = true;
         }
 
         if (Settings.Stations[CurrentStop.identifier].stationAction == StationAction.Pause)
         {
             logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
-            return true;
+            stayStopped = true;
         }
 
         if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
         {
             logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
-            return true;
+            stayStopped = true;
         }
 
         // train is stopped because of low diesel, coal or water
@@ -262,9 +277,25 @@ public class PassengerLocomotive
                 logger.Information("StopForWater no longer selected, resetting flag.");
                 StoppedForWater = false;
             }
+
+            stayStopped = StoppedForDiesel || StoppedForCoal || StoppedForWater;
         }
 
-        return StoppedForDiesel || StoppedForCoal || StoppedForWater;
+        if (stayStopped)
+        {
+            persistence.PassengerModeStatus = "Paused";
+
+            _selfSentOrders = true;
+            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, 0);
+        }
+        else
+        {
+            _selfSentOrders = true;
+            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, cachedOrders?.MaxSpeedMph);
+            cachedOrders = null;
+        }
+
+        return stayStopped;
     }
 
     public void ReverseLocoDirection()
