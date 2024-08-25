@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game;
 using Game.Messages;
 using Game.Notices;
@@ -51,28 +52,25 @@ public class StationManager
             return false;
         }
 
-        if (_currentStop != passengerLocomotive.CurrentStop || (passengerLocomotive.arrivalTime.AddingMinutes(Mathf.RoundToInt(StateManager.Shared.Storage.AIPassengerStopMinimumStopDuration / 60f) + 1) < TimeWeather.Now && !passengerLocomotive.CurrentlyStopped))
+        if (_currentStop != passengerLocomotive.CurrentStop)
         {
             logger.Information("Train {0} has arrived at station {1}", _locomotive.DisplayName, _currentStop.DisplayName);
             passengerLocomotive.CurrentStop = _currentStop;
             // can set the continue flag back to false, as we have reached the next station
             passengerLocomotive.Continue = false;
             passengerLocomotive.Arrived = true;
+            passengerLocomotive.ReadyToDepart = false;
             passengerLocomotive.Departed = false;
             passengerLocomotive.settingsHash = 0;
             passengerLocomotive.stationSettingsHash = 0;
             passengerLocomotive.arrivalTime = TimeWeather.Now;
             passengerLocomotive.AtTerminusStationWest = false;
             passengerLocomotive.AtTerminusStationEast = false;
+            passengerLocomotive.CurrentlyStopped = false;
         }
 
-        if (passengerLocomotive.settingsHash != settings.getSettingsHash())
-        {
-            passengerLocomotive.Departed = false;
-        }
-
-        // if we have departed, cease all procedures
-        if (passengerLocomotive.Departed)
+        // if we have departed, cease all procedures unless a setting was changed after running the procedure
+        if (passengerLocomotive.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash() + passengerLocomotive.CurrentStop.identifier.GetHashCode())
         {
             return false;
         }
@@ -96,39 +94,51 @@ public class StationManager
             return true;
         }
 
-        if (passengerLocomotive.settingsHash != settings.getSettingsHash())
+        if (passengerLocomotive.stationSettingsHash != settings.Stations.GetHashCode() + passengerLocomotive.CurrentStop.identifier.GetHashCode())
         {
-            logger.Information("Passenger settings have changed, checking for pause conditions");
-            passengerLocomotive.ResetStoppedFlags();
-
-            if (PauseAtCurrentStation(passengerLocomotive, settings))
+            if (!passengerLocomotive.Continue)
             {
-                return true;
+                logger.Information("Station settings have changed, running Station Procedure");
+                if (RunStationProcedure(passengerLocomotive, settings))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            logger.Information("Station Settings have not changed. Skipping Station Procedure");
+        }
+
+        if (passengerLocomotive.settingsHash != settings.getSettingsHash() + passengerLocomotive.CurrentStop.identifier.GetHashCode())
+        {
+            if (!passengerLocomotive.Continue)
+            {
+                logger.Information("Passenger settings have changed, checking for pause conditions");
+                passengerLocomotive.ResetStoppedFlags();
+
+                if (PauseAtCurrentStation(passengerLocomotive, settings))
+                {
+                    return true;
+                }
+
+                if (HaveLowFuel(passengerLocomotive, settings))
+                {
+                    return true;
+                }
             }
 
-            if (HaveLowFuel(passengerLocomotive, settings))
-            {
-                return true;
-            }
-
-            passengerLocomotive.settingsHash = settings.getSettingsHash();
+            passengerLocomotive.settingsHash = settings.getSettingsHash() + passengerLocomotive.CurrentStop.identifier.GetHashCode();
         }
         else
         {
             logger.Information("Passenger settings have not changed, skipping check for pause conditions");
         }
 
-        if (RunStationProcedure(passengerLocomotive, settings))
-        {
-            return true;
-        }
-
         if (!passengerLocomotive.CurrentlyStopped)
         {
-            logger.Information("Train {0} is departing station {1}", _locomotive.DisplayName, _currentStop.DisplayName);
-            passengerLocomotive.Arrived = false;
-            passengerLocomotive.Departed = true;
-            passengerLocomotive.departureTime = TimeWeather.Now;
+            logger.Information("Train {0} is ready to depart station {1}", _locomotive.DisplayName, _currentStop.DisplayName);
+            passengerLocomotive.ReadyToDepart = true;
         }
 
         return passengerLocomotive.CurrentlyStopped;
@@ -136,14 +146,11 @@ public class StationManager
 
     private bool IsStoppedAndShouldStayStopped(PassengerLocomotive passengerLocomotive)
     {
-        if (passengerLocomotive.CurrentlyStopped && !passengerLocomotive.Continue)
+        if (passengerLocomotive.CurrentlyStopped)
         {
             logger.Information("Train is currently Stopped due to: {0}", passengerLocomotive.CurrentReasonForStop);
-            bool stayStopped = passengerLocomotive.ShouldStayStopped();
-            if (stayStopped)
+            if (passengerLocomotive.ShouldStayStopped())
             {
-                AutoEngineerPersistence persistence = new(passengerLocomotive.KeyValueObject);
-                persistence.PassengerModeStatus = "Paused";
                 return true;
             }
         }
@@ -153,11 +160,6 @@ public class StationManager
 
     private bool PauseAtCurrentStation(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
-        if (passengerLocomotive.Continue)
-        {
-            return false;
-        }
-
         if (settings.StopAtNextStation)
         {
             logger.Information("Pausing at station due to setting");
@@ -176,16 +178,20 @@ public class StationManager
             return true;
         }
 
+        if (settings.StopAtLastStation && settings.Stations[passengerLocomotive.CurrentStop.identifier].TerminusStation == true)
+        {
+            logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStop.DisplayName);
+            passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(passengerLocomotive.CurrentStop)}.");
+            passengerLocomotive.CurrentlyStopped = true;
+            passengerLocomotive.CurrentReasonForStop = "Requested pause at terminus station " + passengerLocomotive.CurrentStop.DisplayName;
+            return true;
+        }
+
         return false;
     }
 
     private bool HaveLowFuel(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
-        if (passengerLocomotive.Continue)
-        {
-            return false;
-        }
-
         bool retVal = false;
         if (settings.StopForDiesel)
         {
@@ -225,12 +231,6 @@ public class StationManager
 
     private bool RunStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
-        if (passengerLocomotive.stationSettingsHash == settings.Stations.GetHashCode() + settings.PreviousStation.GetHashCode())
-        {
-            logger.Information("Station Settings have not changed. Skipping Station Procedure");
-            return false;
-        }
-
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
         PassengerStop CurrentStop = passengerLocomotive.CurrentStop;
         string CurrentStopIdentifier = CurrentStop.identifier;
@@ -253,8 +253,6 @@ public class StationManager
             passengerLocomotive.CurrentReasonForStop = "Terminus stations not selected";
             return true;
         }
-
-
 
         if (!orderedTerminusStations.Contains(CurrentStopIdentifier))
         {
@@ -298,7 +296,7 @@ public class StationManager
             }
 
             // setting the previous stop on the settings changes the hash, so recache the settings
-            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + settings.PreviousStation.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStop.identifier.GetHashCode();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return nonTerminusStationProcedureRetVal;
@@ -371,7 +369,7 @@ public class StationManager
             }
 
             // setting the previous stop on the settings changes the hash, so recache the settings
-            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + settings.PreviousStation.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStop.identifier.GetHashCode();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return terminusStationProcedureRetVal;
@@ -560,7 +558,6 @@ public class StationManager
             passengerLocomotive.PostNotice("ai-stop", $"Paused at last station stop {Hyperlink.To(CurrentStop)}.");
             passengerLocomotive.CurrentlyStopped = true;
             passengerLocomotive.CurrentReasonForStop = "Requested pause at last station";
-            return true;
         }
 
         logger.Information("{0} reached terminus station at {1}", passengerLocomotive._locomotive.DisplayName, CurrentStop.DisplayName);
