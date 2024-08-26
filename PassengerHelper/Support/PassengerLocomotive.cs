@@ -1,11 +1,9 @@
 namespace PassengerHelperPlugin.Support;
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Game;
 using Game.Notices;
-using Game.State;
 using KeyValue.Runtime;
 using Model;
 using Model.AI;

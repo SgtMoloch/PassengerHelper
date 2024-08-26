@@ -1,22 +1,17 @@
+namespace PassengerHelperPlugin.Support;
+
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Game;
 using Game.Messages;
-using Game.Notices;
 using Game.State;
 using Model;
-using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
 using Model.OpsNew;
 using Network;
 using RollingStock;
 using Serilog;
-using UnityEngine;
-
-namespace PassengerHelperPlugin.Support;
-
 
 public class StationManager
 {
@@ -246,8 +241,8 @@ public class StationManager
 
         if (orderedTerminusStations.Count != 2)
         {
-            logger.Information("there are not exactly 2 terminus stations");
-            Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"Terminus stations not selected. Check your passenger settings.\"");
+            logger.Information("there are not exactly 2 terminus stations, current selected terminus stations: {0}", orderedTerminusStations);
+            Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"2 Terminus stations must be selected. Check your passenger settings.\"");
 
             passengerLocomotive.CurrentlyStopped = true;
             passengerLocomotive.CurrentReasonForStop = "Terminus stations not selected";

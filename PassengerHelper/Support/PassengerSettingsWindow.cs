@@ -13,8 +13,6 @@ using Serilog;
 using TMPro;
 using UI.Builder;
 using UI.Common;
-using UnityEngine;
-
 
 public class PassengerSettingsWindow
 {
@@ -49,11 +47,11 @@ public class PassengerSettingsWindow
             plugin.passengerLocomotivesSettings.Add(locomotiveName, passengerLocomotiveSettings);
         }
 
-        if (!plugin._locomotives.ContainsKey(_locomotive))
+        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
         {
             plugin._locomotives.Add(_locomotive, new PassengerLocomotive(_locomotive, passengerLocomotiveSettings));
         }
-
+        
         uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
         {
             builder.VStack(delegate (UIPanelBuilder builder)
