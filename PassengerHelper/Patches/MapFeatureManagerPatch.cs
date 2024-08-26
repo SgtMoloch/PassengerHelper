@@ -3,11 +3,8 @@ namespace PassengerHelperPlugin.Patches;
 using System.Linq;
 using Game.Progression;
 using HarmonyLib;
-using Railloader;
 using RollingStock;
 using Serilog;
-
-
 
 [HarmonyPatch]
 public static class MapFeatureManagerPatches

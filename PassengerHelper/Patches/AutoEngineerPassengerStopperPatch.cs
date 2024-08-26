@@ -1,31 +1,13 @@
 namespace PassengerHelperPlugin.Patches;
 
-using Game.State;
 using HarmonyLib;
 using Model;
 using Model.AI;
-using Model.OpsNew;
-using Railloader;
 using Serilog;
-using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
-using Model.Definition.Data;
-using Model.Definition;
-using System.Linq;
-using Game.Messages;
-using UI.EngineControls;
-using UnityEngine;
-using Network.Messages;
 using Game;
-using UI.Common;
 using RollingStock;
-using Game.Notices;
 using Support;
-using Network;
-using System.Reflection.Emit;
 
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
@@ -76,26 +58,17 @@ public static class AutoEngineerPassengerStopperPatches
             return;
         }
 
-        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
+        if (plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
         {
-            if (!plugin.passengerLocomotivesSettings.TryGetValue(_locomotive.DisplayName, out PassengerLocomotiveSettings _settings))
+            if (passengerLocomotive.ReadyToDepart && _locomotive.VelocityMphAbs > 1f)
             {
-                _settings = new PassengerLocomotiveSettings();
+                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStop.DisplayName, TimeWeather.Now);
+                passengerLocomotive.Arrived = false;
+                passengerLocomotive.ReadyToDepart = false;
+                passengerLocomotive.Departed = true;
+                passengerLocomotive.CurrentStop = null;
+                passengerLocomotive.departureTime = TimeWeather.Now;
             }
-            passengerLocomotive = new PassengerLocomotive(_locomotive, _settings);
-            plugin._locomotives.Add(_locomotive, passengerLocomotive);
         }
-
-        if (passengerLocomotive.ReadyToDepart && _locomotive.VelocityMphAbs > 1f)
-        {
-
-            logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStop.DisplayName, TimeWeather.Now);
-            passengerLocomotive.Arrived = false;
-            passengerLocomotive.ReadyToDepart = false;
-            passengerLocomotive.Departed = true;
-            passengerLocomotive.CurrentStop = null;
-            passengerLocomotive.departureTime = TimeWeather.Now;
-        }
-
     }
 }

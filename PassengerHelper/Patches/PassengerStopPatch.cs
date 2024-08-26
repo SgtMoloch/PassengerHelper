@@ -1,15 +1,14 @@
+namespace PassengerHelperPlugin.Patches;
+
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Model;
 using Model.AI;
 using Model.Definition;
-using PassengerHelperPlugin.Support;
+using Support;
 using RollingStock;
 using Serilog;
-using UI.EngineControls;
-
-namespace PassengerHelperPlugin.Patches;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
@@ -52,7 +51,7 @@ public static class PassengerStopPatches
                     {
                         return;
                     }
-                    
+
                     logger.Information("Train {0} has not arrived at {1} yet, waiting to unload cars until it arrives", engine.DisplayName, __instance.DisplayName);
                     __result = false;
                     break;
