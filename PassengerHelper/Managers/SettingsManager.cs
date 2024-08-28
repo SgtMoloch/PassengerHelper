@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Support;
+namespace PassengerHelperPlugin.Managers;
 
 using System;
 using System.Collections.Generic;
@@ -10,54 +10,115 @@ using Model.Definition;
 using Railloader;
 using RollingStock;
 using Serilog;
+using Support;
 using TMPro;
 using UI.Builder;
 using UI.Common;
 
-public class PassengerSettingsWindow
+public class SettingsManager
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
-    public static void Show(Car car)
-    {
-        BaseLocomotive _locomotive = (BaseLocomotive)car;
-        string locomotiveName = _locomotive.DisplayName;
+    static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
+    private Dictionary<string, PassengerLocomotiveSettings> _settings;
+    internal IUIHelper uIHelper { get; }
 
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
+    private PassengerHelperPlugin plugin;
+    private StationManager stationManager;
+    private TrainManager trainManager;
+
+    public SettingsManager(PassengerHelperPlugin plugin, Dictionary<string, PassengerLocomotiveSettings> _settings, IUIHelper uIHelper)
+    {
+        this._settings = _settings;
+        this.plugin = plugin;
+        this.uIHelper = uIHelper;
+        this.stationManager = plugin.stationManager;
+        this.trainManager = plugin.trainManager;
+    }
+
+    public void SaveSettings()
+    {
+        logger.Information("Saving settings");
+        plugin.SaveSettings(this._settings);
+    }
+
+    public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
+    {
+        logger.Information("Getting Passenger Settings for {0}", locomotiveDisplayName);
+        if (!_settings.TryGetValue(locomotiveDisplayName, out PassengerLocomotiveSettings settings))
         {
-            return;
+            logger.Information("Did not Find settings for {0}, creating new settings", locomotiveDisplayName);
+            settings = new PassengerLocomotiveSettings();
+
+            logger.Information("Adding new settings to internal Dictionary");
+            this._settings.Add(locomotiveDisplayName, settings);
+
+            SaveSettings();
         }
 
-        IUIHelper uIHelper = plugin.UIHelper;
+        return settings;
+    }
+
+    public Dictionary<string, PassengerLocomotiveSettings> GetAllSettings()
+    {
+        return this._settings;
+    }
+
+    public void AddSettings(string locomotiveDisplayName, PassengerLocomotiveSettings settings)
+    {
+        this._settings.Add(locomotiveDisplayName, settings);
+    }
+
+    private Window CreateSettingsWindow(string locomotiveDisplayName)
+    {
         Window passengerSettingsWindow = uIHelper.CreateWindow(500, 250, Window.Position.Center);
         passengerSettingsWindow.OnShownDidChange += (s) =>
         {
             if (!s)
             {
-                plugin.SaveSettings();
+                SaveSettings();
             }
         };
 
-        passengerSettingsWindow.Title = "Passenger Helper Settings for " + locomotiveName;
+        passengerSettingsWindow.Title = "Passenger Helper Settings for " + locomotiveDisplayName;
 
-        if (!plugin.passengerLocomotivesSettings.TryGetValue(locomotiveName, out PassengerLocomotiveSettings passengerLocomotiveSettings))
-        {
-            logger.Information("Did not Find settings for {0}", locomotiveName, passengerLocomotiveSettings);
-            passengerLocomotiveSettings = new PassengerLocomotiveSettings();
-            plugin.passengerLocomotivesSettings.Add(locomotiveName, passengerLocomotiveSettings);
-        }
+        return passengerSettingsWindow;
+    }
 
-        if (!plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
-        {
-            plugin._locomotives.Add(_locomotive, new PassengerLocomotive(_locomotive, passengerLocomotiveSettings));
-        }
-        
+    internal PassengerLocomotiveSettings ShowSettingsWindow(BaseLocomotive _locomotive)
+    {
+        string locomotiveDisplayName = _locomotive.DisplayName;
+
+        Window passengerSettingsWindow = CreateSettingsWindow(locomotiveDisplayName);
+
+        PassengerLocomotiveSettings passengerLocomotiveSettings = GetSettings(locomotiveDisplayName);
+
+        PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.stationManager);
+
+        settingsWindow.PopulateAndShowSettingsWindow(passengerSettingsWindow, passengerLocomotiveSettings, _locomotive);
+
+        return passengerLocomotiveSettings;
+    }
+}
+
+public class PassengerSettingsWindow
+{
+    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
+    private IUIHelper uIHelper;
+    private StationManager stationManager;
+
+    internal PassengerSettingsWindow(IUIHelper uIHelper, StationManager stationManager)
+    {
+        this.uIHelper = uIHelper;
+        this.stationManager = stationManager;
+    }
+
+    internal void PopulateAndShowSettingsWindow(Window passengerSettingsWindow, PassengerLocomotiveSettings passengerLocomotiveSettings, BaseLocomotive _locomotive)
+    {
         uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
         {
             builder.VStack(delegate (UIPanelBuilder builder)
             {
                 logger.Information("Populating stations for {0}", _locomotive.DisplayName);
-                PopulateStations(passengerSettingsWindow, uIHelper, builder, _locomotive, passengerLocomotiveSettings, plugin);
+                PopulateStationSettings(passengerSettingsWindow, builder, _locomotive, passengerLocomotiveSettings);
                 builder.AddExpandingVerticalSpacer();
             });
 
@@ -65,34 +126,16 @@ public class PassengerSettingsWindow
             builder.VStack(delegate (UIPanelBuilder builder)
             {
                 logger.Information("Populating settings for {0}", _locomotive.DisplayName);
-                PopulateSettings(builder, passengerLocomotiveSettings, plugin);
+                PopulateSettings(builder, passengerLocomotiveSettings);
                 builder.AddExpandingVerticalSpacer();
             });
-            builder.VStack(delegate (UIPanelBuilder builder)
-            {
-                builder.AddExpandingVerticalSpacer();
-                builder.HStack(delegate (UIPanelBuilder builder)
-                {
-                    builder.Spacer().FlexibleWidth(1f);
-                    builder.AddButton("Save Settings", () =>
-                    {
-                        passengerSettingsWindow.CloseWindow();
-                    });
-                });
-            });
+            AddSaveButton(builder, passengerSettingsWindow);
         });
+
         passengerSettingsWindow.ShowWindow();
     }
 
-    private static List<PassengerStop> GetPassengerStops(PassengerHelperPlugin plugin)
-    {
-        return PassengerStop.FindAll()
-        .Where(ps => !ps.ProgressionDisabled)
-        .OrderBy(d => plugin.orderedStations.IndexOf(d.identifier))
-        .ToList();
-    }
-
-    private static void PopulateStations(Window passengerSettingsWindow, IUIHelper uIHelper, UIPanelBuilder builder, BaseLocomotive _locomotive, PassengerLocomotiveSettings passengerLocomotiveSettings, PassengerHelperPlugin plugin)
+    private void PopulateStationSettings(Window passengerSettingsWindow, UIPanelBuilder builder, BaseLocomotive _locomotive, PassengerLocomotiveSettings passengerLocomotiveSettings)
     {
         builder.AddLabel("Station Stops:", delegate (TMP_Text text)
         {
@@ -100,105 +143,124 @@ public class PassengerSettingsWindow
             text.overflowMode = TextOverflowModes.Ellipsis;
         }).FlexibleWidth(1f);
 
-        StationAction[] stationActions = ((StationAction[])Enum.GetValues(typeof(StationAction)));
 
         logger.Information("Filtering stations to only unlocked ones");
-        List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
-        List<PassengerStop> stationStops = GetPassengerStops(plugin);
+
+        List<PassengerStop> stationStops = this.stationManager.GetPassengerStops();
+
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
 
         stationStops.ForEach(ps =>
         {
-            string name = ps.identifier;
-            string formalName = ps.name;
+            string stationId = ps.identifier;
+            string stationName = ps.name;
+            BuildStationSettingsRow(builder, passengerLocomotiveSettings, stationStops, coaches, stationId, stationName);
 
-            builder.HStack(delegate (UIPanelBuilder builder)
-            {
-                builder.AddToggle(() => passengerLocomotiveSettings.Stations[name].include, delegate (bool on)
-                {
-                    logger.Information("{0} set to {1}", name, on);
-                    passengerLocomotiveSettings.Stations[name].include = on;
-                    List<string> passengerStopsToSelect = passengerLocomotiveSettings.Stations
-                    .Where(kv =>
-                            stationStops
-                            .Select(stp => stp.identifier)
-                            .Contains(kv.Key) && kv.Value.include == true)
-                            .Select(stp => stp.Key)
-                            .ToList();
-
-                    foreach (Car coach in coaches)
-                    {
-                        StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, passengerStopsToSelect));
-                    }
-
-                    if (!on && passengerLocomotiveSettings.Stations[name].TerminusStation)
-                    {
-                        passengerLocomotiveSettings.Stations[name].TerminusStation = false;
-                    }
-
-                }).Tooltip("Enabled", $"Toggle whether {formalName} should be a station stop")
-                    .Width(25f);
-                builder.AddLabel(formalName, delegate (TMP_Text text)
-                            {
-                                text.textWrappingMode = TextWrappingModes.NoWrap;
-                                text.overflowMode = TextOverflowModes.Ellipsis;
-                            }).Width(175f);
-                builder.AddToggle(() => passengerLocomotiveSettings.Stations[name].TerminusStation, delegate (bool on)
-                {
-                    int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
-
-                    logger.Information("There are currently {0} terminus stations set", numTerminusStations);
-                    if (numTerminusStations >= 2 && on == true)
-                    {
-                        logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
-                    }
-                    else
-                    {
-                        logger.Information("{0} terminus station set to {1}", name, on);
-                        passengerLocomotiveSettings.Stations[name].TerminusStation = on;
-
-                        if (on)
-                        {
-                            passengerLocomotiveSettings.Stations[name].include = on;
-                        }
-                    }
-                }).Tooltip("Enabled", $"Toggle whether {formalName} should be a terminus station")
-                .Width(25f);
-                builder.AddLabel("Terminus", delegate (TMP_Text text)
-            {
-                text.textWrappingMode = TextWrappingModes.NoWrap;
-                text.overflowMode = TextOverflowModes.Ellipsis;
-            }).FlexibleWidth(1f);
-                builder.Spacer();
-                builder.AddLabel("Action:", delegate (TMP_Text text)
-            {
-                text.textWrappingMode = TextWrappingModes.NoWrap;
-                text.overflowMode = TextOverflowModes.Ellipsis;
-            }).FlexibleWidth(1f);
-                builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[name].stationAction), delegate (int index)
-            {
-                logger.Information("{0} action set to {1}", name, stationActions[index]);
-                passengerLocomotiveSettings.Stations[name].stationAction = stationActions[index];
-            }).Width(100f)
-            .Height(20f);
-            });
         });
 
         passengerSettingsWindow.SetContentHeight(400 + (stationStops.Count - 3) * 20);
     }
 
-    struct LocomotiveNames
+    private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
     {
-        public LocomotiveNames(string name, string id)
+        builder.HStack(delegate (UIPanelBuilder builder)
         {
-            this.name = name;
-            this.id = id;
-        }
-
-        internal string name { get; set; } = "None";
-        internal string id { get; set; } = "";
+            BuildStationToggle(builder, passengerLocomotiveSettings, stationStops, coaches, stationId, stationName);
+            BuildTerminusStationToggle(builder, passengerLocomotiveSettings, stationId, stationName);
+            builder.Spacer();
+            BuildStationActionDropDown(builder, passengerLocomotiveSettings, stationId);
+        });
     }
-    private static void PopulateSettings(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, PassengerHelperPlugin plugin)
+
+    private void BuildStationToggle(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
+    {
+        builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].include, delegate (bool on)
+        {
+            logger.Information("{0} set to {1}", stationId, on);
+            passengerLocomotiveSettings.Stations[stationId].include = on;
+
+            SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
+
+            if (!on && passengerLocomotiveSettings.Stations[stationId].TerminusStation)
+            {
+                passengerLocomotiveSettings.Stations[stationId].TerminusStation = false;
+            }
+
+        }).Tooltip("Enabled", $"Toggle whether {stationName} should be a station stop")
+        .Width(25f);
+        builder.AddLabel(stationName, delegate (TMP_Text text)
+        {
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+        }).Width(175f);
+    }
+
+    private void BuildTerminusStationToggle(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, string stationId, string stationName)
+    {
+        builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].TerminusStation, delegate (bool on)
+        {
+            int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
+
+            logger.Information("There are currently {0} terminus stations set", numTerminusStations);
+            if (numTerminusStations >= 2 && on == true)
+            {
+                logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
+            }
+            else
+            {
+                logger.Information("{0} terminus station set to {1}", stationId, on);
+                passengerLocomotiveSettings.Stations[stationId].TerminusStation = on;
+
+                if (on)
+                {
+                    passengerLocomotiveSettings.Stations[stationId].include = on;
+                }
+            }
+        }).Tooltip("Enabled", $"Toggle whether {stationName} should be a terminus station")
+                    .Width(25f);
+        builder.AddLabel("Terminus", delegate (TMP_Text text)
+        {
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+        }).FlexibleWidth(1f);
+    }
+
+    private void BuildStationActionDropDown(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, string stationId)
+    {
+        StationAction[] stationActions = ((StationAction[])Enum.GetValues(typeof(StationAction)));
+        List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
+
+        builder.AddLabel("Action:", delegate (TMP_Text text)
+        {
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+        }).FlexibleWidth(1f);
+        builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].stationAction), delegate (int index)
+        {
+            logger.Information("{0} action set to {1}", stationId, stationActions[index]);
+            passengerLocomotiveSettings.Stations[stationId].stationAction = stationActions[index];
+        }).Width(100f).Height(20f);
+    }
+
+    private void SelectStationOnCoaches(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches)
+    {
+        List<string> passengerStopsToSelect = passengerLocomotiveSettings.Stations
+        .Where(kv =>
+                stationStops
+                .Select(stp => stp.identifier)
+                .Contains(kv.Key) && kv.Value.include == true)
+                .Select(stp => stp.Key)
+                .ToList();
+
+        logger.Information("Applying selected stations {0} to all coupled coaches", passengerStopsToSelect);
+
+        foreach (Car coach in coaches)
+        {
+            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, passengerStopsToSelect));
+        }
+    }
+
+    private void PopulateSettings(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings)
     {
         builder.AddLabel("Settings:", delegate (TMP_Text text)
         {
@@ -374,8 +436,8 @@ public class PassengerSettingsWindow
         });
         builder.HStack(delegate (UIPanelBuilder builder)
         {
-            string tooltipLocked = "The direction setting is currently disabled, as it is being controled by PassengerHelper. " +
-                                    "If you would like to enable it, it will become adjustabled again after manually issuing any " +
+            string tooltipLocked = "The direction setting is currently disabled, as it is being controlled by PassengerHelper. " +
+                                    "If you would like to enable it, it will become adjustable again after manually issuing any " +
                                     "order to the engine, whether that be changing the AI mode, changing direction, or changing speed. ";
 
             string tooltipUnlocked = "This setting helps PassengerHelper, as without it, if you changed terminus station mid route " +
@@ -428,6 +490,22 @@ public class PassengerSettingsWindow
                 text.textWrappingMode = TextWrappingModes.NoWrap;
                 text.overflowMode = TextOverflowModes.Ellipsis;
             }).FlexibleWidth(1f);
+        });
+    }
+
+    private void AddSaveButton(UIPanelBuilder builder, Window passengerSettingsWindow)
+    {
+        builder.VStack(delegate (UIPanelBuilder builder)
+        {
+            builder.AddExpandingVerticalSpacer();
+            builder.HStack(delegate (UIPanelBuilder builder)
+            {
+                builder.Spacer().FlexibleWidth(1f);
+                builder.AddButton("Save Settings", () =>
+                {
+                    passengerSettingsWindow.CloseWindow();
+                });
+            });
         });
     }
 }

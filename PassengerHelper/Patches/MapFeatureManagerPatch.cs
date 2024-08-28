@@ -28,15 +28,21 @@ public static class MapFeatureManagerPatches
             string name = ps.identifier;
             string formalName = ps.name;
 
-            shared.passengerLocomotivesSettings
+            shared.settingsManager.GetAllSettings()
             .Select(p => p.Value)
             .ToList()
             .ForEach(setting =>
             {
                 if (ps.ProgressionDisabled && setting.Stations[ps.identifier].include == true)
                 {
-                    logger.Information($"Station {formalName} is disabled, disbaling station stop");
+                    logger.Information($"Station {formalName} is disabled, disabling station stop");
                     setting.Stations[ps.identifier].include = false;
+                }
+
+                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].TerminusStation == true)
+                {
+                    logger.Information($"Station {formalName} is disabled, disabling Terminus station");
+                    setting.Stations[ps.identifier].TerminusStation = false;
                 }
             });
         });

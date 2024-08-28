@@ -9,7 +9,7 @@ using Railloader;
 using Serilog;
 using System.Collections.Generic;
 using System.Linq;
-
+using global::PassengerHelperPlugin.Managers;
 
 public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 {
@@ -17,10 +17,11 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 
     private readonly IModdingContext ctx;
     private readonly IModDefinition self;
-    internal IUIHelper UIHelper { get; }
     internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
     internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
     internal StationManager stationManager { get; }
+    internal SettingsManager settingsManager { get; }
+    internal TrainManager trainManager{ get; }
 
     internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -37,12 +38,12 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
     {
         new Harmony(self.Id).PatchAll(GetType().Assembly);
         passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();
-        logger.Information("loaded settings: {0}", passengerLocomotivesSettings);
         this.self = self;
         this.ctx = ctx;
-        UIHelper = uiHelper;
 
         this.stationManager = new StationManager(this);
+        this.settingsManager = new SettingsManager(this, passengerLocomotivesSettings, uiHelper);
+        this.trainManager = new TrainManager(this);
 
         Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
@@ -50,6 +51,11 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
     public void SaveSettings()
     {
         ctx.SaveSettingsData(self.Id, passengerLocomotivesSettings);
+    }
+
+    public void SaveSettings(Dictionary<string, PassengerLocomotiveSettings> settings)
+    {
+        ctx.SaveSettingsData(self.Id, settings);
     }
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)

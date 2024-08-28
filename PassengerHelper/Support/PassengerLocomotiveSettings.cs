@@ -20,7 +20,30 @@ public class PassengerLocomotiveSettings
     public bool DoTLocked { get; set; } = false;
     public bool gameLoadFlag { get; set; } = false;
 
+    // settings to save current status of train for next game load
     public string PreviousStation { get; set; } = "";
+    public string CurrentStation { get; set; } = "";
+    public bool Arrived { get; set; } = false;
+    public bool AtTerminusStationEast { get; set; } = false;
+    public bool AtTerminusStationWest { get; set; } = false;
+    public bool AtAlarka { get; set; } = false;
+    public bool AtCochran { get; set; } = false;
+    public bool TerminusStationProcedureComplete { get; set; } = false;
+    public bool NonTerminusStationProcedureComplete { get; set; } = false;
+    public bool CurrentlyStopped { get; set; } = false;
+    public string CurrentReasonForStop { get; set; } = "";
+    public bool StoppedForDiesel { get; set; } = false;
+    public bool StoppedForCoal { get; set; } = false;
+    public bool StoppedForWater { get; set; } = false;
+    public bool StoppedNextStation { get; set; } = false;
+    public bool StoppedTerminusStation { get; set; } = false;
+    public bool StoppedStationPause { get; set; } = false;
+    public bool StoppedWaitForFullLoad { get; set; } = false;
+    public bool ReadyToDepart { get; set; } = false;
+    public bool Departed { get; set; } = false;
+    public bool Continue { get; set; } = false;
+
+
     public SortedDictionary<string, StationSetting> Stations { get; } = new() {
             { "sylva", new StationSetting() },
             { "dillsboro", new StationSetting() },
@@ -68,6 +91,7 @@ public class PassengerLocomotiveSettings
         result = prime * result + gameLoadFlag.GetHashCode();
 
         result = prime * result + PreviousStation.GetHashCode();
+        result = prime * result + CurrentStation.GetHashCode();
         result = prime * result + Stations.GetHashCode();
         
         return result;

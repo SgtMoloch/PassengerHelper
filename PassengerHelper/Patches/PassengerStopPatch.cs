@@ -30,32 +30,32 @@ public static class PassengerStopPatches
 
         foreach (Car engine in engines)
         {
-            if (plugin._locomotives.TryGetValue((BaseLocomotive)engine, out PassengerLocomotive passengerLocomotive))
+            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine);
+
+            AutoEngineerPersistence persistence = new(passengerLocomotive._locomotive.KeyValueObject);
+            
+            if (!persistence.Orders.Enabled || persistence.Orders.Yard)
             {
-                AutoEngineerPersistence persistence = new(passengerLocomotive._locomotive.KeyValueObject);
-                if (!persistence.Orders.Enabled || persistence.Orders.Yard)
+                // manual mode or yard mode
+                return;
+            }
+
+            if (passengerLocomotive.Settings.Disable)
+            {
+                // Passenger Helper disabled
+                return;
+            }
+
+            if (!passengerLocomotive.Arrived)
+            {
+                if (passengerLocomotive.Departed)
                 {
-                    // manual mode or yard mode
                     return;
                 }
 
-                if (passengerLocomotive.Settings.Disable)
-                {
-                    // Passenger Helper disabled
-                    return;
-                }
-
-                if (!passengerLocomotive.Arrived)
-                {
-                    if (passengerLocomotive.Departed)
-                    {
-                        return;
-                    }
-
-                    logger.Information("Train {0} has not arrived at {1} yet, waiting to unload cars until it arrives", engine.DisplayName, __instance.DisplayName);
-                    __result = false;
-                    break;
-                }
+                logger.Information("Train {0} has not arrived at {1} yet, waiting to unload cars until it arrives", engine.DisplayName, __instance.DisplayName);
+                __result = false;
+                break;
             }
         }
 

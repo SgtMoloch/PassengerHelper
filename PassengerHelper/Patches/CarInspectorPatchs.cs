@@ -157,8 +157,8 @@ public static class CarInspectorPatches
 
                 builder.AddButton("PassengerSettings", delegate
                 {
-                    PassengerSettingsWindow.Show(_car);
-                }).Tooltip("Open Passeneger Settings menu", "Open Passeneger Settings menu");
+                    plugin.settingsManager.ShowSettingsWindow(_car);
+                }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
                 builder.AddObserver(persistence.ObservePassengerModeStatusChanged(delegate
                 {
                     builder.Rebuild();
