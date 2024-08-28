@@ -113,7 +113,8 @@ public class StationSetting
 public enum StationAction
 {
     Normal,
-    Pause
+    Pause,
+    Transfer
 }
 
 public enum DirectionOfTravel

@@ -305,7 +305,7 @@ public class PassengerSettingsWindow
                     passengerLocomotiveSettings.DieselLevel = value / 100;
                 }
             }, null, 2)
-            .Tooltip("Diesel Level Percentage", "Set the percentage of diesel remaining should trigger a stop for low diesel")
+            .Tooltip("Diesel Level Percentage", "Set the percentage of diesel remaining that should trigger a stop for low diesel")
             .Width(50f)
             .Height(20f);
             builder.AddLabel("%", delegate (TMP_Text text)
@@ -342,7 +342,7 @@ public class PassengerSettingsWindow
                     passengerLocomotiveSettings.CoalLevel = value / 100;
                 }
             }, null, 2)
-            .Tooltip("Coal Level Percentage", "Set the percentage of coal remaining should trigger a stop for low coal")
+            .Tooltip("Coal Level Percentage", "Set the percentage of coal remaining that should trigger a stop for low coal")
             .Width(50f)
             .Height(20f);
             builder.AddLabel("%", delegate (TMP_Text text)
@@ -379,7 +379,7 @@ public class PassengerSettingsWindow
                     passengerLocomotiveSettings.WaterLevel = value / 100;
                 }
             }, null, 2)
-            .Tooltip("Water Level Percentage", "Set the percentage of water remaining should trigger a stop for low water")
+            .Tooltip("Water Level Percentage", "Set the percentage of water remaining that should trigger a stop for low water")
             .Width(50f)
             .Height(20f);
                 builder.AddLabel("%", delegate (TMP_Text text)
@@ -411,7 +411,7 @@ public class PassengerSettingsWindow
                     passengerLocomotiveSettings.StopAtLastStation = on;
                 }).Tooltip("Enabled", $"Toggle whether the AI should pause at the terminus station")
                 .Width(25f);
-                builder.AddLabel("Pause At Last Station", delegate (TMP_Text text)
+                builder.AddLabel("Pause At Terminus Station", delegate (TMP_Text text)
                 {
                     text.textWrappingMode = TextWrappingModes.NoWrap;
                     text.overflowMode = TextOverflowModes.Ellipsis;
@@ -425,7 +425,7 @@ public class PassengerSettingsWindow
                 passengerLocomotiveSettings.WaitForFullPassengersLastStation = on;
             }).Tooltip("Enabled", $"Toggle whether the AI should wait for a full passenger load at the terminus station before continuing on")
             .Width(25f);
-            builder.AddLabel("Wait For Full Load at Last Station", delegate (TMP_Text text)
+            builder.AddLabel("Wait For Full Load at Terminus Station", delegate (TMP_Text text)
             {
                 text.textWrappingMode = TextWrappingModes.NoWrap;
                 text.overflowMode = TextOverflowModes.Ellipsis;

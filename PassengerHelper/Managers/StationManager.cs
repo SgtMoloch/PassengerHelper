@@ -23,6 +23,8 @@ public class StationManager
     internal TrainManager trainManager;
     internal SettingsManager settingsManager;
 
+    public readonly Dictionary<string, List<PassengerMarker.Group>> groupDictionary = new();
+
     public StationManager(SettingsManager settingsManager, TrainManager trainManager, List<string> orderedStations)
     {
         this.orderedStations = orderedStations;
@@ -64,6 +66,10 @@ public class StationManager
             passengerLocomotive.AtTerminusStationWest = false;
             passengerLocomotive.AtTerminusStationEast = false;
             passengerLocomotive.CurrentlyStopped = false;
+            passengerLocomotive.NonTerminusStationProcedureComplete = false;
+            passengerLocomotive.TerminusStationProcedureComplete = false;
+            passengerLocomotive.UnloadTransferComplete = false;
+            passengerLocomotive.LoadTransferComplete = false;
         }
 
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
@@ -71,13 +77,6 @@ public class StationManager
         {
             return false;
         }
-
-        // v1
-        // does train have transfer passengers?
-        // if yes, unload them into the manager
-
-        // to what stations are you going? (terminus to terminus)
-        // if selected stations inbounds match any transfer passengers I have, load them until cars at capacity or no more transfer passengers
 
         // v2
         // is next station occupied?
@@ -229,14 +228,18 @@ public class StationManager
     private bool RunStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
+        string LocomotiveName = _locomotive.DisplayName;
         PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
-        string LocomotiveName = _locomotive.DisplayName;
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
         List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.include == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
+        int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
+        int indexWestTerminus = orderedSelectedStations.IndexOf((orderedTerminusStations[1]));
+
+        List<string> boundedOrderedStations = orderedSelectedStations.GetRange(indexEastTerminus, indexWestTerminus + 1);
         logger.Information("Running station procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
             LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString()
         );
@@ -290,6 +293,7 @@ public class StationManager
 
                 settings.DoTLocked = true;
                 settingsManager.SaveSettings();
+                passengerLocomotive.NonTerminusStationProcedureComplete = true;
             }
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
@@ -314,27 +318,16 @@ public class StationManager
 
             if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
             {
-                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.EAST);
+                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.EAST);
 
                 logger.Information("Setting Previous stop to the current stop (west terminus)");
             }
 
             if (atTerminusStationEast && !passengerLocomotive.AtTerminusStationEast)
             {
-                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, DirectionOfTravel.WEST);
+                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.WEST);
 
                 logger.Information("Setting Previous stop to the current stop (east terminus)");
-            }
-
-            if (!terminusStationProcedureRetVal)
-            {
-                passengerLocomotive.SetPreviousStop(CurrentStop);
-                passengerLocomotive.AtTerminusStationWest = atTerminusStationWest;
-                passengerLocomotive.AtTerminusStationEast = atTerminusStationEast;
-
-                settings.DoTLocked = true;
-
-                settingsManager.SaveSettings();
             }
 
             if ((passengerLocomotive.AtTerminusStationWest || passengerLocomotive.AtTerminusStationEast) && settings.WaitForFullPassengersLastStation)
@@ -364,6 +357,19 @@ public class StationManager
 
                 logger.Information("Passengers are full, continuing.");
             }
+
+            if (!terminusStationProcedureRetVal)
+            {
+                passengerLocomotive.SetPreviousStop(CurrentStop);
+                passengerLocomotive.AtTerminusStationWest = atTerminusStationWest;
+                passengerLocomotive.AtTerminusStationEast = atTerminusStationEast;
+                passengerLocomotive.TerminusStationProcedureComplete = true;
+
+                settings.DoTLocked = true;
+
+                settingsManager.SaveSettings();
+            }
+
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
@@ -460,12 +466,14 @@ public class StationManager
 
         if (settings.DirectionOfTravel != DirectionOfTravel.UNKNOWN)
         {
+            List<string> boundedOrderedStations = orderedSelectedStations.GetRange(indexEastTerminus, indexWestTerminus + 1);
+            int indexCurrBounded = boundedOrderedStations.IndexOf(currentStopIdentifier);
+            int boundedOrderedStationsCount = boundedOrderedStations.Count;
             HashSet<string> expectedSelectedDestinations = new();
-
             if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
             {
                 // add one to range to include terminus station
-                expectedSelectedDestinations = orderedSelectedStations.GetRange(indexCurr, indexWestTerminus - indexCurr + 1).ToHashSet();
+                expectedSelectedDestinations = boundedOrderedStations.GetRange(indexCurrBounded, boundedOrderedStationsCount - indexCurrBounded + 1).ToHashSet();
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == alarkaIdentifier)
                 {
@@ -477,7 +485,7 @@ public class StationManager
             if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
             {
                 // add one to range to include current station
-                expectedSelectedDestinations = orderedSelectedStations.GetRange(indexEastTerminus, indexCurr - indexEastTerminus + 1).ToHashSet();
+                expectedSelectedDestinations = orderedSelectedStations.GetRange(0, indexCurrBounded + 1).ToHashSet();
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == almondIdentifier)
                 {
@@ -495,6 +503,33 @@ public class StationManager
             logger.Information("Expected selected stations are: {0}", expectedSelectedDestinations);
 
             logger.Information("Checking passenger cars to make sure they have the proper selected stations");
+
+            // transfer station check
+            int numTransferStations = settings.Stations.Where(s => s.Value.stationAction == StationAction.Transfer).Count();
+            bool transferStationSelected = numTransferStations > 0;
+
+            if (transferStationSelected)
+            {
+                logger.Information("Transfer station selected, checking direction and modifying expected selected stations");
+
+                // condition 1, there is 1 transfer station, so we want to select all stops that are selected in settings on the way there, but not the way back
+                if (numTransferStations == 1)
+                {
+                    string transferStationIdentifier = settings.Stations.Where(s => s.Value.stationAction == StationAction.Transfer).Select(s => s.Key).First();
+                    int transferStationIndex = orderedSelectedStations.IndexOf(transferStationIdentifier);
+                    if (transferStationIndex > indexCurr && settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                    {
+                        // select all to the west of the west terminus station
+                        expectedSelectedDestinations.Union(orderedSelectedStations.GetRange(indexWestTerminus, orderedSelectedStations.Count - indexWestTerminus + 1));
+                    }
+
+                    if (transferStationIndex < indexCurr && settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                    {
+                        // select all to the east of the east terminus station
+                        expectedSelectedDestinations.Union(orderedSelectedStations.GetRange(0, indexEastTerminus + 1));
+                    }
+                }
+            }
             foreach (Car coach in coaches)
             {
                 logger.Information("Checking Car {0}", coach.DisplayName);
@@ -546,7 +581,7 @@ public class StationManager
         return false;
     }
 
-    private bool RunTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, DirectionOfTravel directionOfTravel)
+    private bool RunTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedSelectedStations, List<string> orderedTerminusStations, DirectionOfTravel directionOfTravel)
     {
         // we have reached the last station
         if (settings.StopAtLastStation)
@@ -561,16 +596,52 @@ public class StationManager
         Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Reached terminus station at {Hyperlink.To(CurrentStop)}.\"");
 
         logger.Information("Re-selecting station stops based on settings.");
-        logger.Information("Setting the following stations: {0}", orderedSelectedStations);
+
+        // transfer station check
+        int numTransferStations = settings.Stations.Where(s => s.Value.stationAction == StationAction.Transfer).Count();
+        bool transferStationSelected = numTransferStations > 0;
+
+        string currentStopIdentifier = CurrentStop.identifier;
+        int indexWestTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[1]);
+        int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
+        int indexCurr = orderedSelectedStations.IndexOf(currentStopIdentifier);
+
+        List<string> boundedOrderedStations = orderedSelectedStations.GetRange(indexEastTerminus, indexWestTerminus + 1);
+
+        HashSet<string> expectedSelectedDestinations = boundedOrderedStations.ToHashSet();
+        if (transferStationSelected)
+        {
+            logger.Information("Transfer station selected, checking direction and modifying expected selected stations");
+
+            // condition 1, there is 1 transfer station, so we want to select all stops that are selected in settings on the way there, but not the way back
+            if (numTransferStations == 1)
+            {
+                string transferStationIdentifier = settings.Stations.Where(s => s.Value.stationAction == StationAction.Transfer).Select(s => s.Key).First();
+                int transferStationIndex = orderedSelectedStations.IndexOf(transferStationIdentifier);
+                if (transferStationIndex > indexCurr && directionOfTravel == DirectionOfTravel.WEST)
+                {
+                    // select all to the west of the west terminus station
+                    expectedSelectedDestinations.Union(orderedSelectedStations.GetRange(indexWestTerminus, orderedSelectedStations.Count - indexWestTerminus + 1));
+                }
+
+                if (transferStationIndex < indexCurr && directionOfTravel == DirectionOfTravel.EAST)
+                {
+                    // select all to the east of the east terminus station
+                    expectedSelectedDestinations.Union(orderedSelectedStations.GetRange(0, indexEastTerminus + 1));
+                }
+            }
+        }
+
+        logger.Information("Setting the following stations: {0}", expectedSelectedDestinations);
 
         foreach (Car coach in coaches)
         {
-            foreach (string identifier in orderedSelectedStations)
+            foreach (string identifier in expectedSelectedDestinations)
             {
-                logger.Debug(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
+                logger.Information(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
             }
 
-            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, orderedSelectedStations));
+            StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedSelectedDestinations.ToList()));
         }
 
         logger.Information("Checking to see if train is approaching terminus from outside of terminus bounds");
@@ -725,6 +796,193 @@ public class StationManager
 
     }
 
+    public void UnloadTransferPassengers(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
+    {
+        if (passengerLocomotive.UnloadTransferComplete)
+        {
+            return;
+        }
+        BaseLocomotive _locomotive = passengerLocomotive._locomotive;
+        string LocomotiveName = _locomotive.DisplayName;
+        PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
+        string CurrentStopIdentifier = CurrentStop.identifier;
+        string CurrentStopName = CurrentStop.DisplayName;
+        IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.include == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+
+        int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
+        int indexWestTerminus = orderedSelectedStations.IndexOf((orderedTerminusStations[1]));
+
+        List<string> boundedOrderedStations = orderedSelectedStations.GetRange(indexEastTerminus, indexWestTerminus + 1);
+
+        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
+            LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
+
+        if (orderedTerminusStations.Count != 2)
+        {
+            logger.Information("there are not exactly 2 terminus stations, current selected terminus stations: {0}. Continuing normally", orderedTerminusStations);
+            return;
+        }
+
+        // v1
+        // does train consider this station a transfer station?
+        if (settings.Stations[CurrentStopIdentifier].stationAction == StationAction.Transfer)
+        {
+            logger.Information("Train has this station as a transfer station");
+            // does train have transfer passengers?
+
+            bool maybeHasTransferPassengers = indexEastTerminus > 0 || indexWestTerminus < orderedSelectedStations.Count;
+
+            List<string> stationsToTransferTo = orderedSelectedStations.Except(boundedOrderedStations).ToList();
+            logger.Information("Train has the following terminus stations: {0}, the following selected stations: {1}, with the following transfer stations: {2}, and the train maybe has transfer passengers: {3}",
+            orderedTerminusStations, orderedSelectedStations, stationsToTransferTo, maybeHasTransferPassengers);
+
+            // if yes, unload them into the manager
+            if (maybeHasTransferPassengers)
+            {
+                logger.Information("Train maybe has transfer passengers");
+                foreach (Car coach in coaches)
+                {
+                    PassengerMarker? maybeMarker = coach.GetPassengerMarker();
+
+                    if (maybeMarker != null && maybeMarker.HasValue)
+                    {
+                        PassengerMarker marker = maybeMarker.Value;
+                        logger.Information("Coach has the following passenger marker: {0}", marker);
+
+                        for (int i = 0; i < marker.Groups.Count; i++)
+                        {
+                            PassengerMarker.Group group = marker.Groups[i];
+                            logger.Information("Checking group: {0}", group);
+                            if (group.Count <= 0)
+                            {
+                                continue;
+                            }
+                            if (stationsToTransferTo.Contains(group.Destination))
+                            {
+                                logger.Information("Group contains {0} passenger(s) for a transfer destination, {1}", group.Count, group.Destination);
+                                if (!groupDictionary.TryGetValue(CurrentStopIdentifier, out List<PassengerMarker.Group> groups))
+                                {
+                                    groups = new();
+                                    groupDictionary.Add(CurrentStopIdentifier, groups);
+                                }
+                                groups.Add(group);
+                                marker.Groups.RemoveAt(i);
+                                i--;
+                                marker.Destinations.Remove(group.Destination);
+                                coach.SetPassengerMarker(marker);
+                            }
+                            else
+                            {
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            passengerLocomotive.UnloadTransferComplete = true;
+        }
+    }
+
+    public void LoadTransferPassengers(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
+    {
+        if (passengerLocomotive.LoadTransferComplete)
+        {
+            return;
+        }
+        BaseLocomotive _locomotive = passengerLocomotive._locomotive;
+        string LocomotiveName = _locomotive.DisplayName;
+        PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
+        string CurrentStopIdentifier = CurrentStop.identifier;
+        string CurrentStopName = CurrentStop.DisplayName;
+        IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.include == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+
+        int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
+        int indexWestTerminus = orderedSelectedStations.IndexOf((orderedTerminusStations[1]));
+
+        List<string> boundedOrderedStations = orderedSelectedStations.GetRange(indexEastTerminus, indexWestTerminus + 1);
+
+        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
+            LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
+
+
+        logger.Information("Station Manager has the following groups: {0}", groupDictionary);
+        logger.Information("Getting groups for bounded destinations");
+        List<PassengerMarker.Group> groupsWithinBoundedStations = new();
+        if (groupDictionary.Keys.Contains(CurrentStopIdentifier) && groupDictionary[CurrentStopIdentifier].Count > 0)
+        {
+            logger.Information("The current station {0} contains {1} groups, checking to see if any of them can be loaded onto the current train", CurrentStopName, groupDictionary[CurrentStopIdentifier].Count);
+            for (int i = 0; i < groupDictionary[CurrentStopIdentifier].Count; i++)
+            {
+                PassengerMarker.Group group = groupDictionary[CurrentStopIdentifier][i];
+
+                if (boundedOrderedStations.Contains(group.Destination))
+                {
+                    logger.Information("Found group {0} that can be loaded onto the current train", group);
+                    groupsWithinBoundedStations.Add(group);
+                    groupDictionary[CurrentStopIdentifier].RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+
+        if (groupsWithinBoundedStations.Count > 0)
+        {
+            logger.Information("There are {0} groups totalling {1} passengers that can be loaded onto the current train", groupsWithinBoundedStations.Count, groupsWithinBoundedStations.Sum(g => g.Count));
+            foreach (Car coach in coaches)
+            {
+                PassengerMarker? maybeMarker = coach.GetPassengerMarker();
+
+                if (maybeMarker != null && maybeMarker.HasValue)
+                {
+                    PassengerMarker marker = maybeMarker.Value;
+                    logger.Information("Coach has the following passenger marker: {0}", marker);
+
+                    int capacity = PassengerCapacity(coach, CurrentStop) - marker.TotalPassengers;
+                    logger.Information("Coach has the following capacity: {0}", capacity);
+                    for (int i = 0; i < groupsWithinBoundedStations.Count; i++)
+                    {
+                        PassengerMarker.Group group = groupsWithinBoundedStations[i];
+                        logger.Information("Checking group: {0}", group);
+                        if (group.Count <= 0)
+                        {
+                            continue;
+                        }
+
+                        if (group.Count <= capacity)
+                        {
+                            logger.Information("group has equal to or less than car capacity");
+                            marker.Groups.Add(group);
+                            groupsWithinBoundedStations.RemoveAt(i);
+                        }
+                        else
+                        {
+                            logger.Information("group has greater than car capacity");
+                            marker.Groups.Add(new PassengerMarker.Group(group.Origin, group.Destination, capacity, group.Boarded));
+                            group.Count -= capacity;
+                        }
+                        i--;
+                    }
+                }
+            }
+        }
+
+        passengerLocomotive.LoadTransferComplete = true;
+
+        // to what stations are you going? (terminus to terminus)
+        // if selected stations inbounds match any transfer passengers I have, load them until cars at capacity or no more transfer passengers
+
+        // do you have another transfer station?
+        // if so, load all passengers for which you have selected stations
+    }
+
+    private int PassengerCapacity(Car car, PassengerStop CurrentStop)
+    {
+        return (int)car.Definition.LoadSlots.First((LoadSlot slot) => slot.LoadRequirementsMatch(CurrentStop.passengerLoad)).MaximumCapacity;
+    }
     private void Say(string message)
     {
         Multiplayer.Broadcast(message);

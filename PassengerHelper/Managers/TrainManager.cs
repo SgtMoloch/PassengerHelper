@@ -19,20 +19,14 @@ public class TrainManager
         this.settingsManager = settingsManager;
     }
 
-    public PassengerLocomotive CreatePassengerLocomotive(BaseLocomotive locomotive, PassengerLocomotiveSettings settings)
+    public bool GetPassengerLocomotive(BaseLocomotive locomotive, out PassengerLocomotive passengerLocomotive)
     {
-        if (!this.passengerLocomotives.TryGetValue(locomotive.DisplayName, out PassengerLocomotive passengerLocomotive))
+        if (!this.passengerLocomotives.TryGetValue(locomotive.DisplayName, out passengerLocomotive))
         {
-            passengerLocomotive = new PassengerLocomotive(locomotive, settings);
-
-            this.passengerLocomotives.Add(locomotive.DisplayName,passengerLocomotive);
-        }
-        if (passengerLocomotive.Settings != settings)
-        {
-            passengerLocomotive.Settings = settings;
+            return false;
         }
 
-        return passengerLocomotive;
+        return true;
     }
 
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
@@ -45,7 +39,7 @@ public class TrainManager
 
             logger.Information("Adding new Passenger Locomotive to internal Dictionary");
 
-            this.passengerLocomotives.Add(locomotive.DisplayName,passengerLocomotive);
+            this.passengerLocomotives.Add(locomotive.DisplayName, passengerLocomotive);
         }
 
         return passengerLocomotive;

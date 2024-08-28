@@ -6,7 +6,10 @@
     <GameAssembly Include="Railloader.Interchange" />
     <GameAssembly Include="Serilog" />
     <GameAssembly Include="Definition" />
+    <GameAssembly Include="Ops"/>
+    <GameAssembly Include="Core"/>
     <GameAssembly Include="KeyValue.Runtime"/>
+    <GameAssembly Include="mscorlib"/>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Unity.TextMeshPro">

@@ -52,6 +52,8 @@ public class PassengerLocomotive
     public PassengerStop? PreviousStation;
 
 
+    public bool UnloadTransferComplete = false;
+    public bool LoadTransferComplete = false;
     private readonly bool hasTender = false;
     private Car FuelCar;
     private int _dieselFuelSlotIndex;
