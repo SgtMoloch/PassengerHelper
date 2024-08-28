@@ -22,16 +22,13 @@ public class SettingsManager
     internal IUIHelper uIHelper { get; }
 
     private PassengerHelperPlugin plugin;
-    private StationManager stationManager;
-    private TrainManager trainManager;
+
 
     public SettingsManager(PassengerHelperPlugin plugin, Dictionary<string, PassengerLocomotiveSettings> _settings, IUIHelper uIHelper)
     {
         this._settings = _settings;
         this.plugin = plugin;
         this.uIHelper = uIHelper;
-        this.stationManager = plugin.stationManager;
-        this.trainManager = plugin.trainManager;
     }
 
     public void SaveSettings()
@@ -91,7 +88,7 @@ public class SettingsManager
 
         PassengerLocomotiveSettings passengerLocomotiveSettings = GetSettings(locomotiveDisplayName);
 
-        PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.stationManager);
+        PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.plugin.stationManager);
 
         settingsWindow.PopulateAndShowSettingsWindow(passengerSettingsWindow, passengerLocomotiveSettings, _locomotive);
 

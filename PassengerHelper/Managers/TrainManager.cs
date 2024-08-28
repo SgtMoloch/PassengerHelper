@@ -12,15 +12,11 @@ public class TrainManager
     // private Dictionary<string, BaseLocomotive> _locomotiveNameToLocomotive;
     private Dictionary<string, PassengerLocomotive> passengerLocomotives = new();
 
-    private PassengerHelperPlugin plugin;
-    private StationManager stationManager;
     private SettingsManager settingsManager;
 
-    public TrainManager(PassengerHelperPlugin plugin)
+    public TrainManager(SettingsManager settingsManager)
     {
-        this.plugin = plugin;
-        this.stationManager = plugin.stationManager;
-        this.settingsManager = plugin.settingsManager;
+        this.settingsManager = settingsManager;
     }
 
     public PassengerLocomotive CreatePassengerLocomotive(BaseLocomotive locomotive, PassengerLocomotiveSettings settings)

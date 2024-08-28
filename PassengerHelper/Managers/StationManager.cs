@@ -18,17 +18,16 @@ public class StationManager
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(StationManager));
 
-    private PassengerHelperPlugin plugin;
-
     internal readonly List<string> orderedStations;
 
     internal TrainManager trainManager;
+    internal SettingsManager settingsManager;
 
-    public StationManager(PassengerHelperPlugin plugin)
+    public StationManager(SettingsManager settingsManager, TrainManager trainManager, List<string> orderedStations)
     {
-        this.plugin = plugin;
-        this.orderedStations = plugin.orderedStations;
-        this.trainManager = plugin.trainManager;
+        this.orderedStations = orderedStations;
+        this.trainManager = trainManager;
+        this.settingsManager = settingsManager;
     }
 
     internal List<PassengerStop> GetPassengerStops()
@@ -41,8 +40,7 @@ public class StationManager
 
     public bool HandleTrainAtStation(BaseLocomotive locomotive, PassengerStop currentStop)
     {
-        PassengerLocomotive passengerLocomotive = trainManager.GetPassengerLocomotive(locomotive);
-
+        PassengerLocomotive passengerLocomotive = this.trainManager.GetPassengerLocomotive(locomotive);
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
 
         if (settings.Disable)
@@ -69,7 +67,7 @@ public class StationManager
         }
 
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
-        if (passengerLocomotive.ReadyToDepart && passengerLocomotive.settingsHash == settings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
             return false;
         }
@@ -109,7 +107,7 @@ public class StationManager
             logger.Information("Station Settings have not changed. Skipping Station Procedure");
         }
 
-        if (passengerLocomotive.settingsHash != settings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.settingsHash != settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
             if (!passengerLocomotive.Continue)
             {
@@ -127,7 +125,7 @@ public class StationManager
                 }
             }
 
-            passengerLocomotive.settingsHash = settings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.settingsHash = settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
         }
         else
         {
@@ -291,12 +289,12 @@ public class StationManager
                 passengerLocomotive.SetPreviousStop(CurrentStop);
 
                 settings.DoTLocked = true;
-                plugin.SaveSettings();
+                settingsManager.SaveSettings();
             }
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
-            passengerLocomotive.settingsHash = settings.GetHashCode();
+            passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return nonTerminusStationProcedureRetVal;
         }
@@ -336,7 +334,7 @@ public class StationManager
 
                 settings.DoTLocked = true;
 
-                plugin.SaveSettings();
+                settingsManager.SaveSettings();
             }
 
             if ((passengerLocomotive.AtTerminusStationWest || passengerLocomotive.AtTerminusStationEast) && settings.WaitForFullPassengersLastStation)
@@ -369,7 +367,7 @@ public class StationManager
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
-            passengerLocomotive.settingsHash = settings.GetHashCode();
+            passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return terminusStationProcedureRetVal;
         }
@@ -622,7 +620,7 @@ public class StationManager
                 logger.Information("The new direction of travel is opposite current direction of travel");
 
                 settings.DirectionOfTravel = directionOfTravel;
-                plugin.SaveSettings();
+                settingsManager.SaveSettings();
 
                 TerminusStationReverseDirectionProcedure(passengerLocomotive, settings);
             }
@@ -661,9 +659,9 @@ public class StationManager
         logger.Information("Travel direction is known.");
         logger.Information("Getting direction train should continue in");
 
-        int currentStationIndex = plugin.orderedStations.IndexOf(CurrentStop.identifier);
-        int indexWestTerminus_All = plugin.orderedStations.IndexOf(orderedTerminusStations[1]);
-        int indexEastTerminus_All = plugin.orderedStations.IndexOf(orderedTerminusStations[0]);
+        int currentStationIndex = orderedStations.IndexOf(CurrentStop.identifier);
+        int indexWestTerminus_All = orderedStations.IndexOf(orderedTerminusStations[1]);
+        int indexEastTerminus_All = orderedStations.IndexOf(orderedTerminusStations[0]);
 
         if (currentStationIndex > indexEastTerminus_All && currentStationIndex < indexWestTerminus_All)
         {

@@ -154,20 +154,17 @@ public static class CarInspectorPatches
              */
             builder.HStack(delegate (UIPanelBuilder builder)
             {
-
                 builder.AddButton("PassengerSettings", delegate
                 {
                     plugin.settingsManager.ShowSettingsWindow(_car);
                 }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
-                builder.AddObserver(persistence.ObservePassengerModeStatusChanged(delegate
-                {
-                    builder.Rebuild();
-                }));
-                if (plugin._locomotives.TryGetValue(_car, out var locomotive) && locomotive.CurrentlyStopped)
+
+                PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
+                if (passengerLocomotive.CurrentlyStopped)
                 {
                     builder.AddButton("Continue", delegate
                     {
-                        locomotive.Continue = true;
+                        passengerLocomotive.Continue = true;
                     }).Tooltip("Resume travel", "Resume travel");
                 }
             });

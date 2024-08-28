@@ -58,17 +58,20 @@ public static class AutoEngineerPassengerStopperPatches
             return;
         }
 
-        PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
-
-        if (passengerLocomotive.ReadyToDepart && _locomotive.VelocityMphAbs > 1f)
+        if (_locomotive.VelocityMphAbs > 1f)
         {
-            logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
-            passengerLocomotive.Arrived = false;
-            passengerLocomotive.ReadyToDepart = false;
-            passengerLocomotive.Departed = true;
-            passengerLocomotive.CurrentStation = null;
-            passengerLocomotive.departureTime = TimeWeather.Now;
+            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+
+            if (passengerLocomotive.ReadyToDepart)
+            {
+                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
+                passengerLocomotive.Arrived = false;
+                passengerLocomotive.ReadyToDepart = false;
+                passengerLocomotive.Departed = true;
+                passengerLocomotive.CurrentStation = null;
+            }
         }
+
 
     }
 }
