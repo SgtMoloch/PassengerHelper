@@ -66,7 +66,7 @@ public class SettingsManager
 
     private Window CreateSettingsWindow(string locomotiveDisplayName)
     {
-        Window passengerSettingsWindow = uIHelper.CreateWindow(500, 250, Window.Position.Center);
+        Window passengerSettingsWindow = uIHelper.CreateWindow(550, 250, Window.Position.Center);
         passengerSettingsWindow.OnShownDidChange += (s) =>
         {
             if (!s)
@@ -114,7 +114,7 @@ public class PassengerSettingsWindow
         {
             builder.VStack(delegate (UIPanelBuilder builder)
             {
-                logger.Information("Populating stations for {0}", _locomotive.DisplayName);
+                logger.Information("Populating station settings for {0}", _locomotive.DisplayName);
                 PopulateStationSettings(passengerSettingsWindow, builder, _locomotive, passengerLocomotiveSettings);
                 builder.AddExpandingVerticalSpacer();
             });
@@ -134,12 +134,7 @@ public class PassengerSettingsWindow
 
     private void PopulateStationSettings(Window passengerSettingsWindow, UIPanelBuilder builder, BaseLocomotive _locomotive, PassengerLocomotiveSettings passengerLocomotiveSettings)
     {
-        builder.AddLabel("Station Stops:", delegate (TMP_Text text)
-        {
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-        }).FlexibleWidth(1f);
-
+        builder.AddSection("Station Settings:");
 
         logger.Information("Filtering stations to only unlocked ones");
 
@@ -147,6 +142,14 @@ public class PassengerSettingsWindow
 
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
 
+        builder.HStack(delegate (UIPanelBuilder builder)
+        {
+            builder.AddLabel("<b>Station</b>").Width(175f);
+            builder.AddLabel("<b>Stop At</b>").Width(70f);
+            builder.AddLabel("<b>Terminus</b>").Width(85f);
+            builder.AddLabel("<b>Pickup For</b>").Width(100f);
+            builder.AddLabel("<b>Action</b>").Width(100f);
+        });
         stationStops.ForEach(ps =>
         {
             string stationId = ps.identifier;
@@ -160,83 +163,72 @@ public class PassengerSettingsWindow
 
     private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
     {
+        StationAction[] stationActions = ((StationAction[])Enum.GetValues(typeof(StationAction)));
+        List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
         builder.HStack(delegate (UIPanelBuilder builder)
         {
-            BuildStationToggle(builder, passengerLocomotiveSettings, stationStops, coaches, stationId, stationName);
-            BuildTerminusStationToggle(builder, passengerLocomotiveSettings, stationId, stationName);
-            builder.Spacer();
-            BuildStationActionDropDown(builder, passengerLocomotiveSettings, stationId);
-        });
-    }
-
-    private void BuildStationToggle(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
-    {
-        builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].include, delegate (bool on)
-        {
-            logger.Information("{0} set to {1}", stationId, on);
-            passengerLocomotiveSettings.Stations[stationId].include = on;
-
-            SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
-
-            if (!on && passengerLocomotiveSettings.Stations[stationId].TerminusStation)
+            builder.AddLabel(stationName, delegate (TMP_Text text)
             {
-                passengerLocomotiveSettings.Stations[stationId].TerminusStation = false;
-            }
-
-        }).Tooltip("Enabled", $"Toggle whether {stationName} should be a station stop")
-        .Width(25f);
-        builder.AddLabel(stationName, delegate (TMP_Text text)
-        {
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-        }).Width(175f);
-    }
-
-    private void BuildTerminusStationToggle(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, string stationId, string stationName)
-    {
-        builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].TerminusStation, delegate (bool on)
-        {
-            int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
-
-            logger.Information("There are currently {0} terminus stations set", numTerminusStations);
-            if (numTerminusStations >= 2 && on == true)
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
+            }).Width(175f);
+            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].StopAt, delegate (bool on)
             {
-                logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
-            }
-            else
-            {
-                logger.Information("{0} terminus station set to {1}", stationId, on);
-                passengerLocomotiveSettings.Stations[stationId].TerminusStation = on;
+                logger.Information("StopAt for {0} set to {1}", stationId, on);
+                passengerLocomotiveSettings.Stations[stationId].StopAt = on;
+
+                if (!on && passengerLocomotiveSettings.Stations[stationId].IsTerminusStation)
+                {
+                    passengerLocomotiveSettings.Stations[stationId].IsTerminusStation = false;
+                }
 
                 if (on)
                 {
-                    passengerLocomotiveSettings.Stations[stationId].include = on;
+                    passengerLocomotiveSettings.Stations[stationId].PickupPassengers = true;
                 }
-            }
-        }).Tooltip("Enabled", $"Toggle whether {stationName} should be a terminus station")
-                    .Width(25f);
-        builder.AddLabel("Terminus", delegate (TMP_Text text)
-        {
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-        }).FlexibleWidth(1f);
+
+            }).Tooltip("Enabled", $"Toggle whether {stationName} should be stopped at by the train")
+            .Width(70f);
+            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].IsTerminusStation, delegate (bool on)
+            {
+                int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.IsTerminusStation == true).Count();
+
+                logger.Information("There are currently {0} terminus stations set", numTerminusStations);
+                if (numTerminusStations >= 2 && on == true)
+                {
+                    logger.Information("You can only select 2 terminus stations. Please unselect one before selecting another");
+                }
+                else
+                {
+                    logger.Information("IsTerminusStation for {0} set to {1}", stationId, on);
+                    passengerLocomotiveSettings.Stations[stationId].IsTerminusStation = on;
+
+                    if (on)
+                    {
+                        passengerLocomotiveSettings.Stations[stationId].StopAt = true;
+                    }
+                }
+            }).Tooltip("Enabled", $"Toggle whether {stationName} should be a terminus station").Width(85f);
+            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].PickupPassengers, delegate (bool on)
+            {
+                logger.Information("Pickup Passengers for {0} set to {1}", stationId, on);
+                passengerLocomotiveSettings.Stations[stationId].PickupPassengers = on;
+
+                SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
+            }).Tooltip("Enabled", $"Toggle whether passengers for {stationName} should be picked up at the stations toggled in 'Stop At'").Width(100f);
+            builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].StationAction), delegate (int index)
+            {
+                logger.Information("Station Action for {0} set to {1}", stationId, stationActions[index].ToString());
+                passengerLocomotiveSettings.Stations[stationId].StationAction = stationActions[index];
+            }).Width(100f).Height(20f);
+        });
     }
+
+
 
     private void BuildStationActionDropDown(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, string stationId)
     {
-        StationAction[] stationActions = ((StationAction[])Enum.GetValues(typeof(StationAction)));
-        List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
 
-        builder.AddLabel("Action:", delegate (TMP_Text text)
-        {
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-        }).FlexibleWidth(1f);
-        builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].stationAction), delegate (int index)
-        {
-            logger.Information("{0} action set to {1}", stationId, stationActions[index]);
-            passengerLocomotiveSettings.Stations[stationId].stationAction = stationActions[index];
-        }).Width(100f).Height(20f);
     }
 
     private void SelectStationOnCoaches(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches)
@@ -245,7 +237,7 @@ public class PassengerSettingsWindow
         .Where(kv =>
                 stationStops
                 .Select(stp => stp.identifier)
-                .Contains(kv.Key) && kv.Value.include == true)
+                .Contains(kv.Key) && kv.Value.StopAt == true)
                 .Select(stp => stp.Key)
                 .ToList();
 

@@ -33,16 +33,16 @@ public static class MapFeatureManagerPatches
             .ToList()
             .ForEach(setting =>
             {
-                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].include == true)
+                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].StopAt == true)
                 {
                     logger.Information($"Station {formalName} is disabled, disabling station stop");
-                    setting.Stations[ps.identifier].include = false;
+                    setting.Stations[ps.identifier].StopAt = false;
                 }
 
-                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].TerminusStation == true)
+                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].IsTerminusStation == true)
                 {
                     logger.Information($"Station {formalName} is disabled, disabling Terminus station");
-                    setting.Stations[ps.identifier].TerminusStation = false;
+                    setting.Stations[ps.identifier].IsTerminusStation = false;
                 }
             });
         });

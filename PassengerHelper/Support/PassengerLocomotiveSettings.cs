@@ -93,20 +93,21 @@ public class PassengerLocomotiveSettings
         result = prime * result + PreviousStation.GetHashCode();
         result = prime * result + CurrentStation.GetHashCode();
         result = prime * result + Stations.GetHashCode();
-        
+
         return result;
     }
 }
 
 public class StationSetting
 {
-    public bool include { get; set; } = false;
-    public StationAction stationAction { get; set; } = StationAction.Normal;
-    public bool TerminusStation { get; set; } = false;
+    public bool StopAt { get; set; } = false;
+    public bool IsTerminusStation { get; set; } = false;
+    public bool PickupPassengers { get; set; } = false;
+    public StationAction StationAction { get; set; } = StationAction.Normal;
 
     public override string ToString()
     {
-        return "StationSetting[ include=" + include + ", stationAction=" + stationAction + ", TerminusStation=" + TerminusStation + "]";
+        return "StationSetting[ StopAt=" + StopAt + ", IsTerminusStation=" + IsTerminusStation + ", PickupPassengers=" + PickupPassengers + ", stationAction=" + StationAction + "]";
     }
 }
 

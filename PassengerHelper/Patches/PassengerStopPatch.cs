@@ -78,7 +78,6 @@ public static class PassengerStopPatches
             return;
         }
 
-        logger.Information("Patched Unload method");
         IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
         PassengerLocomotive? passengerLocomotive = null;
         foreach (Car engine in engines)

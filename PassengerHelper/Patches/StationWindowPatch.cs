@@ -2,6 +2,7 @@ namespace PassengerHelperPlugin.Patches;
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Core;
 using HarmonyLib;
 using Model.OpsNew;
@@ -27,7 +28,7 @@ public class StationWindowPatch
 
         if (!plugin.stationManager.groupDictionary.TryGetValue(passengerStop.identifier, out List<PassengerMarker.Group> groups))
         {
-            return true;
+            groups = new();
         }
 
         Dictionary<string, int> _transfersWaiting = new();
@@ -113,6 +114,26 @@ public class StationWindowPatch
             }
             // end existing code, being custom code
         });
+
+        if (plugin.TestMode)
+        {
+            builder.AddButton("Spawn Passengers", () =>
+            {
+                Dictionary<string, int> _waiting = typeof(PassengerStop).GetField("_waiting", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(passengerStop) as Dictionary<string, int>;
+
+                foreach (string stationId in plugin.orderedStations)
+                {
+                    if (_waiting.TryGetValue(stationId, out var stat))
+                    {
+                        stat = 2000;
+                    }
+                    else
+                    {
+                        _waiting.Add(stationId, 2000);
+                    }
+                }
+            });
+        }
 
         return false;
     }

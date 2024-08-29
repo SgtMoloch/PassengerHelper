@@ -288,13 +288,13 @@ public class PassengerLocomotive
             stayStopped = true;
         }
 
-        if (Settings.StopAtLastStation && Settings.Stations[CurrentStation.identifier].TerminusStation == true)
+        if (Settings.StopAtLastStation && Settings.Stations[CurrentStation.identifier].IsTerminusStation == true)
         {
             logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
         }
 
-        if (Settings.Stations[CurrentStation.identifier].stationAction == StationAction.Pause)
+        if (Settings.Stations[CurrentStation.identifier].StationAction == StationAction.Pause)
         {
             logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
