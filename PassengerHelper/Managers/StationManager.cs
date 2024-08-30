@@ -15,6 +15,7 @@ using RollingStock;
 using Serilog;
 using UnityEngine;
 using System.Collections;
+using GameObjects;
 
 public class StationManager
 {
@@ -470,14 +471,12 @@ public class StationManager
 
         if (settings.DirectionOfTravel != DirectionOfTravel.UNKNOWN)
         {
-            List<string> boundedOrderedStations = orderedStopAtStations.GetRange(eastTerminusIndex, westTerminusIndex + 1);
-            int indexCurrBounded = boundedOrderedStations.IndexOf(currentStopIdentifier);
-            int boundedOrderedStationsCount = boundedOrderedStations.Count;
+
             HashSet<string> expectedSelectedDestinations = new();
             if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
             {
                 // add one to range to include terminus station
-                expectedSelectedDestinations = boundedOrderedStations.GetRange(indexCurrBounded, boundedOrderedStationsCount - indexCurrBounded + 1).ToHashSet();
+                expectedSelectedDestinations = orderedStations.GetRange(currentIndex, westTerminusIndex - currentIndex + 1).ToHashSet();
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == alarkaIdentifier)
                 {
@@ -489,7 +488,7 @@ public class StationManager
             if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
             {
                 // add one to range to include current station
-                expectedSelectedDestinations = orderedStopAtStations.GetRange(0, indexCurrBounded + 1).ToHashSet();
+                expectedSelectedDestinations = orderedStopAtStations.GetRange(0, currentIndex + 1).ToHashSet();
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == almondIdentifier)
                 {
@@ -890,14 +889,10 @@ public class StationManager
                             PassengerMarker.Group transferGroup = new PassengerMarker.Group(group.Origin, group.Destination, 0, group.Boarded);
                             groups.Add(transferGroup);
                             int groupIndex = groups.Count - 1;
-                            IEnumerator unloadTransferPassengers = UnloadTransferPassengers(group, transferGroup, marker, i, coach, groups, groupIndex).GetEnumerator();
-                            while (unloadTransferPassengers.MoveNext())
-                            {
-                            }
+                            UnloadTransferPassengers(group, transferGroup, marker, i, coach, groups, groupIndex);
                             marker.Groups.RemoveAt(i);
                             i--;
                             marker.Destinations.Remove(group.Destination);
-                            coach.SetPassengerMarker(marker);
                         }
                         else
                         {
@@ -911,19 +906,16 @@ public class StationManager
         passengerLocomotive.UnloadTransferComplete = true;
     }
 
-    private IEnumerable UnloadTransferPassengers(PassengerMarker.Group group, PassengerMarker.Group transferGroup, PassengerMarker marker, int i, Car coach, List<PassengerMarker.Group> groups, int groupIndex)
+    private void UnloadTransferPassengers(PassengerMarker.Group group, PassengerMarker.Group transferGroup, PassengerMarker marker, int i, Car coach, List<PassengerMarker.Group> groups, int groupIndex)
     {
         while (group.Count > 0)
         {
-            int count = UnityEngine.Random.Range(1, 3);
-            transferGroup.Count += count;
-            group.Count -= count;
+            transferGroup.Count++;
+            group.Count--;
 
             marker.Groups[i] = group;
             coach.SetPassengerMarker(marker);
             groups[groupIndex] = transferGroup;
-
-            yield return new WaitForSeconds(UnityEngine.Random.Range(1f, 3f));
         }
     }
 
@@ -993,13 +985,14 @@ public class StationManager
                     PassengerMarker.Group transferGroup = new PassengerMarker.Group(group.Origin, group.Destination, 0, group.Boarded);
                     marker.Groups.Add(transferGroup);
                     int groupIndex = marker.Groups.Count - 1;
-                    IEnumerator transferPassengers = LoadTransferPassengers(group, transferGroup, marker, i, coach, marker.Groups, groupIndex, maxCapacity).GetEnumerator();
-                    while (transferPassengers.MoveNext()) { }
+                     
+                    LoadTransferPassengers(group, transferGroup, marker, i, coach, marker.Groups, groupIndex, maxCapacity);
                     if (group.Count <= 0)
                     {
                         groups.RemoveAt(i);
                         i--;
-                    }
+                        continue;
+                    }  
                     if (marker.TotalPassengers == maxCapacity)
                     {
                         break;
@@ -1017,19 +1010,16 @@ public class StationManager
         // if so, load all passengers for which you have selected stations
     }
 
-    private IEnumerable LoadTransferPassengers(PassengerMarker.Group group, PassengerMarker.Group transferGroup, PassengerMarker marker, int i, Car coach, List<PassengerMarker.Group> groups, int groupIndex, int maxCapacity)
+    private void LoadTransferPassengers(PassengerMarker.Group group, PassengerMarker.Group transferGroup, PassengerMarker marker, int i, Car coach, List<PassengerMarker.Group> groups, int groupIndex, int maxCapacity)
     {
         while (group.Count > 0 && marker.TotalPassengers < maxCapacity)
         {
-            int count = UnityEngine.Random.Range(1, 3);
-            transferGroup.Count += count;
-            group.Count -= count;
+            transferGroup.Count++;
+            group.Count--;
 
             marker.Groups[groupIndex] = transferGroup;
             coach.SetPassengerMarker(marker);
             groups[i] = group;
-            
-            yield return new WaitForSeconds(UnityEngine.Random.Range(1f, 3f));
         }
 
     }

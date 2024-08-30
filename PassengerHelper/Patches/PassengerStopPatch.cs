@@ -9,12 +9,29 @@ using Model.Definition;
 using Support;
 using RollingStock;
 using Serilog;
+using GameObjects;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
 {
 
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerStopPatches));
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(PassengerStop), "Awake")]
+    private static void Awake(PassengerStop __instance)
+    {
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        if (!plugin.IsEnabled)
+        {
+            return;
+        }
+
+        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.gameObject.AddComponent<PassengerHelperPassengerStop>();
+        passengerHelperPassengerStop.gameObject.SetActive(true);
+    }
+
+
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
@@ -77,12 +94,11 @@ public static class PassengerStopPatches
         {
             return;
         }
-
+        logger.Debug("Patched unload method");
         IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
         PassengerLocomotive? passengerLocomotive = null;
         foreach (Car engine in engines)
         {
-
             if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
             {
                 break;
@@ -102,20 +118,24 @@ public static class PassengerStopPatches
             return;
         }
 
-        plugin.stationManager.UnloadTransferPassengers(passengerLocomotive, passengerLocomotive.Settings);
+        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
+        if (passengerHelperPassengerStop != null)
+        {
+            passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive);
+        }
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
-    private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
+    private static void LoadCar(Car car, PassengerStop __instance)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
         if (!plugin.IsEnabled)
         {
-            return true;
+            return;
         }
 
-        logger.Information("Patched Load method");
+        logger.Debug("Patched Load method");
         IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
         PassengerLocomotive? passengerLocomotive = null;
         foreach (Car engine in engines)
@@ -130,18 +150,22 @@ public static class PassengerStopPatches
         if (passengerLocomotive == null)
         {
             logger.Information("Did not find locomotive");
-            return true;
+            return;
         }
 
         if (passengerLocomotive.Settings.Disable)
         {
             logger.Information("Passenger Helper Disabled, continuing normally");
 
-            return true;
+            return;
         }
 
-        plugin.stationManager.LoadTransferPassengers(passengerLocomotive, passengerLocomotive.Settings);
+        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
+        if (passengerHelperPassengerStop != null)
+        {
+            passengerHelperPassengerStop.LoadTransferPassengers(passengerLocomotive);
+        }
 
-        return true;
+        return;
     }
 }

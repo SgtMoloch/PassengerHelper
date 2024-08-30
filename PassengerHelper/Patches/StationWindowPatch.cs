@@ -6,6 +6,7 @@ using System.Reflection;
 using Core;
 using HarmonyLib;
 using Model.OpsNew;
+using GameObjects;
 using RollingStock;
 using Serilog;
 using UI.Builder;
@@ -18,7 +19,7 @@ public class StationWindowPatch
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(StationWindow), "BuildPassengerTab")]
-    private static bool ShouldWorkCar(UIPanelBuilder builder, PassengerStop passengerStop)
+    private static bool BuildPassengerTab(UIPanelBuilder builder, PassengerStop passengerStop)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
         if (!plugin.IsEnabled)
@@ -26,30 +27,14 @@ public class StationWindowPatch
             return true;
         }
 
-        if (!plugin.stationManager.groupDictionary.TryGetValue(passengerStop.identifier, out List<PassengerMarker.Group> groups))
-        {
-            groups = new();
-        }
-
-        Dictionary<string, int> _transfersWaiting = new();
-
-        foreach (PassengerMarker.Group group in groups)
-        {
-            if (!_transfersWaiting.TryGetValue(group.Destination, out int count))
-            {
-                count = 0;
-                _transfersWaiting.Add(group.Destination, count);
-            }
-            count += group.Count;
-            _transfersWaiting[group.Destination] = count;
-        }
-
-        logger.Information("_transfersWaiting: {0}", _transfersWaiting);
-
         // begin existing code
         builder.VScrollView(delegate (UIPanelBuilder builder)
         {
             builder.RebuildOnInterval(1f);
+
+            PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
+
+            IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._transfersWaiting;
             IReadOnlyDictionary<string, int> waiting = passengerStop.Waiting;
             IEnumerable<KeyValuePair<string, int>> enumerable = waiting.Where((KeyValuePair<string, int> pair) => pair.Value > 0);
             bool flag = waiting.Count == 0;
@@ -125,11 +110,29 @@ public class StationWindowPatch
                 {
                     if (_waiting.TryGetValue(stationId, out var stat))
                     {
-                        stat = 2000;
+                        _waiting[stationId] = UnityEngine.Random.Range(1, 100);
                     }
                     else
                     {
-                        _waiting.Add(stationId, 2000);
+                        _waiting.Add(stationId, UnityEngine.Random.Range(1, 100));
+                    }
+                }
+            });
+            builder.AddButton("Spawn Transfer Passengers", () =>
+            {
+                PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
+
+                Dictionary<string, int> _transferWaiting = passengerHelperPassengerStop._transfersWaiting;
+
+                foreach (string stationId in plugin.orderedStations)
+                {
+                    if (_transferWaiting.TryGetValue(stationId, out var stat))
+                    {
+                        _transferWaiting[stationId] = UnityEngine.Random.Range(1, 100);
+                    }
+                    else
+                    {
+                        _transferWaiting.Add(stationId, UnityEngine.Random.Range(1, 100));
                     }
                 }
             });

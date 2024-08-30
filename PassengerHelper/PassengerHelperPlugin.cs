@@ -103,7 +103,7 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
         ctx.SaveSettingsData(self.Id + serializedGroupDictionary, GetSerializableGroupDictionaryFromActual(stationManager.groupDictionary));
     }
 
-    struct NewGroup
+    public struct NewGroup
     {
         public string Origin;
 
