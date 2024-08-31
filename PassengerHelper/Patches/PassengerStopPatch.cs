@@ -89,19 +89,8 @@ public static class PassengerStopPatches
             return true;
         }
         logger.Debug("Patched unload method");
-        IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
-        PassengerLocomotive? passengerLocomotive = null;
-        foreach (Car engine in engines)
+        if (!FindLocomotive(car, plugin, out PassengerLocomotive passengerLocomotive))
         {
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
-            {
-                break;
-            }
-        }
-
-        if (passengerLocomotive == null)
-        {
-            logger.Information("Did not find locomotive");
             return true;
         }
 
@@ -162,7 +151,11 @@ public static class PassengerStopPatches
                 else
                 {
                     logger.Information("Group destination is not this station and destination is not marked on car. group: {0}", carMarkerGroup);
-                    passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive, car, carMarker, carMarkerGroup, ref i);
+                    if (!passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive, car, carMarker, carMarkerGroup, ref i))
+                    {
+                        UnloadPassengersToWait.Invoke(__instance, new object[] { carMarkerGroup.Destination, 1 });
+                        FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
+                    }
                 }
                 __result = true;
                 return false;
@@ -184,20 +177,8 @@ public static class PassengerStopPatches
         }
 
         logger.Debug("Patched Load method");
-        IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
-        PassengerLocomotive? passengerLocomotive = null;
-        foreach (Car engine in engines)
+        if (!FindLocomotive(car, plugin, out PassengerLocomotive passengerLocomotive))
         {
-
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
-            {
-                break;
-            }
-        }
-
-        if (passengerLocomotive == null)
-        {
-            logger.Information("Did not find locomotive");
             return true;
         }
 
@@ -222,5 +203,23 @@ public static class PassengerStopPatches
         }
 
         return true;
+    }
+
+    private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, out PassengerLocomotive passengerLocomotive)
+    {
+        IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
+        foreach (Car engine in engines)
+        {
+
+            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
+            {
+                return true;
+            }
+        }
+        logger.Information("Did not find locomotive");
+
+        passengerLocomotive = null;
+
+        return false;
     }
 }

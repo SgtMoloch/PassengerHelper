@@ -123,7 +123,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
         }
     }
 
-    public void UnloadTransferPassengers(PassengerLocomotive passengerLocomotive, Car coach, PassengerMarker carMarker, PassengerMarker.Group carGroup, ref int carGroupIndex)
+    public bool UnloadTransferPassengers(PassengerLocomotive passengerLocomotive, Car coach, PassengerMarker carMarker, PassengerMarker.Group carGroup, ref int carGroupIndex)
     {
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
@@ -141,10 +141,10 @@ public class PassengerHelperPassengerStop : GameBehaviour
         logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, and the following terminus stations: {3}, in the following direction: {4}",
             LocomotiveName, CurrentStopName, orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
 
-        if (orderedTerminusStations.Count != 2)
+        if (passengerLocomotive.Settings.Disable)
         {
-            logger.Information("there are not exactly 2 terminus stations, current selected terminus stations: {0}. Continuing normally", orderedTerminusStations);
-            return;
+            logger.Information("Passenger Helper is disabled, proceeding with normal unload of passengers that aren't selected on the passenger car");
+            return false;
         }
 
         // v1
@@ -202,8 +202,12 @@ public class PassengerHelperPassengerStop : GameBehaviour
                     coach.SetPassengerMarker(carMarker);
                     _stationTransferGroups[groupIndex] = stationGroup;
                 }
+
+                return true;
             }
         }
+
+        return false;
     }
     public bool LoadTransferPassengers(PassengerLocomotive passengerLocomotive, Car coach, PassengerMarker carMarker, int carCapacity)
     {
