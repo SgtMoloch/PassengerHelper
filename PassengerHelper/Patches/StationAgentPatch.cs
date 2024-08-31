@@ -10,6 +10,7 @@ using Model;
 using Core;
 using RollingStock;
 using Serilog;
+using GameObjects;
 
 [HarmonyPatch]
 public class StationAgentPatch
@@ -27,10 +28,8 @@ public class StationAgentPatch
         }
         PassengerStop _currentStop = typeof(StationAgent).GetField("passengerStop", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as PassengerStop;
 
-        if (plugin.stationManager.groupDictionary.TryGetValue(_currentStop.identifier, out var groups))
-        {
-            __result += "\n" + groups.Where(g => g.Count > 0).Sum(g => g.Count).Pluralize("transfer passenger") + " waiting";
-        }
+        PassengerHelperPassengerStop passengerHelperPassengerStop = _currentStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
+        __result += "\n" + passengerHelperPassengerStop._stationTransfersWaiting.Sum(g => g.Value).Pluralize("transfer passenger") + " waiting";
     }
 }

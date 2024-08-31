@@ -20,9 +20,7 @@ public class SettingsManager
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
     private Dictionary<string, PassengerLocomotiveSettings> _settings;
     internal IUIHelper uIHelper { get; }
-
     private PassengerHelperPlugin plugin;
-
 
     public SettingsManager(PassengerHelperPlugin plugin, Dictionary<string, PassengerLocomotiveSettings> _settings, IUIHelper uIHelper)
     {
@@ -237,7 +235,7 @@ public class PassengerSettingsWindow
         .Where(kv =>
                 stationStops
                 .Select(stp => stp.identifier)
-                .Contains(kv.Key) && kv.Value.StopAt == true)
+                .Contains(kv.Key) && kv.Value.PickupPassengers == true)
                 .Select(stp => stp.Key)
                 .ToList();
 

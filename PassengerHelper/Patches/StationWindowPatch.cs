@@ -11,6 +11,7 @@ using RollingStock;
 using Serilog;
 using UI.Builder;
 using UI.StationWindow;
+using Game;
 
 [HarmonyPatch]
 public class StationWindowPatch
@@ -34,7 +35,7 @@ public class StationWindowPatch
 
             PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
-            IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._transfersWaiting;
+            IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._stationTransfersWaiting;
             IReadOnlyDictionary<string, int> waiting = passengerStop.Waiting;
             IEnumerable<KeyValuePair<string, int>> enumerable = waiting.Where((KeyValuePair<string, int> pair) => pair.Value > 0);
             bool flag = waiting.Count == 0;
@@ -122,18 +123,16 @@ public class StationWindowPatch
             {
                 PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
-                Dictionary<string, int> _transferWaiting = passengerHelperPassengerStop._transfersWaiting;
+                List<PassengerMarker.Group> _transferWaiting = passengerHelperPassengerStop._stationTransferGroups;
 
                 foreach (string stationId in plugin.orderedStations)
                 {
-                    if (_transferWaiting.TryGetValue(stationId, out var stat))
+                    if (stationId == passengerStop.identifier)
                     {
-                        _transferWaiting[stationId] = UnityEngine.Random.Range(1, 100);
+                        continue;
                     }
-                    else
-                    {
-                        _transferWaiting.Add(stationId, UnityEngine.Random.Range(1, 100));
-                    }
+
+                    passengerHelperPassengerStop._stationTransferGroups.Add(new PassengerMarker.Group(passengerStop.identifier, stationId, UnityEngine.Random.Range(10, 100), TimeWeather.Now));
                 }
             });
         }
