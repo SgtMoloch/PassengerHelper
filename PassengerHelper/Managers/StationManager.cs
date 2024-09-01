@@ -43,10 +43,8 @@ public class StationManager
 
     public bool HandleTrainAtStation(BaseLocomotive locomotive, PassengerStop currentStop)
     {
-        logger.Information("HandleTrainAtStation");
         PassengerLocomotive passengerLocomotive = this.trainManager.GetPassengerLocomotive(locomotive);
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
-        logger.Information("HandleTrainAtStation:: got locomotive and settings: {0}", settings.ToString());
 
         if (settings.Disable)
         {
@@ -83,7 +81,7 @@ public class StationManager
             return true;
         }
 
-        if (passengerLocomotive.stationSettingsHash != settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.stationSettingsHash != settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
             if (!passengerLocomotive.TrainStatus.Continue)
             {
@@ -158,7 +156,7 @@ public class StationManager
             return true;
         }
 
-        if (settings.Stations[passengerLocomotive.CurrentStation.identifier].PassengerMode == PassengerMode.Pause)
+        if (settings.StationSettings[passengerLocomotive.CurrentStation.identifier].PauseAtStation)
         {
             logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStation.DisplayName);
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
@@ -167,7 +165,7 @@ public class StationManager
             return true;
         }
 
-        if (settings.StopAtLastStation && settings.Stations[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
+        if (settings.StopAtTerminusStation && settings.StationSettings[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
         {
             logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStation.DisplayName);
             passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
@@ -226,8 +224,8 @@ public class StationManager
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
-        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.StopAt == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
 
         logger.Information("Running station procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
@@ -290,7 +288,7 @@ public class StationManager
             }
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return nonTerminusStationProcedureRetVal;
@@ -323,7 +321,7 @@ public class StationManager
                 logger.Information("Setting Previous stop to the current stop (east terminus)");
             }
 
-            if ((passengerLocomotive.TrainStatus.AtTerminusStationWest || passengerLocomotive.TrainStatus.AtTerminusStationEast) && settings.WaitForFullPassengersLastStation)
+            if ((passengerLocomotive.TrainStatus.AtTerminusStationWest || passengerLocomotive.TrainStatus.AtTerminusStationEast) && settings.WaitForFullPassengersTerminusStation)
             {
                 logger.Information("Waiting For full Passengers at terminus.");
 
@@ -365,7 +363,7 @@ public class StationManager
 
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return terminusStationProcedureRetVal;
@@ -493,13 +491,13 @@ public class StationManager
             logger.Information("Expected selected stations are: {0}", expectedSelectedDestinations);
 
             // transfer station check
-            int numTransferStations = settings.Stations.Where(s => s.Value.PassengerMode == PassengerMode.Transfer && s.Value.StopAt).Count();
+            int numTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Count();
             bool transferStationSelected = numTransferStations > 0;
 
             if (transferStationSelected)
             {
                 logger.Information("Transfer station selected, checking direction and modifying expected selected stations");
-                List<string> pickUpPassengerStations = settings.Stations.Where(s => s.Value.PickupPassengers).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+                List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
                 int westTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[1]);
                 int eastTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[0]);
                 int currentIndex_Pickup = pickUpPassengerStations.IndexOf(currentStopIdentifier);
@@ -550,7 +548,7 @@ public class StationManager
             bool atAlarka = currentStopIdentifier == alarkaIdentifier && !passengerLocomotive.TrainStatus.AtAlarka;
             bool atCochran = currentStopIdentifier == cochranIdentifier && !passengerLocomotive.TrainStatus.AtCochran && !orderedStopAtStations.Contains(alarkaIdentifier);
 
-            if (!settings.LoopMode)
+            if (settings.StationSettings[currentStopIdentifier].PassengerMode != PassengerMode.Loop)
             {
                 if (atAlarka)
                 {
@@ -584,7 +582,7 @@ public class StationManager
     private bool RunTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedStopAtStations, List<string> orderedTerminusStations, DirectionOfTravel directionOfTravel)
     {
         // we have reached the last station
-        if (settings.StopAtLastStation)
+        if (settings.StopAtTerminusStation)
         {
             logger.Information("Pausing at last station due to setting");
             passengerLocomotive.PostNotice("ai-stop", $"Paused at last station stop {Hyperlink.To(CurrentStop)}.");
@@ -598,7 +596,7 @@ public class StationManager
         logger.Information("Re-selecting station stops based on settings.");
 
         // transfer station check
-        int numTransferStations = settings.Stations.Where(s => s.Value.PassengerMode == PassengerMode.Transfer && s.Value.StopAt).Count();
+        int numTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Count();
         bool transferStationSelected = numTransferStations > 0;
 
         string currentStopIdentifier = CurrentStop.identifier;
@@ -611,7 +609,7 @@ public class StationManager
         if (transferStationSelected)
         {
             logger.Information("Transfer station selected, checking direction and modifying expected selected stations");
-            List<string> pickUpPassengerStations = settings.Stations.Where(s => s.Value.PickupPassengers).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+            List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
             int westTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[1]);
             int eastTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[0]);
 
@@ -682,7 +680,7 @@ public class StationManager
                 {
                     logger.Information("Previous stop was inside terminus bounds, therefore proceed with normal loop/point to point logic");
                     settings.DirectionOfTravel = directionOfTravel;
-                    TerminusStationReverseDirectionProcedure(passengerLocomotive, settings);
+                    TerminusStationReverseDirectionProcedure(passengerLocomotive, settings, currentStopIdentifier);
                 }
                 else
                 {
@@ -705,18 +703,18 @@ public class StationManager
                 settings.DirectionOfTravel = directionOfTravel;
                 settingsManager.SaveSettings();
 
-                TerminusStationReverseDirectionProcedure(passengerLocomotive, settings);
+                TerminusStationReverseDirectionProcedure(passengerLocomotive, settings, currentStopIdentifier);
             }
         }
 
         return false;
     }
 
-    private void TerminusStationReverseDirectionProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
+    private void TerminusStationReverseDirectionProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, string currentStopIdentifier)
     {
         logger.Information("Checking if in loop mode");
         // if we don't want to reverse, return to original logic
-        if (settings.LoopMode)
+        if (settings.StationSettings[currentStopIdentifier].PassengerMode == PassengerMode.Loop)
         {
             logger.Information("Loop Mode is set to true. Continuing in current direction.");
             return;
@@ -764,7 +762,7 @@ public class StationManager
                 logger.Information("train is going wrong way from east terminus, revering direction based on loop/point to point setting");
                 logger.Information("Checking if in loop mode");
 
-                if (settings.LoopMode)
+                if (settings.StationSettings[CurrentStop.identifier].PassengerMode == PassengerMode.Loop)
                 {
                     logger.Information("Loop Mode is set to true. Continuing in current direction.");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Continuing direction to loop back to East Terminus.\"");
@@ -790,7 +788,7 @@ public class StationManager
                 logger.Information("train is going wrong way from west terminus, revering direction based on loop/point to point setting");
                 logger.Information("Checking if in loop mode");
 
-                if (settings.LoopMode)
+                if (settings.StationSettings[CurrentStop.identifier].PassengerMode == PassengerMode.Loop)
                 {
                     logger.Information("Loop Mode is set to true. Continuing in current direction.");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Continuing direction to loop back to West Terminus.\"");

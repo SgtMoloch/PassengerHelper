@@ -60,7 +60,6 @@ public static class AutoEngineerPassengerStopperPatches
 
         if (_locomotive.VelocityMphAbs > 1f)
         {
-            logger.Information("_UpdateFor");
             PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
 
             if (passengerLocomotive.TrainStatus.ReadyToDepart)

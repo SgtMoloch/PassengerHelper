@@ -1,9 +1,37 @@
 ﻿namespace PassengerHelperPlugin.Support;
 
+using System;
 using System.Collections.Generic;
+using Serilog;
+using UI.Builder;
 
 public class PassengerLocomotiveSettings
 {
+    [NonSerialized]
+    DirectionObserver dotLockedObserver = new DirectionObserver();
+
+    [NonSerialized]
+    DOTReporter dotLockedReporter;
+
+    [NonSerialized]
+    Action<bool> onChange;
+    public PassengerLocomotiveSettings()
+    {
+        onChange += (value) => dotLockedObserver.TrackDOT(value);
+    }
+
+    internal IDisposable getDOTLockedObserver(UIPanelBuilder builder)
+    {
+        this.dotLockedReporter = new DOTReporter(builder);
+        return dotLockedObserver.Subscribe(this.dotLockedReporter);
+    }
+
+    internal void removeDotLockedObserver()
+    {
+        dotLockedReporter.Unsubscribe();
+        dotLockedObserver.EndTrackDOT();
+    }
+
     public bool StopForDiesel { get; set; } = false;
     public float DieselLevel { get; set; } = 0.10f;
     public bool StopForCoal { get; set; } = false;
@@ -11,20 +39,30 @@ public class PassengerLocomotiveSettings
     public bool StopForWater { get; set; } = false;
     public float WaterLevel { get; set; } = 0.10f;
     public bool StopAtNextStation { get; set; } = false;
-    public bool StopAtLastStation { get; set; } = false;
-    public bool PointToPointMode { get; set; } = true;
-    public bool LoopMode { get; set; } = false;
-    public bool WaitForFullPassengersLastStation { get; set; } = false;
+    public bool StopAtTerminusStation { get; set; } = false;
+    public bool WaitForFullPassengersTerminusStation { get; set; } = false;
     public bool Disable { get; set; } = false;
     public DirectionOfTravel DirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
-    public bool DoTLocked { get; set; } = false;
+    private bool _dotLocked = false;
+    public bool DoTLocked
+    {
+        get { return _dotLocked; }
+        set
+        {
+            _dotLocked = value;
+            if (onChange != null)
+            {
+                onChange(value);
+            }
+        }
+    }
     public bool gameLoadFlag { get; set; } = false;
 
     // settings to save current status of train for next game load
     public TrainStatus TrainStatus { get; set; } = new TrainStatus();
 
 
-    public SortedDictionary<string, StationSetting> Stations { get; } = new() {
+    public SortedDictionary<string, StationSetting> StationSettings { get; } = new() {
             { "sylva", new StationSetting() },
             { "dillsboro", new StationSetting() },
             { "wilmot", new StationSetting() },
@@ -56,12 +94,9 @@ public class PassengerLocomotiveSettings
         result = prime * result + WaterLevel.GetHashCode();
 
         result = prime * result + StopAtNextStation.GetHashCode();
-        result = prime * result + StopAtLastStation.GetHashCode();
+        result = prime * result + StopAtTerminusStation.GetHashCode();
 
-        result = prime * result + PointToPointMode.GetHashCode();
-        result = prime * result + LoopMode.GetHashCode();
-
-        result = prime * result + WaitForFullPassengersLastStation.GetHashCode();
+        result = prime * result + WaitForFullPassengersTerminusStation.GetHashCode();
 
         result = prime * result + Disable.GetHashCode();
 
@@ -72,7 +107,7 @@ public class PassengerLocomotiveSettings
 
         result = prime * result + TrainStatus.PreviousStation.GetHashCode();
         result = prime * result + TrainStatus.CurrentStation.GetHashCode();
-        result = prime * result + Stations.GetHashCode();
+        result = prime * result + StationSettings.GetHashCode();
 
         return result;
     }
@@ -80,24 +115,23 @@ public class PassengerLocomotiveSettings
 
 public class StationSetting
 {
-    public bool StopAt { get; set; } = false;
+    public bool StopAtStation { get; set; } = false;
     public bool TerminusStation { get; set; } = false;
-    public bool PickupPassengers { get; set; } = false;
-    public bool Pause { get; set; } = false;
-    public bool Transfer { get; set; } = false;
-    public PassengerMode PassengerMode { get; set; } = PassengerMode.Normal;
+    public bool PickupPassengersForStation { get; set; } = false;
+    public bool PauseAtStation { get; set; } = false;
+    public bool TransferStation { get; set; } = false;
+    public PassengerMode PassengerMode { get; set; } = PassengerMode.PointToPoint;
 
     public override string ToString()
     {
-        return "StationSetting[ StopAt=" + StopAt + ", TerminusStation=" + TerminusStation + ", PickupPassengers=" + PickupPassengers + ", Pause=" + Pause + ", Transfer=" + Transfer + "PassengerMode=" + PassengerMode + "]";
+        return "StationSetting[ StopAtStation=" + StopAtStation + ", TerminusStation=" + TerminusStation + ", PickupPassengersForStation=" + PickupPassengersForStation + ", PauseAtStation=" + PauseAtStation + ", TransferStation=" + TransferStation + "PassengerMode=" + PassengerMode + "]";
     }
 }
 
 public enum PassengerMode
 {
-    Normal,
-    Pause,
-    Transfer
+    PointToPoint,
+    Loop
 }
 
 public enum DirectionOfTravel
@@ -157,5 +191,87 @@ public class TrainStatus
         ReadyToDepart = false;
         Departed = false;
         Continue = false;
+    }
+}
+
+class DirectionObserver : IObservable<bool>
+{
+    private List<IObserver<bool>> observers;
+    public DirectionObserver()
+    {
+        observers = new();
+    }
+    public IDisposable Subscribe(IObserver<bool> observer)
+    {
+        if (!observers.Contains(observer))
+            observers.Add(observer);
+        return new Unsubscribe(observers, observer);
+    }
+
+    private class Unsubscribe : IDisposable
+    {
+        private List<IObserver<bool>> _observers;
+        private IObserver<bool> _observer;
+
+        public Unsubscribe(List<IObserver<bool>> observers, IObserver<bool> observer)
+        {
+            this._observers = observers;
+            this._observer = observer;
+        }
+
+        public void Dispose()
+        {
+            if (_observer != null && _observers.Contains(_observer))
+                _observers.Remove(_observer);
+        }
+    }
+    public void TrackDOT(bool dot)
+    {
+        foreach (var observer in observers)
+        {
+            observer.OnNext(dot);
+        }
+    }
+
+    public void EndTrackDOT()
+    {
+        foreach (var observer in observers.ToArray())
+            if (observers.Contains(observer))
+                observer.OnCompleted();
+
+        observers.Clear();
+    }
+}
+
+class DOTReporter : IObserver<bool>
+{
+    private IDisposable unsubscribe;
+    private UIPanelBuilder builder;
+    public DOTReporter(UIPanelBuilder builder)
+    {
+        this.builder = builder;
+    }
+    public virtual void OnCompleted()
+    {
+        throw new NotImplementedException();
+    }
+
+    public virtual void Subscribe(IObservable<bool> provider)
+    {
+        if (provider != null)
+            unsubscribe = provider.Subscribe(this);
+    }
+    public virtual void OnError(Exception error)
+    {
+    }
+
+    public virtual void OnNext(bool value)
+    {
+        builder.Rebuild();
+    }
+
+    public virtual void Unsubscribe()
+    {
+        unsubscribe.Dispose();
     }
 }

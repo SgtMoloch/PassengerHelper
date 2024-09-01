@@ -131,9 +131,9 @@ public class PassengerHelperPassengerStop : GameBehaviour
         PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
-        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.StopAt == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> pickUpPassengerStations = settings.Stations.Where(s => s.Value.PickupPassengers).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
         logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, and the following terminus stations: {3}, in the following direction: {4}",
             LocomotiveName, CurrentStopName, orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
@@ -146,7 +146,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
         // v1
         // does train consider this station a transfer station?
-        if (settings.Stations[CurrentStopIdentifier].PassengerMode == PassengerMode.Transfer)
+        if (settings.StationSettings[CurrentStopIdentifier].TransferStation)
         {
 
             logger.Information("Train has this station as a transfer station");
@@ -214,9 +214,9 @@ public class PassengerHelperPassengerStop : GameBehaviour
         string CurrentStopIdentifier = this.passengerStop.identifier;
         string CurrentStopName = this.passengerStop.DisplayName;
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
-        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.StopAt == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> pickUpPassengerStations = settings.Stations.Where(s => s.Value.PickupPassengers == true).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation == true).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
         int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
         int indexWestTerminus = orderedSelectedStations.IndexOf((orderedTerminusStations[1]));

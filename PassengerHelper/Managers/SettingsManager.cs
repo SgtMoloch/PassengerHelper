@@ -12,8 +12,11 @@ using RollingStock;
 using Serilog;
 using Support;
 using TMPro;
+using UI;
 using UI.Builder;
 using UI.Common;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class SettingsManager
 {
@@ -71,7 +74,7 @@ public class SettingsManager
 
     private Window CreateSettingsWindow(string locomotiveDisplayName)
     {
-        Window passengerSettingsWindow = uIHelper.CreateWindow(550, 250, Window.Position.Center);
+        Window passengerSettingsWindow = uIHelper.CreateWindow(700, 250, Window.Position.Center);
         passengerSettingsWindow.OnShownDidChange += (s) =>
         {
             if (!s)
@@ -90,8 +93,16 @@ public class SettingsManager
         string locomotiveDisplayName = _locomotive.DisplayName;
 
         Window passengerSettingsWindow = CreateSettingsWindow(locomotiveDisplayName);
-
         PassengerLocomotiveSettings passengerLocomotiveSettings = GetSettings(locomotiveDisplayName);
+
+        passengerSettingsWindow.OnShownDidChange += (s) =>
+        {
+            if (!s)
+            {
+                passengerLocomotiveSettings.removeDotLockedObserver();
+            }
+        };
+
 
         PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.plugin.stationManager);
 
@@ -152,9 +163,9 @@ public class PassengerSettingsWindow
             builder.AddLabel("<b>Station</b>").Width(175f);
             builder.AddLabel("<b>Stop At</b>").Width(70f);
             builder.AddLabel("<b>Terminus</b>").Width(85f);
-            builder.AddLabel("<b>Pickup For</b>").Width(100f);
+            builder.AddLabel("<b>Pickup Pax</b>").Width(100f);
             builder.AddLabel("<b>Pause</b>").Width(60f);
-            builder.AddLabel("<b>Transfer</b>").Width(100f);
+            builder.AddLabel("<b>Transfer</b>").Width(85f);
             builder.AddLabel("<b>Mode</b>").Width(100f);
         });
         stationStops.ForEach(ps =>
@@ -170,8 +181,8 @@ public class PassengerSettingsWindow
 
     private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
     {
-        PassengerMode[] stationActions = ((PassengerMode[])Enum.GetValues(typeof(PassengerMode)));
-        List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
+        PassengerMode[] passengerModes = ((PassengerMode[])Enum.GetValues(typeof(PassengerMode)));
+        List<string> passengerModList = passengerModes.Select(s => s.ToString()).ToList();
         builder.HStack(delegate (UIPanelBuilder builder)
         {
             builder.AddLabel(stationName, delegate (TMP_Text text)
@@ -179,26 +190,29 @@ public class PassengerSettingsWindow
                 text.textWrappingMode = TextWrappingModes.NoWrap;
                 text.overflowMode = TextOverflowModes.Ellipsis;
             }).Width(175f);
-            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].StopAt, delegate (bool on)
+            builder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].StopAtStation, delegate (bool on)
             {
                 logger.Information("StopAt for {0} set to {1}", stationId, on);
-                passengerLocomotiveSettings.Stations[stationId].StopAt = on;
+                passengerLocomotiveSettings.StationSettings[stationId].StopAtStation = on;
 
-                if (!on && passengerLocomotiveSettings.Stations[stationId].TerminusStation)
+                if (!on)
                 {
-                    passengerLocomotiveSettings.Stations[stationId].TerminusStation = false;
+                    passengerLocomotiveSettings.StationSettings[stationId].TerminusStation = false;
+                    passengerLocomotiveSettings.StationSettings[stationId].TransferStation = false;
                 }
 
                 if (on)
                 {
-                    passengerLocomotiveSettings.Stations[stationId].PickupPassengers = true;
+                    passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = true;
                 }
-
+                SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
+                builder.Rebuild();
             }).Tooltip("Enabled", $"Toggle whether {stationName} should be stopped at by the train")
             .Width(70f);
-            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].TerminusStation, delegate (bool on)
+
+            RectTransform terminusToggle = builder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].TerminusStation, delegate (bool on)
             {
-                int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
+                int numTerminusStations = passengerLocomotiveSettings.StationSettings.Values.Where(s => s.TerminusStation == true).Count();
 
                 logger.Information("There are currently {0} terminus stations set", numTerminusStations);
                 if (numTerminusStations >= 2 && on == true)
@@ -208,43 +222,66 @@ public class PassengerSettingsWindow
                 else
                 {
                     logger.Information("IsTerminusStation for {0} set to {1}", stationId, on);
-                    passengerLocomotiveSettings.Stations[stationId].TerminusStation = on;
+                    passengerLocomotiveSettings.StationSettings[stationId].TerminusStation = on;
 
                     if (on)
                     {
-                        passengerLocomotiveSettings.Stations[stationId].StopAt = true;
+                        passengerLocomotiveSettings.StationSettings[stationId].StopAtStation = true;
+                        SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
                     }
+                    else
+                    {
+                        passengerLocomotiveSettings.StationSettings[stationId].TransferStation = false;
+                    }
+                    builder.Rebuild();
                 }
             }).Tooltip("Enabled", $"Toggle whether {stationName} should be a terminus station").Width(85f);
-            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].PickupPassengers, delegate (bool on)
+
+            terminusToggle.GetComponentInChildren<Toggle>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation;
+
+            builder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation, delegate (bool on)
             {
                 logger.Information("Pickup Passengers for {0} set to {1}", stationId, on);
-                passengerLocomotiveSettings.Stations[stationId].PickupPassengers = on;
+                passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = on;
 
                 SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
             }).Tooltip("Enabled", $"Toggle whether passengers for {stationName} should be picked up at the stations toggled in 'Stop At'").Width(100f);
-            builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].PassengerMode), delegate (int index)
+
+            RectTransform pauseAtStationToggle = builder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].PauseAtStation, delegate (bool on)
             {
-                logger.Information("Station Action for {0} set to {1}", stationId, stationActions[index].ToString());
-                passengerLocomotiveSettings.Stations[stationId].PassengerMode = stationActions[index];
-            }).Width(100f).Height(20f);
+                logger.Information("Pause for {0} set to {1}", stationId, on);
+                passengerLocomotiveSettings.StationSettings[stationId].PauseAtStation = on;
+            }).Tooltip("Enabled", $"Toggle whether to pause at {stationName}")
+            .Width(60f);
+
+            pauseAtStationToggle.GetComponentInChildren<Toggle>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation;
+
+            RectTransform transferStationToggle = builder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].TransferStation, delegate (bool on)
+            {
+                logger.Information("Transfer for {0} set to {1}", stationId, on);
+                passengerLocomotiveSettings.StationSettings[stationId].TransferStation = on;
+            }).Tooltip("Enabled", $"Toggle whether to pause at {stationName}")
+            .Width(60f);
+
+            transferStationToggle.GetComponentInChildren<Toggle>().interactable = (passengerLocomotiveSettings.StationSettings[stationId].TerminusStation || stationId == "alarkajct");
+
+            RectTransform passengerModeDropDown = builder.AddDropdown(passengerModList, ((int)passengerLocomotiveSettings.StationSettings[stationId].PassengerMode), delegate (int index)
+            {
+                logger.Information("Passenger Mode for {0} set to {1}", stationId, passengerModes[index].ToString());
+                passengerLocomotiveSettings.StationSettings[stationId].PassengerMode = passengerModes[index];
+            }).Width(115f).Height(20f);
+
+            passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation;
         });
-    }
-
-
-
-    private void BuildStationActionDropDown(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, string stationId)
-    {
-
     }
 
     private void SelectStationOnCoaches(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches)
     {
-        List<string> passengerStopsToSelect = passengerLocomotiveSettings.Stations
+        List<string> passengerStopsToSelect = passengerLocomotiveSettings.StationSettings
         .Where(kv =>
                 stationStops
                 .Select(stp => stp.identifier)
-                .Contains(kv.Key) && kv.Value.PickupPassengers == true)
+                .Contains(kv.Key) && kv.Value.PickupPassengersForStation == true)
                 .Select(stp => stp.Key)
                 .ToList();
 
@@ -258,11 +295,7 @@ public class PassengerSettingsWindow
 
     private void PopulateSettings(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings)
     {
-        builder.AddLabel("Settings:", delegate (TMP_Text text)
-        {
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-        }).FlexibleWidth(1f);
+        builder.AddSection("Settings:");
         builder.HStack(delegate (UIPanelBuilder builder)
         {
             builder.AddToggle(() => passengerLocomotiveSettings.Disable, delegate (bool on)
@@ -404,10 +437,10 @@ public class PassengerSettingsWindow
         });
         builder.HStack(delegate (UIPanelBuilder builder)
             {
-                builder.AddToggle(() => passengerLocomotiveSettings.StopAtLastStation, delegate (bool on)
+                builder.AddToggle(() => passengerLocomotiveSettings.StopAtTerminusStation, delegate (bool on)
                 {
                     logger.Information("Pause at terminus station set to {0}", on);
-                    passengerLocomotiveSettings.StopAtLastStation = on;
+                    passengerLocomotiveSettings.StopAtTerminusStation = on;
                 }).Tooltip("Enabled", $"Toggle whether the AI should pause at the terminus station")
                 .Width(25f);
                 builder.AddLabel("Pause At Terminus Station", delegate (TMP_Text text)
@@ -418,10 +451,10 @@ public class PassengerSettingsWindow
             });
         builder.HStack(delegate (UIPanelBuilder builder)
         {
-            builder.AddToggle(() => passengerLocomotiveSettings.WaitForFullPassengersLastStation, delegate (bool on)
+            builder.AddToggle(() => passengerLocomotiveSettings.WaitForFullPassengersTerminusStation, delegate (bool on)
             {
                 logger.Information("Wait for full passengers at terminus station set to {0}", on);
-                passengerLocomotiveSettings.WaitForFullPassengersLastStation = on;
+                passengerLocomotiveSettings.WaitForFullPassengersTerminusStation = on;
             }).Tooltip("Enabled", $"Toggle whether the AI should wait for a full passenger load at the terminus station before continuing on")
             .Width(25f);
             builder.AddLabel("Wait For Full Load at Terminus Station", delegate (TMP_Text text)
@@ -441,52 +474,32 @@ public class PassengerSettingsWindow
                                     "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. " +
                                     "This is more of an edge case than anything else.";
 
-            builder.AddField("Direction of Travel", builder.AddSliderQuantized(() => ((int)passengerLocomotiveSettings.DirectionOfTravel), () => passengerLocomotiveSettings.DirectionOfTravel.ToString(), delegate (float value)
-            {
-                int newValue = (int)value;
-                if (!passengerLocomotiveSettings.DoTLocked)
+            RectTransform dotSlider = builder.AddSliderQuantized(() => ((int)passengerLocomotiveSettings.DirectionOfTravel), () => passengerLocomotiveSettings.DirectionOfTravel.ToString(), delegate (float value)
                 {
+                    int newValue = (int)value;
+
                     DirectionOfTravel newDirectionOfTravel = (DirectionOfTravel)Enum.GetValues(typeof(DirectionOfTravel)).GetValue(newValue);
                     logger.Information("Set direction of travel to: {0}", newDirectionOfTravel.ToString());
                     passengerLocomotiveSettings.DirectionOfTravel = newDirectionOfTravel;
-                }
 
-            }, 1f, 0, 2).Width(150f)).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
+
+                }, 1f, 0, 2).Width(150f);
+            dotSlider.GetComponentInChildren<CarControlSlider>().interactable = !passengerLocomotiveSettings.DoTLocked;
+            builder.AddObserver(passengerLocomotiveSettings.getDOTLockedObserver(builder));
+
+            builder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
             builder.Spacer().FlexibleWidth(1f);
         });
 
         builder.AddExpandingVerticalSpacer();
-        builder.AddLabel("Passenger Train Mode:");
         builder.HStack(delegate (UIPanelBuilder builder)
             {
-                builder.AddToggle(() => passengerLocomotiveSettings.LoopMode, delegate (bool on)
+                builder.Spacer().FlexibleWidth(1f);
+                builder.AddButton("test dotlocked", () =>
                 {
-                    logger.Information("Setting Loop mode to: {0} and Point to Point Mode to", on, !on);
-                    passengerLocomotiveSettings.LoopMode = on;
-                    passengerLocomotiveSettings.PointToPointMode = !on;
-                }).Tooltip("Enabled", $"Toggle whether the AI should continue forward at the terminus station. Checking the box assumes that you are using loops of some kind for your passenger trains. If you are NOT using loops, this setting should NOT be checked. The two settings are mutually exclusive with one another.")
-                .Width(25f);
-                builder.AddLabel("Loop Mode", delegate (TMP_Text text)
-                {
-                    text.textWrappingMode = TextWrappingModes.NoWrap;
-                    text.overflowMode = TextOverflowModes.Ellipsis;
-                }).FlexibleWidth(1f);
+                    passengerLocomotiveSettings.DoTLocked = !passengerLocomotiveSettings.DoTLocked;
+                });
             });
-        builder.HStack(delegate (UIPanelBuilder builder)
-        {
-            builder.AddToggle(() => passengerLocomotiveSettings.PointToPointMode, delegate (bool on)
-            {
-                logger.Information("Setting Point to Point mode to: {0} and Loop Mode to", on, !on);
-                passengerLocomotiveSettings.PointToPointMode = on;
-                passengerLocomotiveSettings.LoopMode = !on;
-            }).Tooltip("Enabled", $"Toggle whether the AI should continue reverse at the terminus station. Checking the box assumes that you are not using loops for your passenger trains, as such the train will reverse direction at the terminus station. If you want to use loops, this setting should NOT be checked. The two settings are mutually exclusive with one another.")
-            .Width(25f);
-            builder.AddLabel("Point to Point Mode", delegate (TMP_Text text)
-            {
-                text.textWrappingMode = TextWrappingModes.NoWrap;
-                text.overflowMode = TextOverflowModes.Ellipsis;
-            }).FlexibleWidth(1f);
-        });
     }
 
     private void AddSaveButton(UIPanelBuilder builder, Window passengerSettingsWindow)
@@ -502,6 +515,8 @@ public class PassengerSettingsWindow
                     passengerSettingsWindow.CloseWindow();
                 });
             });
+            
         });
     }
 }
+
