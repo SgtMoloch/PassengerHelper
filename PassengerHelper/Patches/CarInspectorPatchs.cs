@@ -160,11 +160,11 @@ public static class CarInspectorPatches
                 }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
                 PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
-                if (passengerLocomotive.CurrentlyStopped)
+                if (passengerLocomotive.TrainStatus.CurrentlyStopped)
                 {
                     builder.AddButton("Continue", delegate
                     {
-                        passengerLocomotive.Continue = true;
+                        passengerLocomotive.TrainStatus.Continue = true;
                     }).Tooltip("Resume travel", "Resume travel");
                 }
             });

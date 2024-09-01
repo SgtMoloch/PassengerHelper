@@ -39,10 +39,10 @@ public static class MapFeatureManagerPatches
                     setting.Stations[ps.identifier].StopAt = false;
                 }
 
-                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].IsTerminusStation == true)
+                if (ps.ProgressionDisabled && setting.Stations[ps.identifier].TerminusStation == true)
                 {
                     logger.Information($"Station {formalName} is disabled, disabling Terminus station");
-                    setting.Stations[ps.identifier].IsTerminusStation = false;
+                    setting.Stations[ps.identifier].TerminusStation = false;
                 }
             });
         });

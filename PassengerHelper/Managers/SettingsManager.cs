@@ -35,6 +35,13 @@ public class SettingsManager
         plugin.SaveSettings(this._settings);
     }
 
+    public void SaveSettings(string locomotiveName, TrainStatus trainStatus)
+    {
+        _settings[locomotiveName].TrainStatus = trainStatus;
+        logger.Information("Saving settings");
+        plugin.SaveSettings(this._settings);
+    }
+
     public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
     {
         logger.Information("Getting Passenger Settings for {0}", locomotiveDisplayName);
@@ -146,7 +153,9 @@ public class PassengerSettingsWindow
             builder.AddLabel("<b>Stop At</b>").Width(70f);
             builder.AddLabel("<b>Terminus</b>").Width(85f);
             builder.AddLabel("<b>Pickup For</b>").Width(100f);
-            builder.AddLabel("<b>Action</b>").Width(100f);
+            builder.AddLabel("<b>Pause</b>").Width(60f);
+            builder.AddLabel("<b>Transfer</b>").Width(100f);
+            builder.AddLabel("<b>Mode</b>").Width(100f);
         });
         stationStops.ForEach(ps =>
         {
@@ -161,7 +170,7 @@ public class PassengerSettingsWindow
 
     private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
     {
-        StationAction[] stationActions = ((StationAction[])Enum.GetValues(typeof(StationAction)));
+        PassengerMode[] stationActions = ((PassengerMode[])Enum.GetValues(typeof(PassengerMode)));
         List<string> stationActionsList = stationActions.Select(s => s.ToString()).ToList();
         builder.HStack(delegate (UIPanelBuilder builder)
         {
@@ -175,9 +184,9 @@ public class PassengerSettingsWindow
                 logger.Information("StopAt for {0} set to {1}", stationId, on);
                 passengerLocomotiveSettings.Stations[stationId].StopAt = on;
 
-                if (!on && passengerLocomotiveSettings.Stations[stationId].IsTerminusStation)
+                if (!on && passengerLocomotiveSettings.Stations[stationId].TerminusStation)
                 {
-                    passengerLocomotiveSettings.Stations[stationId].IsTerminusStation = false;
+                    passengerLocomotiveSettings.Stations[stationId].TerminusStation = false;
                 }
 
                 if (on)
@@ -187,9 +196,9 @@ public class PassengerSettingsWindow
 
             }).Tooltip("Enabled", $"Toggle whether {stationName} should be stopped at by the train")
             .Width(70f);
-            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].IsTerminusStation, delegate (bool on)
+            builder.AddToggle(() => passengerLocomotiveSettings.Stations[stationId].TerminusStation, delegate (bool on)
             {
-                int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.IsTerminusStation == true).Count();
+                int numTerminusStations = passengerLocomotiveSettings.Stations.Values.Where(s => s.TerminusStation == true).Count();
 
                 logger.Information("There are currently {0} terminus stations set", numTerminusStations);
                 if (numTerminusStations >= 2 && on == true)
@@ -199,7 +208,7 @@ public class PassengerSettingsWindow
                 else
                 {
                     logger.Information("IsTerminusStation for {0} set to {1}", stationId, on);
-                    passengerLocomotiveSettings.Stations[stationId].IsTerminusStation = on;
+                    passengerLocomotiveSettings.Stations[stationId].TerminusStation = on;
 
                     if (on)
                     {
@@ -214,10 +223,10 @@ public class PassengerSettingsWindow
 
                 SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
             }).Tooltip("Enabled", $"Toggle whether passengers for {stationName} should be picked up at the stations toggled in 'Stop At'").Width(100f);
-            builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].StationAction), delegate (int index)
+            builder.AddDropdown(stationActionsList, ((int)passengerLocomotiveSettings.Stations[stationId].PassengerMode), delegate (int index)
             {
                 logger.Information("Station Action for {0} set to {1}", stationId, stationActions[index].ToString());
-                passengerLocomotiveSettings.Stations[stationId].StationAction = stationActions[index];
+                passengerLocomotiveSettings.Stations[stationId].PassengerMode = stationActions[index];
             }).Width(100f).Height(20f);
         });
     }

@@ -43,8 +43,10 @@ public class StationManager
 
     public bool HandleTrainAtStation(BaseLocomotive locomotive, PassengerStop currentStop)
     {
+        logger.Information("HandleTrainAtStation");
         PassengerLocomotive passengerLocomotive = this.trainManager.GetPassengerLocomotive(locomotive);
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
+        logger.Information("HandleTrainAtStation:: got locomotive and settings: {0}", settings.ToString());
 
         if (settings.Disable)
         {
@@ -57,24 +59,14 @@ public class StationManager
         {
             logger.Information("Train {0} has arrived at station {1}", locomotive.DisplayName, currentStop.DisplayName);
             passengerLocomotive.CurrentStation = currentStop;
-            // can set the continue flag back to false, as we have reached the next station
-            passengerLocomotive.Continue = false;
-            passengerLocomotive.Arrived = true;
-            passengerLocomotive.ReadyToDepart = false;
-            passengerLocomotive.Departed = false;
-            passengerLocomotive.settingsHash = 0;
-            passengerLocomotive.stationSettingsHash = 0;
-            passengerLocomotive.AtTerminusStationWest = false;
-            passengerLocomotive.AtTerminusStationEast = false;
-            passengerLocomotive.CurrentlyStopped = false;
-            passengerLocomotive.NonTerminusStationProcedureComplete = false;
-            passengerLocomotive.TerminusStationProcedureComplete = false;
-            passengerLocomotive.UnloadTransferComplete = false;
-            passengerLocomotive.LoadTransferComplete = false;
+            passengerLocomotive.ResetSettingsHash();
+            passengerLocomotive.ResetStatusFlags();
+
+            passengerLocomotive.TrainStatus.Arrived = true;
         }
 
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
-        if (passengerLocomotive.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
             return false;
         }
@@ -93,7 +85,7 @@ public class StationManager
 
         if (passengerLocomotive.stationSettingsHash != settings.Stations.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
-            if (!passengerLocomotive.Continue)
+            if (!passengerLocomotive.TrainStatus.Continue)
             {
                 logger.Information("Station settings have changed, running Station Procedure");
                 if (RunStationProcedure(passengerLocomotive, settings))
@@ -109,7 +101,7 @@ public class StationManager
 
         if (passengerLocomotive.settingsHash != settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
         {
-            if (!passengerLocomotive.Continue)
+            if (!passengerLocomotive.TrainStatus.Continue)
             {
                 logger.Information("Passenger settings have changed, checking for pause conditions");
                 passengerLocomotive.ResetStoppedFlags();
@@ -132,20 +124,20 @@ public class StationManager
             logger.Information("Passenger settings have not changed, skipping check for pause conditions");
         }
 
-        if (!passengerLocomotive.CurrentlyStopped)
+        if (!passengerLocomotive.TrainStatus.CurrentlyStopped)
         {
             logger.Information("Train {0} is ready to depart station {1}", locomotive.DisplayName, currentStop.DisplayName);
-            passengerLocomotive.ReadyToDepart = true;
+            passengerLocomotive.TrainStatus.ReadyToDepart = true;
         }
 
-        return passengerLocomotive.CurrentlyStopped;
+        return passengerLocomotive.TrainStatus.CurrentlyStopped;
     }
 
     private bool IsStoppedAndShouldStayStopped(PassengerLocomotive passengerLocomotive)
     {
-        if (passengerLocomotive.CurrentlyStopped)
+        if (passengerLocomotive.TrainStatus.CurrentlyStopped)
         {
-            logger.Information("Train is currently Stopped due to: {0}", passengerLocomotive.CurrentReasonForStop);
+            logger.Information("Train is currently Stopped due to: {0}", passengerLocomotive.TrainStatus.CurrentReasonForStop);
             if (passengerLocomotive.ShouldStayStopped())
             {
                 return true;
@@ -161,26 +153,26 @@ public class StationManager
         {
             logger.Information("Pausing at station due to setting");
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
-            passengerLocomotive.CurrentlyStopped = true;
-            passengerLocomotive.CurrentReasonForStop = "Requested pause at next station";
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at next station";
             return true;
         }
 
-        if (settings.Stations[passengerLocomotive.CurrentStation.identifier].StationAction == StationAction.Pause)
+        if (settings.Stations[passengerLocomotive.CurrentStation.identifier].PassengerMode == PassengerMode.Pause)
         {
             logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStation.DisplayName);
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
-            passengerLocomotive.CurrentlyStopped = true;
-            passengerLocomotive.CurrentReasonForStop = "Requested pause at " + passengerLocomotive.CurrentStation.DisplayName;
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at " + passengerLocomotive.CurrentStation.DisplayName;
             return true;
         }
 
-        if (settings.StopAtLastStation && settings.Stations[passengerLocomotive.CurrentStation.identifier].IsTerminusStation == true)
+        if (settings.StopAtLastStation && settings.Stations[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
         {
             logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStation.DisplayName);
             passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
-            passengerLocomotive.CurrentlyStopped = true;
-            passengerLocomotive.CurrentReasonForStop = "Requested pause at terminus station " + passengerLocomotive.CurrentStation.DisplayName;
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at terminus station " + passengerLocomotive.CurrentStation.DisplayName;
             return true;
         }
 
@@ -234,7 +226,7 @@ public class StationManager
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
         IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
-        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.IsTerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedTerminusStations = settings.Stations.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedSelectedStations = settings.Stations.Where(station => station.Value.StopAt == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
 
@@ -247,8 +239,8 @@ public class StationManager
             logger.Information("there are not exactly 2 terminus stations, current selected terminus stations: {0}", orderedTerminusStations);
             Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"2 Terminus stations must be selected. Check your passenger settings.\"");
 
-            passengerLocomotive.CurrentlyStopped = true;
-            passengerLocomotive.CurrentReasonForStop = "Terminus stations not selected";
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Terminus stations not selected";
             return true;
         }
 
@@ -262,23 +254,23 @@ public class StationManager
             if (settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && (passengerLocomotive.PreviousStation == null || passengerLocomotive.PreviousStation == CurrentStop))
             {
                 string reason = "Unknown Direction of Travel";
-                if (passengerLocomotive.CurrentReasonForStop != reason)
+                if (passengerLocomotive.TrainStatus.CurrentReasonForStop != reason)
                 {
                     logger.Information("Train is in {0}, previous stop is not known, direction of travel is unknown, so cannot accurately determine direction, pausing and waiting for manual intervention", CurrentStop.DisplayName);
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(CurrentStop)} until I receive Direction of Travel via PassengerSettings.\"");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
                     passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
-                    passengerLocomotive.CurrentlyStopped = true;
-                    passengerLocomotive.CurrentReasonForStop = reason;
+                    passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                    passengerLocomotive.TrainStatus.CurrentReasonForStop = reason;
 
                     if (CurrentStop.identifier == "alarka")
                     {
-                        passengerLocomotive.AtAlarka = true;
+                        passengerLocomotive.TrainStatus.AtAlarka = true;
                     }
 
                     if (CurrentStop.identifier == "cochran")
                     {
-                        passengerLocomotive.AtCochran = true;
+                        passengerLocomotive.TrainStatus.AtCochran = true;
                     }
                 }
 
@@ -290,11 +282,11 @@ public class StationManager
             if (!nonTerminusStationProcedureRetVal)
             {
                 logger.Information("Setting Previous stop to the current stop (not at terminus)");
-                passengerLocomotive.SetPreviousStop(CurrentStop);
+                passengerLocomotive.PreviousStation = CurrentStop;
 
                 settings.DoTLocked = true;
-                settingsManager.SaveSettings();
-                passengerLocomotive.NonTerminusStationProcedureComplete = true;
+                passengerLocomotive.TrainStatus.NonTerminusStationProcedureComplete = true;
+                settingsManager.SaveSettings(LocomotiveName, passengerLocomotive.TrainStatus);
             }
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
@@ -311,27 +303,27 @@ public class StationManager
             bool atTerminusStationEast = orderedTerminusStations[0] == CurrentStopIdentifier;
 
             logger.Information("at west terminus: {0} at east terminus {1}", atTerminusStationWest, atTerminusStationEast);
-            logger.Information("passenger locomotive atTerminusWest settings: {0}", passengerLocomotive.AtTerminusStationWest);
-            logger.Information("passenger locomotive atTerminusEast settings: {0}", passengerLocomotive.AtTerminusStationEast);
+            logger.Information("passenger locomotive atTerminusWest settings: {0}", passengerLocomotive.TrainStatus.AtTerminusStationWest);
+            logger.Information("passenger locomotive atTerminusEast settings: {0}", passengerLocomotive.TrainStatus.AtTerminusStationEast);
 
             // true means stay stopped, false means continue
             bool terminusStationProcedureRetVal = true;
 
-            if (atTerminusStationWest && !passengerLocomotive.AtTerminusStationWest)
+            if (atTerminusStationWest && !passengerLocomotive.TrainStatus.AtTerminusStationWest)
             {
                 terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.EAST);
 
                 logger.Information("Setting Previous stop to the current stop (west terminus)");
             }
 
-            if (atTerminusStationEast && !passengerLocomotive.AtTerminusStationEast)
+            if (atTerminusStationEast && !passengerLocomotive.TrainStatus.AtTerminusStationEast)
             {
                 terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.WEST);
 
                 logger.Information("Setting Previous stop to the current stop (east terminus)");
             }
 
-            if ((passengerLocomotive.AtTerminusStationWest || passengerLocomotive.AtTerminusStationEast) && settings.WaitForFullPassengersLastStation)
+            if ((passengerLocomotive.TrainStatus.AtTerminusStationWest || passengerLocomotive.TrainStatus.AtTerminusStationEast) && settings.WaitForFullPassengersLastStation)
             {
                 logger.Information("Waiting For full Passengers at terminus.");
 
@@ -348,8 +340,8 @@ public class StationManager
                         if (actualMarker.TotalPassengers < maxCapacity)
                         {
                             logger.Information("Passenger car not full, remaining stopped");
-                            passengerLocomotive.CurrentlyStopped = true;
-                            passengerLocomotive.CurrentReasonForStop = "Waiting for full passengers at terminus station";
+                            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Waiting for full passengers at terminus station";
 
                             return true;
                         }
@@ -361,14 +353,14 @@ public class StationManager
 
             if (!terminusStationProcedureRetVal)
             {
-                passengerLocomotive.SetPreviousStop(CurrentStop);
-                passengerLocomotive.AtTerminusStationWest = atTerminusStationWest;
-                passengerLocomotive.AtTerminusStationEast = atTerminusStationEast;
-                passengerLocomotive.TerminusStationProcedureComplete = true;
+                passengerLocomotive.PreviousStation = CurrentStop;
+                passengerLocomotive.TrainStatus.AtTerminusStationWest = atTerminusStationWest;
+                passengerLocomotive.TrainStatus.AtTerminusStationEast = atTerminusStationEast;
+                passengerLocomotive.TrainStatus.TerminusStationProcedureComplete = true;
 
                 settings.DoTLocked = true;
 
-                settingsManager.SaveSettings();
+                settingsManager.SaveSettings(LocomotiveName, passengerLocomotive.TrainStatus);
             }
 
 
@@ -386,8 +378,8 @@ public class StationManager
         string currentStopIdentifier = CurrentStop.identifier;
         string prevStopIdentifier = passengerLocomotive.PreviousStation != null ? passengerLocomotive.PreviousStation.identifier : "";
 
-        passengerLocomotive.AtTerminusStationWest = false;
-        passengerLocomotive.AtTerminusStationEast = false;
+        passengerLocomotive.TrainStatus.AtTerminusStationWest = false;
+        passengerLocomotive.TrainStatus.AtTerminusStationEast = false;
 
         int westTerminusIndex = orderedStopAtStations.IndexOf(orderedTerminusStations[1]);
         int eastTerminusIndex = orderedStopAtStations.IndexOf(orderedTerminusStations[0]);
@@ -419,30 +411,30 @@ public class StationManager
             string reason = "Unknown Direction of Travel";
             if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == alarkaIdentifier && !orderedTerminusStations.Contains(alarkaIdentifier))
             {
-                if (passengerLocomotive.CurrentReasonForStop != reason)
+                if (passengerLocomotive.TrainStatus.CurrentReasonForStop != reason)
                 {
-                    logger.Information("Train is in Cochran, previous stop was alarka, direction of travel is unknown, alarka was not a terminus station, so cannot accurately determine direction, pausing and waiting for manual intervention");
+                    logger.Information("Train is in Cochran, previous stop was alarka, direction of travel is unknown, and alarka was not a terminus station, so cannot accurately determine direction, pausing and waiting for manual intervention");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(CurrentStop)} until I receive Direction of Travel via PassengerSettings.\"");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
                     passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
-                    passengerLocomotive.CurrentlyStopped = true;
-                    passengerLocomotive.CurrentReasonForStop = reason;
-                    passengerLocomotive.AtCochran = true;
+                    passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                    passengerLocomotive.TrainStatus.CurrentReasonForStop = reason;
+                    passengerLocomotive.TrainStatus.AtCochran = true;
                 }
 
                 return true;
             }
             else if (currentStopIdentifier == alarkaIdentifier && prevStopIdentifier == cochranIdentifier)
             {
-                if (passengerLocomotive.CurrentReasonForStop != reason)
+                if (passengerLocomotive.TrainStatus.CurrentReasonForStop != reason)
                 {
                     logger.Information("Train is in Alarka, previous stop was cochran, direction of travel is unknown, so cannot accurately determine direction, pausing and waiting for manual intervention");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing until at {Hyperlink.To(CurrentStop)} until I receive Direction of Travel via PassengerSettings.\"");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
                     passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
-                    passengerLocomotive.CurrentlyStopped = true;
-                    passengerLocomotive.CurrentReasonForStop = reason;
-                    passengerLocomotive.AtAlarka = true;
+                    passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                    passengerLocomotive.TrainStatus.CurrentReasonForStop = reason;
+                    passengerLocomotive.TrainStatus.AtAlarka = true;
                 }
 
                 return true;
@@ -467,12 +459,11 @@ public class StationManager
 
         if (settings.DirectionOfTravel != DirectionOfTravel.UNKNOWN)
         {
-
             HashSet<string> expectedSelectedDestinations = new();
             if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
             {
                 // add one to range to include terminus station
-                expectedSelectedDestinations = orderedStations.GetRange(currentIndex, westTerminusIndex - currentIndex + 1).ToHashSet();
+                expectedSelectedDestinations = orderedStopAtStations.GetRange(currentIndex, westTerminusIndex - currentIndex + 1).ToHashSet();
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == alarkaIdentifier)
                 {
@@ -488,7 +479,7 @@ public class StationManager
 
                 if (currentStopIdentifier == cochranIdentifier && prevStopIdentifier == almondIdentifier)
                 {
-                    logger.Information("Train is at cochran, heading east and almond was previous station. Add Alarka from expected stations");
+                    logger.Information("Train is at cochran, heading east and almond was previous station. Add Alarka to expected stations");
                     expectedSelectedDestinations.Add(alarkaIdentifier);
                 }
             }
@@ -501,10 +492,8 @@ public class StationManager
 
             logger.Information("Expected selected stations are: {0}", expectedSelectedDestinations);
 
-            logger.Information("Checking passenger cars to make sure they have the proper selected stations");
-
             // transfer station check
-            int numTransferStations = settings.Stations.Where(s => s.Value.StationAction == StationAction.Transfer && s.Value.StopAt).Count();
+            int numTransferStations = settings.Stations.Where(s => s.Value.PassengerMode == PassengerMode.Transfer && s.Value.StopAt).Count();
             bool transferStationSelected = numTransferStations > 0;
 
             if (transferStationSelected)
@@ -515,27 +504,30 @@ public class StationManager
                 int eastTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[0]);
                 int currentIndex_Pickup = pickUpPassengerStations.IndexOf(currentStopIdentifier);
                 logger.Information("The following stations are pickup stations: {0}", pickUpPassengerStations);
-                // condition 1, there is 1 transfer station, so we want to select all stops that are selected in settings on the way there, but not the way back
-                if (numTransferStations == 1)
-                {
-                    string transferStationIdentifier = settings.Stations.Where(s => s.Value.StationAction == StationAction.Transfer && s.Value.StopAt).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).First();
-                    int transferStationIndex = orderedStopAtStations.IndexOf(transferStationIdentifier);
-                    if (transferStationIndex > currentIndex && settings.DirectionOfTravel == DirectionOfTravel.WEST)
-                    {
-                        logger.Information("Selecting pickup stations {0} that are further west of the current station: {1}", pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup), orderedTerminusStations[1]);
-                        // select all to the west of the current station
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup));
-                    }
 
-                    if (transferStationIndex < currentIndex && settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                {
+                    logger.Information("Selecting pickup stations {0} that are further west of the current station: {1}", pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup), orderedTerminusStations[1]);
+                    // select all to the west of the current station
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup));
+
+                    if (currentStopIdentifier == "alarkajct" && orderedStopAtStations[currentIndex + 1] == almondIdentifier)
                     {
-                        logger.Information("Selecting pickup stations {0} that are further east of the current station: {1}", pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1), orderedTerminusStations[0]);
-                        // select all to the east of the current station
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1));
+                        logger.Information("Train is at alarka jct station and next stop is almond station, deselecting cochran and alarka, if they are selected");
+                        expectedSelectedDestinations.Remove(alarkaIdentifier);
+                        expectedSelectedDestinations.Remove(cochranIdentifier);
                     }
+                }
+
+                if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                {
+                    logger.Information("Selecting pickup stations {0} that are further east of the current station: {1}", pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1), orderedTerminusStations[0]);
+                    // select all to the east of the current station
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1));
                 }
             }
 
+            logger.Information("Checking passenger cars to make sure they have the proper selected stations");
             logger.Information("Setting the following stations: {0}", expectedSelectedDestinations);
 
             foreach (Car coach in coaches)
@@ -555,33 +547,33 @@ public class StationManager
             }
 
             logger.Information("Checking if train is in alarka or cochran and Passenger Mode to see if we need to reverse engine direction");
-            bool atAlarka = currentStopIdentifier == alarkaIdentifier && !passengerLocomotive.AtAlarka;
-            bool atCochran = currentStopIdentifier == cochranIdentifier && !passengerLocomotive.AtCochran && !orderedStopAtStations.Contains(alarkaIdentifier);
+            bool atAlarka = currentStopIdentifier == alarkaIdentifier && !passengerLocomotive.TrainStatus.AtAlarka;
+            bool atCochran = currentStopIdentifier == cochranIdentifier && !passengerLocomotive.TrainStatus.AtCochran && !orderedStopAtStations.Contains(alarkaIdentifier);
 
             if (!settings.LoopMode)
             {
                 if (atAlarka)
                 {
-                    passengerLocomotive.AtAlarka = true;
+                    passengerLocomotive.TrainStatus.AtAlarka = true;
                     logger.Information("Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Arrived in Alarka, reversing direction to continue.\"");
                     passengerLocomotive.ReverseLocoDirection();
                 }
                 else
                 {
-                    passengerLocomotive.AtAlarka = false;
+                    passengerLocomotive.TrainStatus.AtAlarka = false;
                 }
 
                 if (atCochran)
                 {
-                    passengerLocomotive.AtCochran = true;
+                    passengerLocomotive.TrainStatus.AtCochran = true;
                     logger.Information("Train is in Cochran, there are more stops, loop mode is not activated and alarka is not a selected station. Reversing train.");
                     Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Arrived in Cochran, reversing direction to continue.\"");
                     passengerLocomotive.ReverseLocoDirection();
                 }
                 else
                 {
-                    passengerLocomotive.AtCochran = false;
+                    passengerLocomotive.TrainStatus.AtCochran = false;
                 }
             }
         }
@@ -596,8 +588,8 @@ public class StationManager
         {
             logger.Information("Pausing at last station due to setting");
             passengerLocomotive.PostNotice("ai-stop", $"Paused at last station stop {Hyperlink.To(CurrentStop)}.");
-            passengerLocomotive.CurrentlyStopped = true;
-            passengerLocomotive.CurrentReasonForStop = "Requested pause at last station";
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at last station";
         }
 
         logger.Information("{0} reached terminus station at {1}", passengerLocomotive._locomotive.DisplayName, CurrentStop.DisplayName);
@@ -606,7 +598,7 @@ public class StationManager
         logger.Information("Re-selecting station stops based on settings.");
 
         // transfer station check
-        int numTransferStations = settings.Stations.Where(s => s.Value.StationAction == StationAction.Transfer && s.Value.StopAt).Count();
+        int numTransferStations = settings.Stations.Where(s => s.Value.PassengerMode == PassengerMode.Transfer && s.Value.StopAt).Count();
         bool transferStationSelected = numTransferStations > 0;
 
         string currentStopIdentifier = CurrentStop.identifier;
@@ -624,35 +616,30 @@ public class StationManager
             int eastTerminusIndex_Pickup = pickUpPassengerStations.IndexOf(orderedTerminusStations[0]);
 
             logger.Information("The following stations are pickup stations: {0}", pickUpPassengerStations);
-            // condition 1, there is 1 transfer station, so we want to select all stops that are selected in settings on the way there, but not the way back
-            if (numTransferStations == 1)
-            {
-                string transferStationIdentifier = settings.Stations.Where(s => s.Value.StationAction == StationAction.Transfer && s.Value.StopAt).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).First();
-                // alarka branch train edge case
-                if (transferStationIdentifier == "alarkajct" && orderedTerminusStations[0] == "alarkajct" && (orderedTerminusStations[1] == "cochran" || orderedTerminusStations[1] == "alarka"))
-                {
-                    if (currentIndex == westTerminusIndex)
-                    {
-                        logger.Information("train is currently set to run the 'alarka branch' only, and train is currently at alarka depot, so select ALL pickup stations");
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
-                    }
-                }
-                else
-                {
-                    int transferStationIndex = orderedStopAtStations.IndexOf(transferStationIdentifier);
-                    if (transferStationIndex > currentIndex && directionOfTravel == DirectionOfTravel.WEST)
-                    {
-                        logger.Information("Selecting pickup stations {0} that are further west of the west terminus station: {1}", pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup), orderedTerminusStations[1]);
-                        // select all to the west of the west terminus station
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup));
-                    }
 
-                    if (transferStationIndex < currentIndex && directionOfTravel == DirectionOfTravel.EAST)
-                    {
-                        logger.Information("Selecting pickup stations {0} that are further east of the east terminus station: {1}", pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1), orderedTerminusStations[0]);
-                        // select all to the east of the east terminus station
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1));
-                    }
+            if (orderedTerminusStations[1] == "cochran" || orderedTerminusStations[1] == "alarka")
+            {
+                if (currentIndex == westTerminusIndex)
+                {
+                    logger.Information("train is currently at {0}, so select ALL pickup stations", currentStopIdentifier);
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                }
+            }
+            else
+            {
+
+                if (directionOfTravel == DirectionOfTravel.WEST)
+                {
+                    logger.Information("Selecting pickup stations {0} that are further west of the west terminus station: {1}", pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup), orderedTerminusStations[1]);
+                    // select all to the west of the west terminus station
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup));
+                }
+
+                if (directionOfTravel == DirectionOfTravel.EAST)
+                {
+                    logger.Information("Selecting pickup stations {0} that are further east of the east terminus station: {1}", pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1), orderedTerminusStations[0]);
+                    // select all to the east of the east terminus station
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1));
                 }
             }
         }
@@ -681,8 +668,8 @@ public class StationManager
                 Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing until I receive Direction of Travel via PassengerSettings.\"");
                 passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
 
-                passengerLocomotive.CurrentlyStopped = true;
-                passengerLocomotive.CurrentReasonForStop = "At Terminus Station and have an unknown direction.";
+                passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                passengerLocomotive.TrainStatus.CurrentReasonForStop = "At Terminus Station and have an unknown direction.";
                 return true;
             }
             else

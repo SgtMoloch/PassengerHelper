@@ -29,6 +29,11 @@ public class TrainManager
         return true;
     }
 
+    public PassengerLocomotive GetPassengerLocomotive(string locomotiveDisplayName)
+    {
+        return passengerLocomotives[locomotiveDisplayName];
+    }
+
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
     {
         logger.Information("Getting PassengerLocomotive for {0}", locomotive.DisplayName);

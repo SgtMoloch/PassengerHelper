@@ -64,9 +64,9 @@ public static class PassengerStopPatches
                     return;
                 }
 
-                if (!passengerLocomotive.Arrived)
+                if (!passengerLocomotive.TrainStatus.Arrived)
                 {
-                    if (passengerLocomotive.Departed)
+                    if (passengerLocomotive.TrainStatus.Departed)
                     {
                         return;
                     }
