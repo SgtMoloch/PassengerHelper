@@ -62,7 +62,7 @@ public static class AutoEngineerPassengerStopperPatches
         {
             PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
 
-            if (passengerLocomotive.TrainStatus.ReadyToDepart)
+            if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.CurrentStation != null)
             {
                 logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
                 passengerLocomotive.TrainStatus.Arrived = false;
