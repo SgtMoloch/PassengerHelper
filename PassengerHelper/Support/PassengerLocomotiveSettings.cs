@@ -2,34 +2,19 @@
 
 using System;
 using System.Collections.Generic;
+using GalaSoft.MvvmLight.Messaging;
 using Serilog;
 using UI.Builder;
 
 public class PassengerLocomotiveSettings
 {
-    [NonSerialized]
-    DirectionObserver dotLockedObserver = new DirectionObserver();
-
-    [NonSerialized]
-    DOTReporter dotLockedReporter;
 
     [NonSerialized]
     Action<bool> onChange;
+
     public PassengerLocomotiveSettings()
     {
-        onChange += (value) => dotLockedObserver.TrackDOT(value);
-    }
-
-    internal IDisposable getDOTLockedObserver(UIPanelBuilder builder)
-    {
-        this.dotLockedReporter = new DOTReporter(builder);
-        return dotLockedObserver.Subscribe(this.dotLockedReporter);
-    }
-
-    internal void removeDotLockedObserver()
-    {
-        dotLockedReporter.Unsubscribe();
-        dotLockedObserver.EndTrackDOT();
+        onChange += (value) => Messenger.Default.Send(new DOTChangedEvent());
     }
 
     public bool StopForDiesel { get; set; } = false;
@@ -194,84 +179,7 @@ public class TrainStatus
     }
 }
 
-class DirectionObserver : IObservable<bool>
+public class DOTChangedEvent
 {
-    private List<IObserver<bool>> observers;
-    public DirectionObserver()
-    {
-        observers = new();
-    }
-    public IDisposable Subscribe(IObserver<bool> observer)
-    {
-        if (!observers.Contains(observer))
-            observers.Add(observer);
-        return new Unsubscribe(observers, observer);
-    }
 
-    private class Unsubscribe : IDisposable
-    {
-        private List<IObserver<bool>> _observers;
-        private IObserver<bool> _observer;
-
-        public Unsubscribe(List<IObserver<bool>> observers, IObserver<bool> observer)
-        {
-            this._observers = observers;
-            this._observer = observer;
-        }
-
-        public void Dispose()
-        {
-            if (_observer != null && _observers.Contains(_observer))
-                _observers.Remove(_observer);
-        }
-    }
-    public void TrackDOT(bool dot)
-    {
-        foreach (var observer in observers)
-        {
-            observer.OnNext(dot);
-        }
-    }
-
-    public void EndTrackDOT()
-    {
-        foreach (var observer in observers.ToArray())
-            if (observers.Contains(observer))
-                observer.OnCompleted();
-
-        observers.Clear();
-    }
-}
-
-class DOTReporter : IObserver<bool>
-{
-    private IDisposable unsubscribe;
-    private UIPanelBuilder builder;
-    public DOTReporter(UIPanelBuilder builder)
-    {
-        this.builder = builder;
-    }
-    public virtual void OnCompleted()
-    {
-        throw new NotImplementedException();
-    }
-
-    public virtual void Subscribe(IObservable<bool> provider)
-    {
-        if (provider != null)
-            unsubscribe = provider.Subscribe(this);
-    }
-    public virtual void OnError(Exception error)
-    {
-    }
-
-    public virtual void OnNext(bool value)
-    {
-        builder.Rebuild();
-    }
-
-    public virtual void Unsubscribe()
-    {
-        unsubscribe.Dispose();
-    }
 }

@@ -46,8 +46,6 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
         this.settingsManager = settingsManager;
         this.trainManager = trainManager;
         this.stationManager = stationManager;
-
-        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
 
     public void SaveSettings(Dictionary<string, PassengerLocomotiveSettings> settings)
@@ -55,9 +53,6 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
         ctx.SaveSettingsData(self.Id, settings);
     }
 
-    private void OnMapDidUnload(MapDidUnloadEvent @event)
-    {
-        settingsManager.SaveSettings();
-    }
+    
 
 }

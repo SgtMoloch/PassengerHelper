@@ -5,6 +5,8 @@ using Support;
 using Serilog;
 using Model;
 using System.Linq;
+using GalaSoft.MvvmLight.Messaging;
+using Game.Events;
 
 public class TrainManager
 {
@@ -17,6 +19,8 @@ public class TrainManager
     public TrainManager(SettingsManager settingsManager)
     {
         this.settingsManager = settingsManager;
+
+        Messenger.Default.Register<MapDidUnloadEvent>(this, (@event) => this.passengerLocomotives.Clear());
     }
 
     public bool GetPassengerLocomotive(BaseLocomotive locomotive, out PassengerLocomotive passengerLocomotive)
@@ -27,11 +31,6 @@ public class TrainManager
         }
 
         return true;
-    }
-
-    public PassengerLocomotive GetPassengerLocomotive(string locomotiveDisplayName)
-    {
-        return passengerLocomotives[locomotiveDisplayName];
     }
 
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)

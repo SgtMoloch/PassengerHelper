@@ -58,7 +58,7 @@ public static class AutoEngineerPassengerStopperPatches
             return;
         }
 
-        if (_locomotive.VelocityMphAbs > 1f)
+        if (_locomotive.VelocityMphAbs >= 5f)
         {
             PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
 

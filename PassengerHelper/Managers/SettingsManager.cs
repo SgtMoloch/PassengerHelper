@@ -3,6 +3,8 @@ namespace PassengerHelperPlugin.Managers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GalaSoft.MvvmLight.Messaging;
+using Game.Events;
 using Game.Messages;
 using Game.State;
 using Model;
@@ -30,6 +32,8 @@ public class SettingsManager
         this._settings = _settings;
         this.plugin = plugin;
         this.uIHelper = uIHelper;
+
+        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
 
     public void SaveSettings()
@@ -41,8 +45,16 @@ public class SettingsManager
     public void SaveSettings(string locomotiveName, TrainStatus trainStatus)
     {
         _settings[locomotiveName].TrainStatus = trainStatus;
-        logger.Information("Saving settings");
-        plugin.SaveSettings(this._settings);
+        SaveSettings();
+    }
+
+    private void OnMapDidUnload(MapDidUnloadEvent @event)
+    {
+        foreach (PassengerLocomotiveSettings settings in _settings.Values)
+        {
+            settings.gameLoadFlag = true;
+        }
+        SaveSettings();
     }
 
     public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
@@ -94,15 +106,6 @@ public class SettingsManager
 
         Window passengerSettingsWindow = CreateSettingsWindow(locomotiveDisplayName);
         PassengerLocomotiveSettings passengerLocomotiveSettings = GetSettings(locomotiveDisplayName);
-
-        passengerSettingsWindow.OnShownDidChange += (s) =>
-        {
-            if (!s)
-            {
-                passengerLocomotiveSettings.removeDotLockedObserver();
-            }
-        };
-
 
         PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.plugin.stationManager);
 
@@ -485,7 +488,7 @@ public class PassengerSettingsWindow
 
                 }, 1f, 0, 2).Width(150f);
             dotSlider.GetComponentInChildren<CarControlSlider>().interactable = !passengerLocomotiveSettings.DoTLocked;
-            builder.AddObserver(passengerLocomotiveSettings.getDOTLockedObserver(builder));
+            builder.RebuildOnEvent<DOTChangedEvent>();
 
             builder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
             builder.Spacer().FlexibleWidth(1f);
@@ -515,7 +518,7 @@ public class PassengerSettingsWindow
                     passengerSettingsWindow.CloseWindow();
                 });
             });
-            
+
         });
     }
 }
