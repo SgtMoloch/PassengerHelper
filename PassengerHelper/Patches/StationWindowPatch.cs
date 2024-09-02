@@ -36,6 +36,7 @@ public class StationWindowPatch
             PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
             IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._stationTransfersWaiting;
+
             IReadOnlyDictionary<string, int> waiting = passengerStop.Waiting;
             IEnumerable<KeyValuePair<string, int>> enumerable = waiting.Where((KeyValuePair<string, int> pair) => pair.Value > 0);
             bool flag = waiting.Count == 0;
@@ -98,7 +99,6 @@ public class StationWindowPatch
                     });
                 }
             }
-            // end existing code, being custom code
         });
 
         if (plugin.TestMode)
@@ -109,6 +109,10 @@ public class StationWindowPatch
 
                 foreach (string stationId in plugin.orderedStations)
                 {
+                    if (stationId == passengerStop.identifier)
+                    {
+                        continue;
+                    }
                     if (_waiting.TryGetValue(stationId, out var stat))
                     {
                         _waiting[stationId] = UnityEngine.Random.Range(1, 100);

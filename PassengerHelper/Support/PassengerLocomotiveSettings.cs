@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Serilog;
 using UI.Builder;
@@ -26,7 +27,7 @@ public class PassengerLocomotiveSettings
     public bool StopAtNextStation { get; set; } = false;
     public bool StopAtTerminusStation { get; set; } = false;
     public bool WaitForFullPassengersTerminusStation { get; set; } = false;
-    public bool Disable { get; set; } = false;
+    public bool Disable { get; set; } = true;
     public DirectionOfTravel DirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
     private bool _dotLocked = false;
     public bool DoTLocked
@@ -46,7 +47,6 @@ public class PassengerLocomotiveSettings
     // settings to save current status of train for next game load
     public TrainStatus TrainStatus { get; set; } = new TrainStatus();
 
-
     public SortedDictionary<string, StationSetting> StationSettings { get; } = new() {
             { "sylva", new StationSetting() },
             { "dillsboro", new StationSetting() },
@@ -64,7 +64,29 @@ public class PassengerLocomotiveSettings
             { "rhodo", new StationSetting() },
             { "andrews", new StationSetting() }
         };
+    public List<string> GetStopAtStations() {
+        return StationSettings.Where(ss => ss.Value.StopAtStation == true).Select(ss => ss.Key).ToList();
+    }
 
+    public List<string> GetTerminusStations() {
+        return StationSettings.Where(ss => ss.Value.TerminusStation == true).Select(ss => ss.Key).ToList();
+    }
+
+    public List<string> GetPickupStations() {
+        return StationSettings.Where(ss => ss.Value.PickupPassengersForStation == true).Select(ss => ss.Key).ToList();
+    }
+
+    internal int getStationSettingsHash()
+    {
+        int prime = 31;
+        int result = 1;
+
+        result = prime * result + TrainStatus.PreviousStation.GetHashCode();
+        result = prime * result + TrainStatus.CurrentStation.GetHashCode();
+        result = prime * result + StationSettings.GetHashCode();
+
+        return result;
+    }
     internal int getSettingsHash()
     {
         int prime = 31;

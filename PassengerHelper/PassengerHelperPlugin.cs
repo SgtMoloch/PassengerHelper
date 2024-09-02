@@ -52,7 +52,4 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
     {
         ctx.SaveSettingsData(self.Id, settings);
     }
-
-    
-
 }

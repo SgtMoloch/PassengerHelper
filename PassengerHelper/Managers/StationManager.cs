@@ -53,6 +53,13 @@ public class StationManager
             return false;
         }
 
+        if (settings.StationSettings.Select(s => s.Value.StopAtStation).Count() < 2 && settings.StationSettings.Select(s => s.Value.TerminusStation).Count() != 2)
+        {
+            logger.Information("Invalid settings detected. Alerting player and stopping.");
+            passengerLocomotive.PostNotice("ai-stop", $"Paused, invalid settings.");
+             Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Invalid settings. Check your passenger settings.\"");
+        }
+
         if (currentStop != passengerLocomotive.CurrentStation)
         {
             logger.Information("Train {0} has arrived at station {1}", locomotive.DisplayName, currentStop.DisplayName);
@@ -64,7 +71,7 @@ public class StationManager
         }
 
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
-        if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash())
         {
             return false;
         }
@@ -81,7 +88,7 @@ public class StationManager
             return true;
         }
 
-        if (passengerLocomotive.stationSettingsHash != settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.stationSettingsHash != settings.getStationSettingsHash())
         {
             if (!passengerLocomotive.TrainStatus.Continue)
             {
@@ -97,7 +104,7 @@ public class StationManager
             logger.Information("Station Settings have not changed. Skipping Station Procedure");
         }
 
-        if (passengerLocomotive.settingsHash != settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode())
+        if (passengerLocomotive.settingsHash != settings.getSettingsHash())
         {
             if (!passengerLocomotive.TrainStatus.Continue)
             {
@@ -115,7 +122,7 @@ public class StationManager
                 }
             }
 
-            passengerLocomotive.settingsHash = settings.getSettingsHash() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.settingsHash = settings.getSettingsHash();
         }
         else
         {
@@ -231,6 +238,16 @@ public class StationManager
         logger.Information("Running station procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
             LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString()
         );
+
+        if (orderedSelectedStations.Count < 2)
+        {
+            logger.Information("there are at least 2 stations to stop at, current selected stations: {0}", orderedSelectedStations);
+            Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"At least 2 stations must be selected. Check your passenger settings.\"");
+
+            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Stations not selected";
+            return true;
+        }
 
         if (orderedTerminusStations.Count != 2)
         {
@@ -625,7 +642,6 @@ public class StationManager
             }
             else
             {
-
                 if (directionOfTravel == DirectionOfTravel.WEST)
                 {
                     logger.Information("Selecting pickup stations {0} that are further west of the west terminus station: {1}", pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup), orderedTerminusStations[1]);

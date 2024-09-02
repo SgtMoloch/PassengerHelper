@@ -5,6 +5,7 @@ using Game.Progression;
 using HarmonyLib;
 using RollingStock;
 using Serilog;
+using Support;
 
 [HarmonyPatch]
 public static class MapFeatureManagerPatches
@@ -35,16 +36,8 @@ public static class MapFeatureManagerPatches
             {
                 if (ps.ProgressionDisabled)
                 {
-                    logger.Information($"Station {formalName} is disabled, disabling station stop");
-                    setting.StationSettings[ps.identifier].StopAtStation = false;
-                    logger.Information($"Station {formalName} is disabled, disabling Terminus station");
-                    setting.StationSettings[ps.identifier].TerminusStation = false;
-                    logger.Information($"Station {formalName} is disabled, disabling passenger pickup");
-                    setting.StationSettings[ps.identifier].PickupPassengersForStation = false;
-                    logger.Information($"Station {formalName} is disabled, disabling transfer station");
-                    setting.StationSettings[ps.identifier].TransferStation = false;
-                    logger.Information($"Station {formalName} is disabled, disabling pause");
-                    setting.StationSettings[ps.identifier].PauseAtStation = false;
+                    logger.Information($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
+                    setting.StationSettings[ps.identifier] = new StationSetting();
                 }
             });
         });

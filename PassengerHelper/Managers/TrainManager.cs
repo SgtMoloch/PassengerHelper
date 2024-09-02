@@ -11,7 +11,6 @@ using Game.Events;
 public class TrainManager
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(TrainManager));
-    // private Dictionary<string, BaseLocomotive> _locomotiveNameToLocomotive;
     private Dictionary<string, PassengerLocomotive> passengerLocomotives = new();
 
     private SettingsManager settingsManager;

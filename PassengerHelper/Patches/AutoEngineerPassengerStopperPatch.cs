@@ -72,7 +72,5 @@ public static class AutoEngineerPassengerStopperPatches
                 passengerLocomotive.CurrentStation = null;
             }
         }
-
-
     }
 }

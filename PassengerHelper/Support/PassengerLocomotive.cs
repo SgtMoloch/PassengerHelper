@@ -157,7 +157,21 @@ public class PassengerLocomotive
                 destinations.Add(TrainStatus.CurrentStation);
                 StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
             }
+        }
 
+        if (this.TrainStatus.Departed && this.CurrentStation == null && this.PreviousStation != null)
+        {
+            logger.Information("Train is not at a station, but is in route, re-selecting stations to be safe");
+            IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+
+            foreach (Car coach in coaches)
+            {
+                PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
+
+                HashSet<string> destinations = marker.Destinations;
+
+                StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
+            }
         }
 
         if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
