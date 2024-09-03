@@ -81,8 +81,7 @@ public class PassengerLocomotiveSettings
         int prime = 31;
         int result = 1;
 
-        result = prime * result + TrainStatus.PreviousStation.GetHashCode();
-        result = prime * result + TrainStatus.CurrentStation.GetHashCode();
+        result = prime * result + TrainStatus.GetHashCode();
         result = prime * result + StationSettings.GetHashCode();
 
         return result;
@@ -161,6 +160,9 @@ public class TrainStatus
     public bool NonTerminusStationProcedureComplete { get; set; } = false;
     public bool CurrentlyStopped { get; set; } = false;
     public string CurrentReasonForStop { get; set; } = "";
+    public bool StoppedUnknownDirection { get; set; } = false;
+    public bool StoppedInsufficientTerminusStations { get; set; } = false;
+    public bool StoppedInsufficientStopAtStations { get; set; } = false;
     public bool StoppedForDiesel { get; set; } = false;
     public bool StoppedForCoal { get; set; } = false;
     public bool StoppedForWater { get; set; } = false;

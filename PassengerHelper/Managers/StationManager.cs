@@ -57,7 +57,7 @@ public class StationManager
         {
             logger.Information("Invalid settings detected. Alerting player and stopping.");
             passengerLocomotive.PostNotice("ai-stop", $"Paused, invalid settings.");
-             Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Invalid settings. Check your passenger settings.\"");
+            Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Invalid settings. Check your passenger settings.\"");
         }
 
         if (currentStop != passengerLocomotive.CurrentStation)
@@ -68,6 +68,11 @@ public class StationManager
             passengerLocomotive.ResetStatusFlags();
 
             passengerLocomotive.TrainStatus.Arrived = true;
+        }
+
+        if (passengerLocomotive.TrainStatus.Continue)
+        {
+            passengerLocomotive.ResetStoppedFlags();
         }
 
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
@@ -149,6 +154,8 @@ public class StationManager
             }
         }
 
+        passengerLocomotive.TrainStatus.CurrentlyStopped = false;
+        passengerLocomotive.TrainStatus.CurrentReasonForStop = "";
         return false;
     }
 
@@ -160,6 +167,7 @@ public class StationManager
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at next station";
+            passengerLocomotive.TrainStatus.StoppedNextStation = true;
             return true;
         }
 
@@ -169,6 +177,7 @@ public class StationManager
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at " + passengerLocomotive.CurrentStation.DisplayName;
+            passengerLocomotive.TrainStatus.StoppedStationPause = true;
             return true;
         }
 
@@ -178,6 +187,7 @@ public class StationManager
             passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at terminus station " + passengerLocomotive.CurrentStation.DisplayName;
+            passengerLocomotive.TrainStatus.StoppedTerminusStation = true;
             return true;
         }
 
@@ -246,6 +256,8 @@ public class StationManager
 
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Stations not selected";
+            passengerLocomotive.TrainStatus.StoppedInsufficientStopAtStations = true;
+
             return true;
         }
 
@@ -256,6 +268,7 @@ public class StationManager
 
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Terminus stations not selected";
+            passengerLocomotive.TrainStatus.StoppedInsufficientTerminusStations = true;
             return true;
         }
 
@@ -289,6 +302,8 @@ public class StationManager
                     }
                 }
 
+                passengerLocomotive.TrainStatus.StoppedUnknownDirection = true;
+
                 return true;
             }
 
@@ -305,7 +320,7 @@ public class StationManager
             }
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return nonTerminusStationProcedureRetVal;
@@ -322,20 +337,26 @@ public class StationManager
             logger.Information("passenger locomotive atTerminusEast settings: {0}", passengerLocomotive.TrainStatus.AtTerminusStationEast);
 
             // true means stay stopped, false means continue
-            bool terminusStationProcedureRetVal = true;
+            bool terminusStationProcedureRetVal = false;
 
             if (atTerminusStationWest && !passengerLocomotive.TrainStatus.AtTerminusStationWest)
             {
                 terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.EAST);
 
-                logger.Information("Setting Previous stop to the current stop (west terminus)");
+                if (!terminusStationProcedureRetVal)
+                {
+                    logger.Information("Setting Previous stop to the current stop (west terminus)");
+                }
             }
 
             if (atTerminusStationEast && !passengerLocomotive.TrainStatus.AtTerminusStationEast)
             {
                 terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.WEST);
 
-                logger.Information("Setting Previous stop to the current stop (east terminus)");
+                if (!terminusStationProcedureRetVal)
+                {
+                    logger.Information("Setting Previous stop to the current stop (east terminus)");
+                }
             }
 
             if ((passengerLocomotive.TrainStatus.AtTerminusStationWest || passengerLocomotive.TrainStatus.AtTerminusStationEast) && settings.WaitForFullPassengersTerminusStation)
@@ -357,11 +378,15 @@ public class StationManager
                             logger.Information("Passenger car not full, remaining stopped");
                             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
                             passengerLocomotive.TrainStatus.CurrentReasonForStop = "Waiting for full passengers at terminus station";
-
+                            passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = true;
                             return true;
                         }
                     }
                 }
+
+                passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = false;
+                passengerLocomotive.TrainStatus.CurrentlyStopped = false;
+                passengerLocomotive.TrainStatus.CurrentReasonForStop = "";
 
                 logger.Information("Passengers are full, continuing.");
             }
@@ -380,7 +405,7 @@ public class StationManager
 
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.StationSettings.GetHashCode() + passengerLocomotive.CurrentStation.identifier.GetHashCode();
+            passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
             passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return terminusStationProcedureRetVal;
@@ -435,6 +460,7 @@ public class StationManager
                     passengerLocomotive.TrainStatus.CurrentlyStopped = true;
                     passengerLocomotive.TrainStatus.CurrentReasonForStop = reason;
                     passengerLocomotive.TrainStatus.AtCochran = true;
+                    passengerLocomotive.TrainStatus.StoppedUnknownDirection = true;
                 }
 
                 return true;
@@ -450,6 +476,7 @@ public class StationManager
                     passengerLocomotive.TrainStatus.CurrentlyStopped = true;
                     passengerLocomotive.TrainStatus.CurrentReasonForStop = reason;
                     passengerLocomotive.TrainStatus.AtAlarka = true;
+                    passengerLocomotive.TrainStatus.StoppedUnknownDirection = true;
                 }
 
                 return true;
@@ -598,17 +625,20 @@ public class StationManager
 
     private bool RunTerminusStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, IEnumerable<Car> coaches, List<string> orderedStopAtStations, List<string> orderedTerminusStations, DirectionOfTravel directionOfTravel)
     {
+        logger.Information("{0} reached terminus station at {1}", passengerLocomotive._locomotive.DisplayName, CurrentStop.DisplayName);
+        Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Reached terminus station at {Hyperlink.To(CurrentStop)}.\"");
+
         // we have reached the last station
         if (settings.StopAtTerminusStation)
         {
-            logger.Information("Pausing at last station due to setting");
-            passengerLocomotive.PostNotice("ai-stop", $"Paused at last station stop {Hyperlink.To(CurrentStop)}.");
+            logger.Information("Pausing at terminus station due to setting");
+            passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(CurrentStop)}.");
             passengerLocomotive.TrainStatus.CurrentlyStopped = true;
-            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at last station";
-        }
+            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at terminus station";
+            passengerLocomotive.TrainStatus.StoppedTerminusStation = true;
 
-        logger.Information("{0} reached terminus station at {1}", passengerLocomotive._locomotive.DisplayName, CurrentStop.DisplayName);
-        Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Reached terminus station at {Hyperlink.To(CurrentStop)}.\"");
+            return true;
+        }
 
         logger.Information("Re-selecting station stops based on settings.");
 
@@ -684,6 +714,7 @@ public class StationManager
 
                 passengerLocomotive.TrainStatus.CurrentlyStopped = true;
                 passengerLocomotive.TrainStatus.CurrentReasonForStop = "At Terminus Station and have an unknown direction.";
+                passengerLocomotive.TrainStatus.StoppedUnknownDirection = true;
                 return true;
             }
             else

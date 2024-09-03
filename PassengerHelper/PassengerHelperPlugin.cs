@@ -23,7 +23,7 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
-    internal bool TestMode { get; } = true;
+    internal bool TestMode { get; } = false;
 
     internal readonly List<string> orderedStations = new List<string>()
                 {

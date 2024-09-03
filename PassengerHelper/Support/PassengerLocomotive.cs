@@ -313,28 +313,64 @@ public class PassengerLocomotive
         bool stayStopped = false;
 
         // train was requested to remain stopped
-        if (Settings.StopAtNextStation)
+        if (Settings.StopAtNextStation && TrainStatus.StoppedNextStation)
         {
             logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
         }
+        else
+        {
+            TrainStatus.StoppedNextStation = false;
+        }
 
-        if (Settings.StopAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation == true)
+        if (Settings.StopAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation == true && TrainStatus.StoppedTerminusStation)
         {
             logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
         }
+        else
+        {
+            TrainStatus.StoppedTerminusStation = false;
+        }
 
-        if (Settings.StationSettings[CurrentStation.identifier].PauseAtStation)
+        if (Settings.StationSettings[CurrentStation.identifier].PauseAtStation && TrainStatus.StoppedStationPause)
         {
             logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
         }
+        else
+        {
+            TrainStatus.StoppedStationPause = false;
+        }
 
-        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
+        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && TrainStatus.StoppedUnknownDirection)
         {
             logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
             stayStopped = true;
+        }
+        else
+        {
+            TrainStatus.StoppedUnknownDirection = false;
+        }
+
+        if (Settings.StationSettings.Values.Where(s => s.TerminusStation).Count() != 2 && TrainStatus.StoppedInsufficientTerminusStations)
+        {
+            logger.Information("Still do not have 2 terminus stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            stayStopped = true;
+        }
+        else
+        {
+            TrainStatus.StoppedInsufficientTerminusStations = false;
+        }
+
+        if (Settings.StationSettings.Values.Where(s => s.StopAtStation).Count() < 2 && TrainStatus.StoppedInsufficientStopAtStations)
+        {
+            logger.Information("Still do not have at least 2 stop at stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            stayStopped = true;
+        }
+        else
+        {
+            TrainStatus.StoppedInsufficientStopAtStations = false;
         }
 
         // train is stopped because of low diesel, coal or water
@@ -379,6 +415,8 @@ public class PassengerLocomotive
             helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, cachedOrders?.MaxSpeedMph);
             cachedOrders = null;
         }
+
+        Settings.TrainStatus = TrainStatus;
 
         return stayStopped;
     }

@@ -121,6 +121,67 @@ public class PassengerSettingsWindow
     private IUIHelper uIHelper;
     private StationManager stationManager;
 
+    internal class Interactable
+    {
+        internal bool _terminus = false;
+        internal bool Terminus
+        {
+            get { return _terminus; }
+            set
+            {
+                _terminus = value;
+                TerminusToggle.interactable = value;
+            }
+        }
+        internal Toggle TerminusToggle;
+
+        internal bool _pause = false;
+        internal bool Pause
+        {
+            get { return _pause; }
+            set
+            {
+                _pause = value;
+                PauseToggle.interactable = value;
+            }
+        }
+        internal Toggle PauseToggle;
+
+        internal bool _transfer = false;
+        internal bool Transfer
+        {
+            get { return _transfer; }
+            set
+            {
+                _transfer = value;
+                TransferToggle.interactable = value;
+            }
+        }
+        internal Toggle TransferToggle;
+
+        internal bool _mode = false;
+        internal bool Mode
+        {
+            get { return _mode; }
+            set
+            {
+                _mode = value;
+                ModeDropdown.interactable = value;
+            }
+        }
+        internal TMP_Dropdown ModeDropdown;
+
+        public Interactable(Toggle TerminusToggle, Toggle PauseToggle, Toggle TransferToggle, TMP_Dropdown ModeDropdown)
+        {
+            this.TerminusToggle = TerminusToggle;
+            this.PauseToggle = PauseToggle;
+            this.TransferToggle = TransferToggle;
+            this.ModeDropdown = ModeDropdown;
+        }
+    }
+
+    internal Dictionary<string, Interactable> interactableStationMap = new();
+
     internal PassengerSettingsWindow(IUIHelper uIHelper, StationManager stationManager)
     {
         this.uIHelper = uIHelper;
@@ -183,11 +244,11 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddButton("Pickup All Stations", () =>
             {
-                stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) => passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = true);
+                SelectAllPickup(passengerLocomotiveSettings, stationStops);
             });
             hBuilder.AddButton("Alarka Branch", () =>
             {
-                stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) => passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = true);
+                stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) => passengerLocomotiveSettings.StationSettings[stationId] = new StationSetting());
                 passengerLocomotiveSettings.StationSettings["alarkajct"].TerminusStation = true;
                 passengerLocomotiveSettings.StationSettings["alarkajct"].TransferStation = true;
 
@@ -196,14 +257,39 @@ public class PassengerSettingsWindow
                 passengerLocomotiveSettings.StationSettings["alarkajct"].StopAtStation = true;
                 passengerLocomotiveSettings.StationSettings["cochran"].StopAtStation = true;
                 passengerLocomotiveSettings.StationSettings["alarka"].StopAtStation = true;
+                
+                 SelectAllPickup(passengerLocomotiveSettings, stationStops);
             });
             hBuilder.AddButton("Clear Selections", () =>
             {
                 stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) => passengerLocomotiveSettings.StationSettings[stationId] = new StationSetting());
+                foreach (string stationId2 in stationStops.Select(ps => ps.identifier).ToList())
+                {
+                    interactableStationMap[stationId2].Transfer = false;
+                    interactableStationMap[stationId2].Terminus = false;
+                    interactableStationMap[stationId2].Pause = false;
+                    interactableStationMap[stationId2].Mode = false;
+                }
             });
         });
 
         passengerSettingsWindow.SetContentHeight(400 + (stationStops.Count - 3) * 20);
+    }
+
+    private void SelectAllPickup( PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops)
+    {
+        stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) => passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = true);
+        foreach (string stationId2 in stationStops.Select(ps => ps.identifier).ToList())
+        {
+            bool terminusSelected = passengerLocomotiveSettings.StationSettings[stationId2].TerminusStation;
+            bool stopAtSelected = passengerLocomotiveSettings.StationSettings[stationId2].StopAtStation;
+            bool isAlarkaJct = stationId2 == "alarkajct";
+            bool isAlarka = stationId2 == "alarka";
+            interactableStationMap[stationId2].Transfer = (terminusSelected || isAlarkaJct);
+            interactableStationMap[stationId2].Mode = (terminusSelected || isAlarka);
+            interactableStationMap[stationId2].Pause = stopAtSelected;
+            interactableStationMap[stationId2].Terminus = terminusSelected;
+        }
     }
 
     private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches, string stationId, string stationName)
@@ -227,14 +313,35 @@ public class PassengerSettingsWindow
                     passengerLocomotiveSettings.StationSettings[stationId].TerminusStation = false;
                     passengerLocomotiveSettings.StationSettings[stationId].TransferStation = false;
                     passengerLocomotiveSettings.StationSettings[stationId].PauseAtStation = false;
+                    if (interactableStationMap[stationId] != null)
+                    {
+                        interactableStationMap[stationId].Terminus = false;
+                        interactableStationMap[stationId].Transfer = false;
+                        interactableStationMap[stationId].Pause = false;
+                        interactableStationMap[stationId].Mode = false;
+                    }
                 }
 
                 if (on)
                 {
                     passengerLocomotiveSettings.StationSettings[stationId].PickupPassengersForStation = true;
                 }
+
+                if (interactableStationMap[stationId] != null)
+                {
+                    interactableStationMap[stationId].Terminus = on;
+                    interactableStationMap[stationId].Pause = on;
+                    interactableStationMap[stationId].Mode = on && stationId == "alarka";
+
+                    bool pickUpCountBigger = GetPickupStationsCount(passengerLocomotiveSettings, stationStops) > GetStopAtStationsCount(passengerLocomotiveSettings, stationStops);
+                    foreach (string stationId2 in stationStops.Select(ps => ps.identifier).ToList())
+                    {
+                        bool terminusSelected = passengerLocomotiveSettings.StationSettings[stationId2].TerminusStation;
+                        bool isAlarkaJct = stationId2 == "alarkajct";
+                        interactableStationMap[stationId2].Transfer = pickUpCountBigger && (terminusSelected || isAlarkaJct);
+                    }
+                }
                 SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
-                hBuilder.Rebuild();
             }).Tooltip("Enabled", $"Toggle whether {stationName} should be stopped at by the train")
             .Width(70f);
 
@@ -256,13 +363,22 @@ public class PassengerSettingsWindow
                     {
                         passengerLocomotiveSettings.StationSettings[stationId].StopAtStation = true;
                         SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
+
+                        if (interactableStationMap[stationId] != null)
+                        {
+                            interactableStationMap[stationId].Mode = true;
+
+                            bool pickUpCountBigger = GetPickupStationsCount(passengerLocomotiveSettings, stationStops) > GetStopAtStationsCount(passengerLocomotiveSettings, stationStops);
+                            interactableStationMap[stationId].Transfer = pickUpCountBigger;
+                        }
                     }
                     else
                     {
                         passengerLocomotiveSettings.StationSettings[stationId].TransferStation = false;
+                        interactableStationMap[stationId].Transfer = false;
+                        interactableStationMap[stationId].Mode = false || stationId == "alarka";
                     }
                 }
-                hBuilder.Rebuild();
             }).Tooltip("Enabled", $"Toggle whether {stationName} should be a terminus station").Width(85f);
 
             terminusToggle.GetComponentInChildren<Toggle>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation;
@@ -285,14 +401,25 @@ public class PassengerSettingsWindow
                 {
                     passengerLocomotiveSettings.StationSettings[stationId].TransferStation = false;
                 }
-
-                if (passengerLocomotiveSettings.GetPickupStations().Count <= passengerLocomotiveSettings.GetStopAtStations().Count)
+                bool pickUpCountBigger = GetPickupStationsCount(passengerLocomotiveSettings, stationStops) > GetStopAtStationsCount(passengerLocomotiveSettings, stationStops);
+                logger.Information("pickup count is: {0}, stop at count is: {1}, pickup is bigger: {2}",
+                        GetPickupStationsCount(passengerLocomotiveSettings, stationStops), GetStopAtStationsCount(passengerLocomotiveSettings, stationStops), pickUpCountBigger);
+                if (!pickUpCountBigger)
                 {
                     passengerLocomotiveSettings.StationSettings.Values.ToList().ForEach(x => x.TransferStation = false);
                 }
 
+                if (interactableStationMap[stationId] != null)
+                {
+                    foreach (string stationId2 in stationStops.Select(ps => ps.identifier).ToList())
+                    {
+                        bool terminusSelected = passengerLocomotiveSettings.StationSettings[stationId2].TerminusStation;
+                        bool isAlarkaJct = stationId2 == "alarkajct";
+                        interactableStationMap[stationId2].Transfer = pickUpCountBigger && (terminusSelected || isAlarkaJct);
+                    }
+                }
+
                 SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
-                hBuilder.Rebuild();
             }).Tooltip("Enabled", $"Toggle whether passengers for {stationName} should be picked up at the stations toggled in 'Stop At'").Width(100f);
 
             RectTransform pauseAtStationToggle = hBuilder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].PauseAtStation, delegate (bool on)
@@ -306,17 +433,14 @@ public class PassengerSettingsWindow
 
             RectTransform transferStationToggle = hBuilder.AddToggle(() => passengerLocomotiveSettings.StationSettings[stationId].TransferStation, delegate (bool on)
             {
-                if (passengerLocomotiveSettings.GetPickupStations().Count <= passengerLocomotiveSettings.GetStopAtStations().Count)
-                {
-                    logger.Information("Can't set transfer station when number of pickup stations is less than or equals to the stop-at count");
-                    return;
-                }
                 logger.Information("Transfer for {0} set to {1}", stationId, on);
                 passengerLocomotiveSettings.StationSettings[stationId].TransferStation = on;
             }).Tooltip("Enabled", $"Toggle whether {stationName} is a transfer station")
             .Width(85f);
 
-            transferStationToggle.GetComponentInChildren<Toggle>().interactable = passengerLocomotiveSettings.StationSettings[stationId].TerminusStation || stationId == "alarkajct";
+            transferStationToggle.GetComponentInChildren<Toggle>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation
+                                                                                    && (passengerLocomotiveSettings.StationSettings[stationId].TerminusStation || stationId == "alarkajct")
+                                                                                    && GetPickupStationsCount(passengerLocomotiveSettings, stationStops) > GetStopAtStationsCount(passengerLocomotiveSettings, stationStops);
 
             RectTransform passengerModeDropDown = hBuilder.AddDropdown(passengerModList, ((int)passengerLocomotiveSettings.StationSettings[stationId].PassengerMode), delegate (int index)
             {
@@ -324,10 +448,32 @@ public class PassengerSettingsWindow
                 passengerLocomotiveSettings.StationSettings[stationId].PassengerMode = passengerModes[index];
             }).Width(125f).Height(20f);
 
-            passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>().interactable = passengerLocomotiveSettings.StationSettings[stationId].TerminusStation || stationId == "alarka";
+            passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>().interactable = passengerLocomotiveSettings.StationSettings[stationId].StopAtStation
+                                                                                        && (passengerLocomotiveSettings.StationSettings[stationId].TerminusStation || stationId == "alarka");
+
+            this.interactableStationMap.Add(stationId, new Interactable(terminusToggle.GetComponentInChildren<Toggle>(), pauseAtStationToggle.GetComponentInChildren<Toggle>(), transferStationToggle.GetComponentInChildren<Toggle>(), passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>()));
         });
     }
 
+    private int GetPickupStationsCount(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops)
+    {
+        return passengerLocomotiveSettings.StationSettings
+        .Where(kv => stationStops
+                    .Select(stp => stp.identifier).Contains(kv.Key)
+                    && kv.Value.PickupPassengersForStation == true)
+        .Select(stp => stp.Key)
+        .ToList().Count;
+    }
+
+    private int GetStopAtStationsCount(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops)
+    {
+        return passengerLocomotiveSettings.StationSettings
+        .Where(kv => stationStops
+                    .Select(stp => stp.identifier).Contains(kv.Key)
+                    && kv.Value.StopAtStation == true)
+        .Select(stp => stp.Key)
+        .ToList().Count;
+    }
     private void SelectStationOnCoaches(PassengerLocomotiveSettings passengerLocomotiveSettings, List<PassengerStop> stationStops, IEnumerable<Car> coaches)
     {
         List<string> passengerStopsToSelect = passengerLocomotiveSettings.StationSettings
