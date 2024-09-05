@@ -132,15 +132,27 @@ public class PassengerHelperPassengerStop : GameBehaviour
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
         List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedStopAtStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedPickupStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
         logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, and the following terminus stations: {3}, in the following direction: {4}",
-            LocomotiveName, CurrentStopName, orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
+            LocomotiveName, CurrentStopName, orderedStopAtStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
 
         if (passengerLocomotive.Settings.Disable)
         {
             logger.Information("Passenger Helper is disabled, proceeding with normal unload of passengers that aren't selected on the passenger car");
+            return false;
+        }
+
+        if (orderedTerminusStations.Count != 2)
+        {
+            logger.Information("Do not have 2 terminus stations selected");
+            return false;
+        }
+
+        if (orderedStopAtStations.Count < 2)
+        {
+            logger.Information("Do not have at least 2 stop at stations selected");
             return false;
         }
 
@@ -151,11 +163,11 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
             logger.Information("Train has this station as a transfer station");
             // does train have transfer passengers?
-            bool maybeHasTransferPassengers = pickUpPassengerStations.Count > orderedSelectedStations.Count;
+            bool maybeHasTransferPassengers = orderedPickupStations.Count > orderedStopAtStations.Count;
 
-            List<string> transferStations = pickUpPassengerStations.Except(orderedSelectedStations).ToList();
-            logger.Information("Train has the following terminus stations: {0}, the following selected stations: {1}, with the following transfer stations: {2}, and the train maybe has transfer passengers: {3}",
-            orderedTerminusStations, orderedSelectedStations, transferStations, maybeHasTransferPassengers);
+            List<string> transferStations = orderedPickupStations.Except(orderedStopAtStations).ToList();
+            logger.Information("Train has the following terminus stations: {0}, the following selected stations: {1}, with the following transfer stations: {2}, and the train has transfer passengers: {3}",
+            orderedTerminusStations, orderedStopAtStations, transferStations, maybeHasTransferPassengers);
 
             // if yes, unload them into the manager
             if (maybeHasTransferPassengers)
@@ -218,8 +230,23 @@ public class PassengerHelperPassengerStop : GameBehaviour
         List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation == true).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
-        int indexEastTerminus = orderedSelectedStations.IndexOf(orderedTerminusStations[0]);
-        int indexWestTerminus = orderedSelectedStations.IndexOf((orderedTerminusStations[1]));
+        if (passengerLocomotive.Settings.Disable)
+        {
+            logger.Information("Passenger Helper is disabled, proceeding with normal unload of passengers that aren't selected on the passenger car");
+            return false;
+        }
+
+        if (orderedTerminusStations.Count != 2)
+        {
+            logger.Information("Do not have 2 terminus stations selected");
+            return false;
+        }
+
+        if (orderedSelectedStations.Count < 2)
+        {
+            logger.Information("Do not have at least 2 stop at stations selected");
+            return false;
+        }
 
         logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
             LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());

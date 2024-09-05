@@ -64,17 +64,14 @@ public static class PassengerStopPatches
                     return;
                 }
 
-                if (!passengerLocomotive.TrainStatus.Arrived)
+                if (passengerLocomotive.TrainStatus.Arrived && passengerLocomotive.CurrentStation == __instance)
                 {
-                    if (passengerLocomotive.TrainStatus.Departed)
-                    {
-                        return;
-                    }
-
-                    logger.Information("Train {0} has not arrived at {1} yet, waiting to unload cars until it arrives", engine.DisplayName, __instance.DisplayName);
-                    __result = false;
-                    break;
+                    return;
                 }
+
+                logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", engine.DisplayName, __instance.DisplayName);
+                __result = false;
+                break;
             }
         }
     }
@@ -89,7 +86,7 @@ public static class PassengerStopPatches
             return true;
         }
         logger.Debug("Patched unload method");
-        if (!FindLocomotive(car, plugin, out PassengerLocomotive passengerLocomotive))
+        if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
         {
             return true;
         }
@@ -177,7 +174,7 @@ public static class PassengerStopPatches
         }
 
         logger.Debug("Patched Load method");
-        if (!FindLocomotive(car, plugin, out PassengerLocomotive passengerLocomotive))
+        if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
         {
             return true;
         }
@@ -205,12 +202,13 @@ public static class PassengerStopPatches
         return true;
     }
 
-    private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, out PassengerLocomotive passengerLocomotive)
+    private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
     {
+        logger.Information("Attempting to find locomotive for car {0}", car.DisplayName);
         IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
         foreach (Car engine in engines)
         {
-
+            logger.Information("Checking {0}", engine.DisplayName);
             if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
             {
                 return true;

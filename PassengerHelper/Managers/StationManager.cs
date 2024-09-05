@@ -437,6 +437,7 @@ public class StationManager
         string cochranIdentifier = "cochran";
         string alarkaIdentifier = "alarka";
         string almondIdentifier = "almond";
+        string alarkajctIdentifier = "alarkajct";
 
         logger.Information("Direction Intelligence: Current direction of travel: {0}, previousStop known: {1}, currentStop {2}",
                     settings.DirectionOfTravel,
@@ -535,7 +536,8 @@ public class StationManager
             logger.Information("Expected selected stations are: {0}", expectedSelectedDestinations);
 
             // transfer station check
-            int numTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Count();
+            List<string> orderedTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+            int numTransferStations = orderedTransferStations.Count();
             bool transferStationSelected = numTransferStations > 0;
 
             if (transferStationSelected)
@@ -549,23 +551,51 @@ public class StationManager
 
                 if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
                 {
-                    logger.Information("Selecting pickup stations {0} that are further west of the current station: {1}", pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup), orderedTerminusStations[1]);
-                    // select all to the west of the current station
-                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup));
-
-                    if (currentStopIdentifier == "alarkajct" && orderedStopAtStations[currentIndex + 1] == almondIdentifier)
+                    // train 1: sylva -> jct w/ jct as transfer
+                    // train 2: jct -> alarka w/ jct and alarka as transfer
+                    // train 3: alarka -> andrews w/alarka as transfer 
+                    if (currentStopIdentifier == cochranIdentifier
+                        && orderedTerminusStations[0] == alarkajctIdentifier
+                        && orderedTerminusStations[1] == alarkaIdentifier
+                        && orderedTransferStations.Contains(alarkajctIdentifier)
+                        && numTransferStations == 1
+                        )
                     {
-                        logger.Information("Train is at alarka jct station and next stop is almond station, deselecting cochran and alarka, if they are selected");
-                        expectedSelectedDestinations.Remove(alarkaIdentifier);
-                        expectedSelectedDestinations.Remove(cochranIdentifier);
+                        logger.Information("doing alarka branch, not selecting any additional pickup stations");
+                    }
+                    else
+                    {
+                        logger.Information("Selecting pickup stations {0} that are further west of the current station: {1}", pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup), orderedTerminusStations[1]);
+                        // select all to the west of the current station
+                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup));
+
+                        if (currentStopIdentifier == alarkajctIdentifier && orderedStopAtStations[currentIndex + 1] == almondIdentifier)
+                        {
+                            logger.Information("Train is at alarka jct station and next stop is almond station, deselecting cochran and alarka, if they are selected");
+                            expectedSelectedDestinations.Remove(alarkaIdentifier);
+                            expectedSelectedDestinations.Remove(cochranIdentifier);
+                        }
                     }
                 }
 
                 if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
                 {
-                    logger.Information("Selecting pickup stations {0} that are further east of the current station: {1}", pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1), orderedTerminusStations[0]);
-                    // select all to the east of the current station
-                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1));
+                    if (currentStopIdentifier == cochranIdentifier
+                        && orderedTerminusStations[0] == alarkajctIdentifier
+                        && orderedTerminusStations[1] == alarkaIdentifier
+                        && orderedTransferStations.Contains(alarkajctIdentifier)
+                        && numTransferStations == 1
+                        )
+                    {
+                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                        expectedSelectedDestinations.Remove(alarkaIdentifier);
+                    }
+                    else
+                    {
+                        logger.Information("Selecting pickup stations {0} that are further east of the current station: {1}", pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1), orderedTerminusStations[0]);
+                        // select all to the east of the current station
+                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1));
+                    }
                 }
             }
 

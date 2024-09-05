@@ -22,9 +22,32 @@ public class TrainManager
         Messenger.Default.Register<MapDidUnloadEvent>(this, (@event) => this.passengerLocomotives.Clear());
     }
 
+    public void SetLocomotive(string locomotiveName, PassengerLocomotive _passengerLocomotive)
+    {
+
+        if (!this.passengerLocomotives.TryGetValue(locomotiveName, out PassengerLocomotive passengerLocomotive))
+        {
+            this.passengerLocomotives.Add(locomotiveName, _passengerLocomotive);
+        }
+        else
+        {
+            this.passengerLocomotives[locomotiveName] = _passengerLocomotive;
+        }
+    }
+
     public bool GetPassengerLocomotive(BaseLocomotive locomotive, out PassengerLocomotive passengerLocomotive)
     {
         if (!this.passengerLocomotives.TryGetValue(locomotive.DisplayName, out passengerLocomotive))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool GetPassengerLocomotive(string locomotiveDisplayName, out PassengerLocomotive passengerLocomotive)
+    {
+        if (!this.passengerLocomotives.TryGetValue(locomotiveDisplayName, out passengerLocomotive))
         {
             return false;
         }
