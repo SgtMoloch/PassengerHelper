@@ -69,6 +69,11 @@ public static class PassengerStopPatches
                     return;
                 }
 
+                if (!passengerLocomotive.TrainStatus.Arrived && !passengerLocomotive.TrainStatus.ReadyToDepart && !passengerLocomotive.TrainStatus.Departed)
+                {
+                    return;
+                }
+
                 logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", engine.DisplayName, __instance.DisplayName);
                 __result = false;
                 break;
