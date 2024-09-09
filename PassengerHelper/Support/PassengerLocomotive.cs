@@ -300,7 +300,7 @@ public class PassengerLocomotive
         bool stayStopped = false;
 
         // train was requested to remain stopped
-        if (TrainStatus.StoppedNextStation && Settings.StopAtNextStation)
+        if (TrainStatus.StoppedNextStation && Settings.PauseAtNextStation)
         {
             logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
         }
@@ -309,7 +309,7 @@ public class PassengerLocomotive
             TrainStatus.StoppedNextStation = false;
         }
 
-        if (TrainStatus.StoppedTerminusStation && Settings.StopAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation)
+        if (TrainStatus.StoppedTerminusStation && Settings.PauseAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation)
         {
             logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
         }
@@ -361,7 +361,7 @@ public class PassengerLocomotive
             // first check if the setting has been set to false
             if (TrainStatus.StoppedForDiesel)
             {
-                if (!Settings.StopForDiesel)
+                if (!Settings.PauseForDiesel)
                 {
                     logger.Information("StopForDiesel no longer selected, resetting flag.");
                     TrainStatus.StoppedForDiesel = false;
@@ -375,7 +375,7 @@ public class PassengerLocomotive
 
             if (TrainStatus.StoppedForCoal)
             {
-                if (!Settings.StopForCoal)
+                if (!Settings.PauseForCoal)
                 {
                     logger.Information("StopForCoal no longer selected, resetting flag.");
                     TrainStatus.StoppedForCoal = false;
@@ -390,7 +390,7 @@ public class PassengerLocomotive
 
             if (TrainStatus.StoppedForWater)
             {
-                if (!Settings.StopForWater)
+                if (!Settings.PauseForWater)
                 {
                     logger.Information("StopForWater no longer selected, resetting flag.");
                     TrainStatus.StoppedForWater = false;

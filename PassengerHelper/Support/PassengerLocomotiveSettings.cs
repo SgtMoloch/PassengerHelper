@@ -18,14 +18,14 @@ public class PassengerLocomotiveSettings
         onChange += (value) => Messenger.Default.Send(new DOTChangedEvent());
     }
 
-    public bool StopForDiesel { get; set; } = false;
+    public bool PauseForDiesel { get; set; } = false;
     public float DieselLevel { get; set; } = 0.10f;
-    public bool StopForCoal { get; set; } = false;
+    public bool PauseForCoal { get; set; } = false;
     public float CoalLevel { get; set; } = 0.10f;
-    public bool StopForWater { get; set; } = false;
+    public bool PauseForWater { get; set; } = false;
     public float WaterLevel { get; set; } = 0.10f;
-    public bool StopAtNextStation { get; set; } = false;
-    public bool StopAtTerminusStation { get; set; } = false;
+    public bool PauseAtNextStation { get; set; } = false;
+    public bool PauseAtTerminusStation { get; set; } = false;
     public bool WaitForFullPassengersTerminusStation { get; set; } = false;
     public bool Disable { get; set; } = true;
     public DirectionOfTravel DirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
@@ -93,17 +93,17 @@ public class PassengerLocomotiveSettings
     {
         int prime = 31;
         int result = 1;
-        result = prime * result + StopForDiesel.GetHashCode();
+        result = prime * result + PauseForDiesel.GetHashCode();
         result = prime * result + DieselLevel.GetHashCode();
 
-        result = prime * result + StopForCoal.GetHashCode();
+        result = prime * result + PauseForCoal.GetHashCode();
         result = prime * result + CoalLevel.GetHashCode();
 
-        result = prime * result + StopForWater.GetHashCode();
+        result = prime * result + PauseForWater.GetHashCode();
         result = prime * result + WaterLevel.GetHashCode();
 
-        result = prime * result + StopAtNextStation.GetHashCode();
-        result = prime * result + StopAtTerminusStation.GetHashCode();
+        result = prime * result + PauseAtNextStation.GetHashCode();
+        result = prime * result + PauseAtTerminusStation.GetHashCode();
 
         result = prime * result + WaitForFullPassengersTerminusStation.GetHashCode();
 

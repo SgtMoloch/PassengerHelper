@@ -75,6 +75,7 @@ public class StationManager
             passengerLocomotive.ResetStoppedFlags();
         }
 
+        logger.Information("locomotive cached settings hash: {0}, actual setting hash: {1}", passengerLocomotive.settingsHash, settings.getSettingsHash());
         // if we have departed, cease all procedures unless a setting was changed after running the procedure
         if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash())
         {
@@ -161,7 +162,7 @@ public class StationManager
 
     private bool PauseAtCurrentStation(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
-        if (settings.StopAtNextStation)
+        if (settings.PauseAtNextStation)
         {
             logger.Information("Pausing at station due to setting");
             passengerLocomotive.PostNotice("ai-stop", $"Paused at {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
@@ -181,7 +182,7 @@ public class StationManager
             return true;
         }
 
-        if (settings.StopAtTerminusStation && settings.StationSettings[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
+        if (settings.PauseAtTerminusStation && settings.StationSettings[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
         {
             logger.Information("Pausing at {0} due to setting", passengerLocomotive.CurrentStation.DisplayName);
             passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(passengerLocomotive.CurrentStation)}.");
@@ -197,7 +198,7 @@ public class StationManager
     private bool HaveLowFuel(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
     {
         bool retVal = false;
-        if (settings.StopForDiesel)
+        if (settings.PauseForDiesel)
         {
             logger.Information("Requested stop for low diesel, checking level");
             // check diesel
@@ -208,7 +209,7 @@ public class StationManager
             }
         }
 
-        if (settings.StopForCoal)
+        if (settings.PauseForCoal)
         {
             logger.Information("Requested stop for low coal, checking level");
             // check coal
@@ -219,7 +220,7 @@ public class StationManager
             }
         }
 
-        if (settings.StopForWater)
+        if (settings.PauseForWater)
         {
             logger.Information("Requested stop for low water, checking level");
             // check water
@@ -321,7 +322,6 @@ public class StationManager
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
-            passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return nonTerminusStationProcedureRetVal;
         }
@@ -406,7 +406,6 @@ public class StationManager
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
-            passengerLocomotive.settingsHash = settings.getSettingsHash();
 
             return terminusStationProcedureRetVal;
         }
@@ -549,48 +548,127 @@ public class StationManager
                 int currentIndex_Pickup = pickUpPassengerStations.IndexOf(currentStopIdentifier);
                 logger.Information("The following stations are pickup stations: {0}", pickUpPassengerStations);
 
-                if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                bool useNormalLogic = false;
+
+                if (orderedTransferStations.Contains(alarkajctIdentifier))
                 {
-                    // train 1: sylva -> jct w/ jct as transfer
-                    // train 2: jct -> alarka w/ jct and alarka as transfer
-                    // train 3: alarka -> andrews w/alarka as transfer 
-                    if (currentStopIdentifier == cochranIdentifier
-                        && orderedTerminusStations[0] == alarkajctIdentifier
-                        && orderedTerminusStations[1] == alarkaIdentifier
-                        && orderedTransferStations.Contains(alarkajctIdentifier)
-                        && numTransferStations == 1
-                        )
+                    logger.Information("Train has alarkajct as a transfer station");
+                    if (orderedTransferStations.Contains(alarkaIdentifier))
                     {
-                        logger.Information("doing alarka branch, not selecting any additional pickup stations");
+                        logger.Information("Alarka is also a transfer station, continuing with normal transfer station selection logic");
+                        useNormalLogic = true;
                     }
                     else
+                    {
+                        if (orderedTerminusStations[0] == alarkajctIdentifier)
+                        {
+                            logger.Information("Train has alarkajct as the east terminus station");
+                            if (orderedTerminusStations[1] == alarkaIdentifier)
+                            {
+                                logger.Information("Train has alarka as the west terminus station");
+                                logger.Information("Train is doing the alarka branch only");
+                                logger.Information("train should be at cochran");
+
+                                if (currentStopIdentifier == cochranIdentifier)
+                                {
+                                    if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                                    {
+                                        logger.Information("Train is heading East, so selecting all pickup stations");
+                                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                                    }
+                                    if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
+                                    {
+                                        logger.Information("Train is heading West, so selecting only cochran and alarka as normal");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                logger.Information("Train has a station other than alarka for the west terminus, continuing with normal station selection logic");
+                                useNormalLogic = true;
+                            }
+                        }
+                        else
+                        {
+                            logger.Information("Train has a station other than alarkajct for the east terminus");
+                            if (orderedTransferStations.Contains(alarkaIdentifier))
+                            {
+                                logger.Information("Alarka is a transfer station, continuing with normal transfer station selection logic");
+                                useNormalLogic = true;
+                            }
+                            else
+                            {
+                                if (orderedTerminusStations[1] == alarkaIdentifier)
+                                {
+                                    logger.Information("Train has alarka as the west terminus station");
+                                    // west of west terminus is correct logic here
+
+                                    if (currentIndex_Pickup > pickUpPassengerStations.IndexOf(alarkajctIdentifier) && settings.DirectionOfTravel == DirectionOfTravel.EAST)
+                                    {
+                                        logger.Information("Train is heading East and is at cochran, so selecting all pickup stations");
+                                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                                    }
+                                    else
+                                    {
+                                        useNormalLogic = true;
+                                    }
+                                }
+                                else
+                                {
+                                    logger.Information("Train has a station other than alarka for the west terminus, running logic to determine if cochran and alarka should be added to selected stations");
+
+                                    bool addAlarkaAndCochran = true;
+
+                                    logger.Information("Checking if alarka and cochran are pickup stations");
+                                    bool pickUpContainsAlarkaAndCochran = pickUpPassengerStations.Contains(alarkaIdentifier) && pickUpPassengerStations.Contains(cochranIdentifier);
+                                    logger.Information("Alarka and cochran are pickup stations: {0}", pickUpContainsAlarkaAndCochran);
+
+                                    bool dotEastAndBeforeAlarka = settings.DirectionOfTravel == DirectionOfTravel.EAST;
+                                    bool dotWestAndBeforeAlarka = settings.DirectionOfTravel == DirectionOfTravel.WEST;
+
+                                    if (pickUpContainsAlarkaAndCochran)
+                                    {
+                                        logger.Information("Checking of train is before Alarka jct, based on current direction of travel");
+                                        int alarkaJctIndex_Pickup = pickUpPassengerStations.IndexOf(alarkajctIdentifier);
+                                        dotEastAndBeforeAlarka &= currentIndex_Pickup > alarkaJctIndex_Pickup;
+                                        dotWestAndBeforeAlarka &= currentIndex_Pickup < alarkaJctIndex_Pickup;
+                                        logger.Information("train is before Alarka jct going west: {0}, train is before Alarka jct going east: {1}", dotWestAndBeforeAlarka, dotEastAndBeforeAlarka);
+
+                                        logger.Information("Ensuring that cochran and alarka are not stop at stations");
+                                        bool stopDoesNotIncludeAlarkaAndCochran = !orderedStopAtStations.Contains(alarkaIdentifier) && !orderedStopAtStations.Contains(cochranIdentifier);
+                                        logger.Information("cochran and alarka are not stop at stations: {0}", stopDoesNotIncludeAlarkaAndCochran);
+
+                                        addAlarkaAndCochran &= stopDoesNotIncludeAlarkaAndCochran && (dotEastAndBeforeAlarka || dotWestAndBeforeAlarka);
+
+                                        if (addAlarkaAndCochran)
+                                        {
+                                            logger.Information("adding alarka");
+                                            expectedSelectedDestinations.Add(alarkaIdentifier);
+                                            logger.Information("adding cochran");
+                                            expectedSelectedDestinations.Add(cochranIdentifier);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    logger.Information("Alarkajct is not a transfer station, continuing with normal station selection logic");
+                    useNormalLogic = true;
+                }
+
+                if (useNormalLogic)
+                {
+                    if (settings.DirectionOfTravel == DirectionOfTravel.WEST)
                     {
                         logger.Information("Selecting pickup stations {0} that are further west of the current station: {1}", pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup), orderedTerminusStations[1]);
                         // select all to the west of the current station
                         expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(currentIndex_Pickup, pickUpPassengerStations.Count - currentIndex_Pickup));
-
-                        if (currentStopIdentifier == alarkajctIdentifier && orderedStopAtStations[currentIndex + 1] == almondIdentifier)
-                        {
-                            logger.Information("Train is at alarka jct station and next stop is almond station, deselecting cochran and alarka, if they are selected");
-                            expectedSelectedDestinations.Remove(alarkaIdentifier);
-                            expectedSelectedDestinations.Remove(cochranIdentifier);
-                        }
                     }
-                }
 
-                if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
-                {
-                    if (currentStopIdentifier == cochranIdentifier
-                        && orderedTerminusStations[0] == alarkajctIdentifier
-                        && orderedTerminusStations[1] == alarkaIdentifier
-                        && orderedTransferStations.Contains(alarkajctIdentifier)
-                        && numTransferStations == 1
-                        )
-                    {
-                        expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
-                        expectedSelectedDestinations.Remove(alarkaIdentifier);
-                    }
-                    else
+                    if (settings.DirectionOfTravel == DirectionOfTravel.EAST)
                     {
                         logger.Information("Selecting pickup stations {0} that are further east of the current station: {1}", pickUpPassengerStations.GetRange(0, currentIndex_Pickup + 1), orderedTerminusStations[0]);
                         // select all to the east of the current station
@@ -658,28 +736,21 @@ public class StationManager
         logger.Information("{0} reached terminus station at {1}", passengerLocomotive._locomotive.DisplayName, CurrentStop.DisplayName);
         Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Reached terminus station at {Hyperlink.To(CurrentStop)}.\"");
 
-        // we have reached the last station
-        if (settings.StopAtTerminusStation)
-        {
-            logger.Information("Pausing at terminus station due to setting");
-            passengerLocomotive.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(CurrentStop)}.");
-            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
-            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Requested pause at terminus station";
-            passengerLocomotive.TrainStatus.StoppedTerminusStation = true;
-
-            return true;
-        }
-
         logger.Information("Re-selecting station stops based on settings.");
 
         // transfer station check
-        int numTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Count();
+        List<string> orderedTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        int numTransferStations = orderedTransferStations.Count();
         bool transferStationSelected = numTransferStations > 0;
 
         string currentStopIdentifier = CurrentStop.identifier;
         int westTerminusIndex = orderedStopAtStations.IndexOf(orderedTerminusStations[1]);
         int eastTerminusIndex = orderedStopAtStations.IndexOf(orderedTerminusStations[0]);
         int currentIndex = orderedStopAtStations.IndexOf(currentStopIdentifier);
+
+        string alarkaIdentifier = "alarka";
+        string cochranIdentifier = "cochran";
+        string alarkajctIdentifier = "alarkajct";
 
         HashSet<string> expectedSelectedDestinations = orderedStopAtStations.ToHashSet();
 
@@ -692,30 +763,115 @@ public class StationManager
 
             logger.Information("The following stations are pickup stations: {0}", pickUpPassengerStations);
 
-            if (orderedTerminusStations[1] == "cochran" || orderedTerminusStations[1] == "alarka")
+            if (orderedTransferStations.Contains(alarkajctIdentifier))
             {
-                if (currentIndex == westTerminusIndex)
+                logger.Information("Train has alarkajct as a transfer station");
+                if (orderedTransferStations.Contains(alarkaIdentifier))
                 {
-                    logger.Information("train is currently at {0}, so select ALL pickup stations", currentStopIdentifier);
-                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                    logger.Information("Alarka is also a transfer station, continuing with normal transfer station selection logic");
+                }
+                else
+                {
+                    if (orderedTerminusStations[0] == alarkajctIdentifier)
+                    {
+                        logger.Information("Train has alarkajct as the east terminus station");
+                        if (orderedTerminusStations[1] == alarkaIdentifier)
+                        {
+                            logger.Information("Train has alarka as the west terminus station");
+                            logger.Information("Train is doing the alarka branch only");
+
+                            if (directionOfTravel == DirectionOfTravel.EAST)
+                            {
+                                logger.Information("Train is now heading East (meaning at alarka), so selecting all pickup stations");
+                                expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                            }
+                        }
+                        else
+                        {
+                            logger.Information("Train has a station other than alarka for the west terminus");
+
+                            if (directionOfTravel == DirectionOfTravel.EAST)
+                            {
+                                logger.Information("Train is now heading East, so selecting alarka and cochran as pickup stations if needed");
+                                if (pickUpPassengerStations.Contains(alarkaIdentifier))
+                                {
+                                    logger.Information("adding alarka");
+                                    expectedSelectedDestinations.Add(alarkaIdentifier);
+                                }
+
+                                if (pickUpPassengerStations.Contains(cochranIdentifier))
+                                {
+                                    logger.Information("adding cochran");
+                                    expectedSelectedDestinations.Add(cochranIdentifier);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        logger.Information("Train has a station other than alarkajct for the east terminus");
+                        if (orderedTransferStations.Contains(alarkaIdentifier))
+                        {
+                            logger.Information("Alarka is a transfer station, continuing with normal transfer station selection logic");
+                        }
+                        else
+                        {
+                            if (orderedTerminusStations[1] == alarkaIdentifier)
+                            {
+                                logger.Information("Train has alarka as the west terminus station");
+                                // west of west terminus is correct logic here
+
+                                if (directionOfTravel == DirectionOfTravel.EAST)
+                                {
+                                    logger.Information("Train is now heading East (meaning at alarka), so selecting all pickup stations");
+                                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+                                }
+                            }
+                            else
+                            {
+                                logger.Information("Train has a station other than alarka for the west terminus");
+
+                                if (directionOfTravel == DirectionOfTravel.EAST)
+                                {
+                                    logger.Information("Train is now heading East, so selecting alarka and cochran as pickup stations if needed");
+                                    if (pickUpPassengerStations.Contains(alarkaIdentifier))
+                                    {
+                                        logger.Information("adding alarka");
+                                        expectedSelectedDestinations.Add(alarkaIdentifier);
+                                    }
+
+                                    if (pickUpPassengerStations.Contains(cochranIdentifier))
+                                    {
+                                        logger.Information("adding cochran");
+                                        expectedSelectedDestinations.Add(cochranIdentifier);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            else
+
+            if (directionOfTravel == DirectionOfTravel.WEST)
             {
-                if (directionOfTravel == DirectionOfTravel.WEST)
+                if (orderedTransferStations.Contains(orderedTerminusStations[1]))
                 {
                     logger.Information("Selecting pickup stations {0} that are further west of the west terminus station: {1}", pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup), orderedTerminusStations[1]);
                     // select all to the west of the west terminus station
                     expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup));
                 }
+            }
 
-                if (directionOfTravel == DirectionOfTravel.EAST)
+            if (directionOfTravel == DirectionOfTravel.EAST)
+            {
+                if (orderedTransferStations.Contains(orderedTerminusStations[0]))
                 {
                     logger.Information("Selecting pickup stations {0} that are further east of the east terminus station: {1}", pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1), orderedTerminusStations[0]);
                     // select all to the east of the east terminus station
                     expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1));
                 }
             }
+
         }
 
         logger.Information("Setting the following stations: {0}", expectedSelectedDestinations);
