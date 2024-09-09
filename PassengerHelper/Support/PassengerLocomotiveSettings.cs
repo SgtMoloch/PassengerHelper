@@ -64,15 +64,18 @@ public class PassengerLocomotiveSettings
             { "rhodo", new StationSetting() },
             { "andrews", new StationSetting() }
         };
-    public List<string> GetStopAtStations() {
+    public List<string> GetStopAtStations()
+    {
         return StationSettings.Where(ss => ss.Value.StopAtStation == true).Select(ss => ss.Key).ToList();
     }
 
-    public List<string> GetTerminusStations() {
+    public List<string> GetTerminusStations()
+    {
         return StationSettings.Where(ss => ss.Value.TerminusStation == true).Select(ss => ss.Key).ToList();
     }
 
-    public List<string> GetPickupStations() {
+    public List<string> GetPickupStations()
+    {
         return StationSettings.Where(ss => ss.Value.PickupPassengersForStation == true).Select(ss => ss.Key).ToList();
     }
 
@@ -185,6 +188,9 @@ public class TrainStatus
         StoppedTerminusStation = false;
         StoppedStationPause = false;
         StoppedWaitForFullLoad = false;
+        StoppedInsufficientStopAtStations = false;
+        StoppedInsufficientTerminusStations = false;
+        StoppedUnknownDirection = false;
     }
 
     public void ResetStatusFlags()
@@ -200,6 +206,20 @@ public class TrainStatus
         ReadyToDepart = false;
         Departed = false;
         Continue = false;
+    }
+
+    public bool ShouldStayStopped()
+    {
+        return StoppedForDiesel ||
+                StoppedForCoal ||
+                StoppedForWater ||
+                StoppedNextStation ||
+                StoppedTerminusStation ||
+                StoppedStationPause ||
+                StoppedWaitForFullLoad ||
+                StoppedInsufficientStopAtStations ||
+                StoppedInsufficientTerminusStations ||
+                StoppedUnknownDirection;
     }
 }
 

@@ -78,8 +78,6 @@ public class PassengerLocomotive
     private int _waterSlotIndex;
     private float _waterSlotMax;
 
-    private Orders? cachedOrders = null;
-
     internal int settingsHash = 0;
     internal int stationSettingsHash = 0;
 
@@ -97,6 +95,8 @@ public class PassengerLocomotive
 
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        LoadSettings(Settings);
+        this.FuelCar = GetFuelCar();
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
@@ -121,9 +121,6 @@ public class PassengerLocomotive
             }
             _selfSentOrders = false;
         });
-
-        LoadSettings(Settings);
-        this.FuelCar = GetFuelCar();
     }
 
     private void LoadSettings(PassengerLocomotiveSettings Settings)
@@ -292,20 +289,10 @@ public class PassengerLocomotive
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
 
-        if (cachedOrders == null)
-        {
-            cachedOrders = persistence.Orders;
-        }
-
         if (TrainStatus.Continue)
         {
             logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
-            TrainStatus.CurrentlyStopped = false;
-
-            _selfSentOrders = true;
-            logger.Information("Cached orders are: ", cachedOrders);
-            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, cachedOrders?.MaxSpeedMph);
-            cachedOrders = null;
+            ResetStoppedFlags();
 
             return false;
         }
@@ -313,60 +300,54 @@ public class PassengerLocomotive
         bool stayStopped = false;
 
         // train was requested to remain stopped
-        if (Settings.StopAtNextStation && TrainStatus.StoppedNextStation)
+        if (TrainStatus.StoppedNextStation && Settings.StopAtNextStation)
         {
             logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
             TrainStatus.StoppedNextStation = false;
         }
 
-        if (Settings.StopAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation == true && TrainStatus.StoppedTerminusStation)
+        if (TrainStatus.StoppedTerminusStation && Settings.StopAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation)
         {
             logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
             TrainStatus.StoppedTerminusStation = false;
         }
 
-        if (Settings.StationSettings[CurrentStation.identifier].PauseAtStation && TrainStatus.StoppedStationPause)
+        if (TrainStatus.StoppedStationPause && Settings.StationSettings[CurrentStation.identifier].PauseAtStation)
         {
             logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
             TrainStatus.StoppedStationPause = false;
         }
 
-        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && TrainStatus.StoppedUnknownDirection)
+        if (TrainStatus.StoppedUnknownDirection && Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
         {
             logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
             TrainStatus.StoppedUnknownDirection = false;
         }
 
-        if (Settings.StationSettings.Values.Where(s => s.TerminusStation).Count() != 2 && TrainStatus.StoppedInsufficientTerminusStations)
+        if (TrainStatus.StoppedInsufficientTerminusStations && Settings.StationSettings.Values.Where(s => s.TerminusStation).Count() != 2)
         {
             logger.Information("Still do not have 2 terminus stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
             TrainStatus.StoppedInsufficientTerminusStations = false;
         }
 
-        if (Settings.StationSettings.Values.Where(s => s.StopAtStation).Count() < 2 && TrainStatus.StoppedInsufficientStopAtStations)
+        if (TrainStatus.StoppedInsufficientStopAtStations && Settings.StationSettings.Values.Where(s => s.StopAtStation).Count() < 2)
         {
             logger.Information("Still do not have at least 2 stop at stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
-            stayStopped = true;
         }
         else
         {
@@ -378,42 +359,59 @@ public class PassengerLocomotive
         {
             logger.Information("Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
             // first check if the setting has been set to false
-            if (!Settings.StopForDiesel && TrainStatus.StoppedForDiesel)
+            if (TrainStatus.StoppedForDiesel)
             {
-                logger.Information("StopForDiesel no longer selected, resetting flag.");
-                TrainStatus.StoppedForDiesel = false;
+                if (!Settings.StopForDiesel)
+                {
+                    logger.Information("StopForDiesel no longer selected, resetting flag.");
+                    TrainStatus.StoppedForDiesel = false;
+                }
+                else
+                {
+                    CheckDieselFuelLevel(out float level);
+                    logger.Information("StoppedForDiesel is now: {0}", TrainStatus.StoppedForDiesel);
+                }
             }
 
-            if (!Settings.StopForCoal && TrainStatus.StoppedForCoal)
+            if (TrainStatus.StoppedForCoal)
             {
-                logger.Information("StopForCoal no longer selected, resetting flag.");
-                TrainStatus.StoppedForCoal = false;
+                if (!Settings.StopForCoal)
+                {
+                    logger.Information("StopForCoal no longer selected, resetting flag.");
+                    TrainStatus.StoppedForCoal = false;
+                }
+                else
+                {
+                    CheckCoalLevel(out float level);
+                    logger.Information("StoppedForCoal is now: {0}", TrainStatus.StoppedForCoal);
+                }
+
             }
 
-            if (!Settings.StopForWater && TrainStatus.StoppedForWater)
+            if (TrainStatus.StoppedForWater)
             {
-                logger.Information("StopForWater no longer selected, resetting flag.");
-                TrainStatus.StoppedForWater = false;
-            }
+                if (!Settings.StopForWater)
+                {
+                    logger.Information("StopForWater no longer selected, resetting flag.");
+                    TrainStatus.StoppedForWater = false;
+                }
+                else
+                {
+                    CheckWaterLevel(out float level);
+                    logger.Information("StoppedForWater is now: {0}", TrainStatus.StoppedForWater);
+                }
 
-            stayStopped = TrainStatus.StoppedForDiesel || TrainStatus.StoppedForCoal || TrainStatus.StoppedForWater;
+            }
         }
+
+        stayStopped = TrainStatus.ShouldStayStopped();
 
         if (stayStopped)
         {
-            if (Settings.DirectionOfTravel != DirectionOfTravel.UNKNOWN)
+            if (!TrainStatus.StoppedUnknownDirection && !TrainStatus.StoppedInsufficientTerminusStations && !TrainStatus.StoppedInsufficientStopAtStations)
             {
                 persistence.PassengerModeStatus = "Paused";
             }
-
-            _selfSentOrders = true;
-            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, 0);
-        }
-        else
-        {
-            _selfSentOrders = true;
-            helper.SetOrdersValue(cachedOrders?.Mode(), cachedOrders?.Forward, cachedOrders?.MaxSpeedMph);
-            cachedOrders = null;
         }
 
         Settings.TrainStatus = TrainStatus;
