@@ -265,6 +265,7 @@ public class PassengerSettingsWindow
                 ClearSelections(passengerLocomotiveSettings, stationStops);
                 SelectAllStopAt(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
+                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
             });
             hBuilder.AddButton("PickUp All Stations", () =>
             {
@@ -284,11 +285,13 @@ public class PassengerSettingsWindow
 
                 SelectAllPickup(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
+                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
             });
             hBuilder.AddButton("Clear Selections", () =>
             {
                 ClearSelections(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
+                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
             });
         });
 

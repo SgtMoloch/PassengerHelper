@@ -143,7 +143,7 @@ public class PassengerLocomotive
         {
             logger.Information("Train did not depart yet, selecting current station on passenger cars");
             _locomotive.velocity = 0;
-            IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
 
             foreach (Car coach in coaches)
             {
@@ -159,7 +159,7 @@ public class PassengerLocomotive
         if (this.TrainStatus.Departed && this.CurrentStation == null && this.PreviousStation != null)
         {
             logger.Information("Train is not at a station, but is in route, re-selecting stations to be safe");
-            IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
 
             foreach (Car coach in coaches)
             {

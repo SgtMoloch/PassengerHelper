@@ -44,7 +44,7 @@ public static class PassengerStopPatches
             return;
         }
 
-        IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
+        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
 
         foreach (Car engine in engines)
         {
@@ -210,7 +210,7 @@ public static class PassengerStopPatches
     private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
     {
         logger.Information("Attempting to find locomotive for car {0}", car.DisplayName);
-        IEnumerable<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel);
+        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
         foreach (Car engine in engines)
         {
             logger.Information("Checking {0}", engine.DisplayName);

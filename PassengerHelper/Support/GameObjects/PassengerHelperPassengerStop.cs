@@ -135,8 +135,8 @@ public class PassengerHelperPassengerStop : GameBehaviour
         List<string> orderedStopAtStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedPickupStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
-        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, and the following terminus stations: {3}, in the following direction: {4}",
-            LocomotiveName, CurrentStopName, orderedStopAtStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
+        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, in the following direction: {4}",
+            LocomotiveName, CurrentStopName, orderedStopAtStations, settings.DirectionOfTravel.ToString());
 
         if (passengerLocomotive.Settings.Disable)
         {
@@ -163,11 +163,10 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
             logger.Information("Train has this station as a transfer station");
             // does train have transfer passengers?
-            bool maybeHasTransferPassengers = orderedPickupStations.Count > orderedStopAtStations.Count;
+            bool maybeHasTransferPassengers = orderedPickupStations.Count > orderedStopAtStations.Count && carMarker.Destinations.Count > orderedStopAtStations.Count;
 
             List<string> transferStations = orderedPickupStations.Except(orderedStopAtStations).ToList();
-            logger.Information("Train has the following terminus stations: {0}, the following selected stations: {1}, with the following transfer stations: {2}, and the train has transfer passengers: {3}",
-            orderedTerminusStations, orderedStopAtStations, transferStations, maybeHasTransferPassengers);
+            logger.Information("Train has the following selected stations: {1}, with the following stations with transfer passengers: {2}, and the train has transfer passengers: {3}", orderedStopAtStations, transferStations, maybeHasTransferPassengers);
 
             // if yes, unload them into the manager
             if (maybeHasTransferPassengers)
@@ -225,7 +224,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
         string LocomotiveName = _locomotive.DisplayName;
         string CurrentStopIdentifier = this.passengerStop.identifier;
         string CurrentStopName = this.passengerStop.DisplayName;
-        IEnumerable<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach);
+        List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
         List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation == true).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
@@ -248,14 +247,15 @@ public class PassengerHelperPassengerStop : GameBehaviour
             return false;
         }
 
-        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, and the following terminus stations: {4}, in the following direction: {5}",
-            LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, orderedTerminusStations, settings.DirectionOfTravel.ToString());
+        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, in the following direction: {4}",
+            LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, settings.DirectionOfTravel.ToString());
 
-
-        logger.Information("Station Manager has the following groups: {0}", _stationTransferGroups);
-        logger.Information("The current station {0} contains {1} groups, checking to see if any of them can be loaded onto the current train", CurrentStopName, _stationTransferGroups.Count);
+        bool stationHasAvailableTransferPassengers = _stationTransferGroups.Count > 0;
+        bool shouldLoadTransferPassengers = stationHasAvailableTransferPassengers && this._stationTransferGroups.Select(s => s.Destination).Intersect(carMarker.Destinations).Count() > 0;
         if (_stationTransferGroups.Count > 0)
         {
+            logger.Information("Station Manager has the following groups: {0}", _stationTransferGroups);
+            logger.Information("The current station {0} contains {1} groups, checking to see if any of them can be loaded onto the current train", CurrentStopName, _stationTransferGroups.Count);
             logger.Information("Coach has the following passenger marker: {0}", carMarker);
             foreach (string destination in carMarker.Destinations)
             {
