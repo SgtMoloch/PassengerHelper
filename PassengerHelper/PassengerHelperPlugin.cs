@@ -9,7 +9,9 @@ using Railloader;
 using Serilog;
 using System.Collections.Generic;
 using System.Linq;
-
+using global::PassengerHelperPlugin.Managers;
+using Model.OpsNew;
+using Game;
 
 public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 {
@@ -17,10 +19,11 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 
     private readonly IModdingContext ctx;
     private readonly IModDefinition self;
-    internal IUIHelper UIHelper { get; }
-    internal Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings { get; }
-    internal Dictionary<BaseLocomotive, PassengerLocomotive> _locomotives = new();
+
+    internal SettingsManager settingsManager { get; }
+    internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
+    internal bool TestMode { get; } = false;
 
     internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -28,35 +31,25 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
                 "almond", "nantahala", "topton", "rhodo", "andrews"
                 };
 
-    internal readonly List<string> orderedStations_Full = new List<string>()
-                {
-                "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka", "cochran",
-                "almond", "nantahala", "topton", "rhodo", "andrews"
-                };
     public PassengerHelperPlugin(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
     {
         new Harmony(self.Id).PatchAll(GetType().Assembly);
-        passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();
-        logger.Information("loaded settings: {0}", passengerLocomotivesSettings);
+        Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();
+
         this.self = self;
         this.ctx = ctx;
-        UIHelper = uiHelper;
 
-        this.stationManager = new StationManager(this);
+        SettingsManager settingsManager = new SettingsManager(this, passengerLocomotivesSettings, uiHelper);
+        TrainManager trainManager = new TrainManager(settingsManager);
+        StationManager stationManager = new StationManager(settingsManager, trainManager, orderedStations);
 
-        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
+        this.settingsManager = settingsManager;
+        this.trainManager = trainManager;
+        this.stationManager = stationManager;
     }
 
-    public void SaveSettings()
+    public void SaveSettings(Dictionary<string, PassengerLocomotiveSettings> settings)
     {
-        ctx.SaveSettingsData(self.Id, passengerLocomotivesSettings);
+        ctx.SaveSettingsData(self.Id, settings);
     }
-
-    private void OnMapDidUnload(MapDidUnloadEvent @event)
-    {
-        passengerLocomotivesSettings.Values.ToList().ForEach(x => x.gameLoadFlag = true);
-
-        SaveSettings();
-    }
-
 }

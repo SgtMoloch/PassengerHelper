@@ -51,23 +51,25 @@ public static class AutoEngineerPassengerStopperPatches
             return;
         }
 
-        var _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
+        BaseLocomotive _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
 
         if (_locomotive == null)
         {
             return;
         }
 
-        if (plugin._locomotives.TryGetValue(_locomotive, out PassengerLocomotive passengerLocomotive))
+        if (_locomotive.VelocityMphAbs >= 5f)
         {
-            if (passengerLocomotive.ReadyToDepart && _locomotive.VelocityMphAbs > 1f)
+            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+
+            if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.CurrentStation != null)
             {
-                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStop.DisplayName, TimeWeather.Now);
-                passengerLocomotive.Arrived = false;
-                passengerLocomotive.ReadyToDepart = false;
-                passengerLocomotive.Departed = true;
-                passengerLocomotive.CurrentStop = null;
-                passengerLocomotive.departureTime = TimeWeather.Now;
+                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
+                passengerLocomotive.TrainStatus.Arrived = false;
+                passengerLocomotive.TrainStatus.ReadyToDepart = false;
+                passengerLocomotive.TrainStatus.Departed = true;
+                passengerLocomotive.PreviousStation = passengerLocomotive.CurrentStation;
+                passengerLocomotive.CurrentStation = null;
             }
         }
     }
