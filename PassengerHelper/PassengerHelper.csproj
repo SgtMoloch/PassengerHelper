@@ -10,16 +10,8 @@
     <GameAssembly Include="Core"/>
     <GameAssembly Include="KeyValue.Runtime"/>
     <GameAssembly Include="mscorlib"/>
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="Unity.TextMeshPro">
-      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\Unity.TextMeshPro.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\UnityEngine.UI.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.UIElementsModule">
-      <HintPath>E:\SteamLibrary\steamapps\common\Railroader\Railroader_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
-    </Reference>
+    <GameAssembly Include="Unity.TextMeshPro"/>
+    <GameAssembly Include="UnityEngine.UI"/>
+    <GameAssembly Include="UnityEngine.UIElementsModule"/>
   </ItemGroup>
 </Project>
