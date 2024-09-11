@@ -163,21 +163,33 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
             logger.Information("Train has this station as a transfer station");
             // does train have transfer passengers?
-            bool maybeHasTransferPassengers = orderedPickupStations.Count > orderedStopAtStations.Count && carMarker.Destinations.Count > orderedStopAtStations.Count;
+            List<string> carPassengers = carMarker.Groups.Select(g => g.Destination).ToList();
+
+            bool maybeHasTransferPassengers = false;
+
+            foreach (string destination in carPassengers)
+            {
+                if (orderedPickupStations.Contains(destination))
+                {
+                    maybeHasTransferPassengers = true;
+                    break;
+                }
+            }
 
             List<string> transferStations = orderedPickupStations.Except(orderedStopAtStations).ToList();
-            logger.Information("Train has the following selected stations: {1}, with the following stations with transfer passengers: {2}, and the train has transfer passengers: {3}", orderedStopAtStations, transferStations, maybeHasTransferPassengers);
+            logger.Information("Train has the following selected stations: {0}, with the following stations with transfer passengers: {1}, and the train has transfer passengers: {2}", orderedStopAtStations, transferStations, maybeHasTransferPassengers);
 
             // if yes, unload them into the manager
             if (maybeHasTransferPassengers)
             {
                 logger.Information("Train maybe has transfer passengers");
-                logger.Information("Coach has the following passenger marker: {0}", carMarker);
-                logger.Information("Checking group: {0}", carGroup);
+                logger.Debug("Coach has the following passenger marker: {0}", carMarker);
+                logger.Debug("Checking group: {0}", carGroup);
 
                 if (transferStations.Contains(carGroup.Destination))
                 {
-                    logger.Information("Car Group contains {0} passenger(s) for a transfer destination, {1}", carGroup.Count, carGroup.Destination);
+                    logger.Information("Car contains transfer passengers");
+                    logger.Debug("Car Group contains {0} passenger(s) for a transfer destination, {1}", carGroup.Count, carGroup.Destination);
 
                     string groupDestination = carGroup.Destination;
                     string groupOrigin = carGroup.Origin;
@@ -252,11 +264,11 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
         bool stationHasAvailableTransferPassengers = _stationTransferGroups.Count > 0;
         bool shouldLoadTransferPassengers = stationHasAvailableTransferPassengers && this._stationTransferGroups.Select(s => s.Destination).Intersect(carMarker.Destinations).Count() > 0;
-        if (_stationTransferGroups.Count > 0)
+        if (shouldLoadTransferPassengers)
         {
             logger.Information("Station Manager has the following groups: {0}", _stationTransferGroups);
             logger.Information("The current station {0} contains {1} groups, checking to see if any of them can be loaded onto the current train", CurrentStopName, _stationTransferGroups.Count);
-            logger.Information("Coach has the following passenger marker: {0}", carMarker);
+            logger.Debug("Coach has the following passenger marker: {0}", carMarker);
             foreach (string destination in carMarker.Destinations)
             {
                 PassengerMarker.Group stationGroup;
@@ -264,7 +276,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
                 for (int i = 0; i < this._stationTransferGroups.Count; i++)
                 {
                     PassengerMarker.Group group = this._stationTransferGroups[i];
-                    logger.Information("Checking group: {0}", group);
+                    logger.Debug("Checking group: {0}", group);
                     if (group.Count <= 0)
                     {
                         this._stationTransferGroups.RemoveAt(i);
@@ -287,15 +299,15 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
                 stationGroup = this._stationTransferGroups[groupIndex];
 
-                logger.Information("Found group {0} that can be loaded onto the current train", stationGroup);
-                logger.Information("Coach has the following capacity: {0}", carCapacity);
+                logger.Debug("Found group {0} that can be loaded onto the current train", stationGroup);
+                logger.Debug("Coach has the following capacity: {0}", carCapacity);
 
                 for (int i = 0; i < carMarker.Groups.Count; i++)
                 {
                     PassengerMarker.Group carGroup = carMarker.Groups[i];
                     if (carGroup.Destination == stationGroup.Destination && carGroup.Origin == stationGroup.Origin && carGroup.Boarded == stationGroup.Boarded)
                     {
-                        logger.Information("Found existing group on car to add too: {0}", carGroup);
+                        logger.Debug("Found existing group on car to add too: {0}", carGroup);
                         carGroup.Count++;
                         stationGroup.Count--;
                         carMarker.Groups[i] = carGroup;
@@ -305,7 +317,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
                         return true;
                     }
                 }
-                logger.Information("Did not find existing group on car to add too, creating new group");
+                logger.Debug("Did not find existing group on car to add too, creating new group");
                 stationGroup.Count--;
                 this._stationTransferGroups[groupIndex] = stationGroup;
                 carMarker.Groups.Add(new PassengerMarker.Group(stationGroup.Origin, stationGroup.Destination, 1, stationGroup.Boarded));
