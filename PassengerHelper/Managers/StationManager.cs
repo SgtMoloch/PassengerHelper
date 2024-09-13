@@ -903,9 +903,13 @@ public class StationManager
                             expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup));
                         }
                     }
+                    else if (orderedTerminusStations[1] == alarkajctIdentifier)
+                    {
+                        logger.Information("Train has alarkajct as the west terminus station");
+                    }
                     else
                     {
-                        logger.Information("Train has a station other than alarka for the west terminus");
+                        logger.Information("Train has a station other than alarka or alarka jct for the west terminus");
 
                         logger.Information("selecting alarka and cochran as pickup stations if needed");
                         if (pickUpPassengerStations.Contains(alarkaIdentifier))

@@ -129,14 +129,9 @@ public class PassengerHelperPassengerStop : GameBehaviour
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
         string LocomotiveName = _locomotive.DisplayName;
         PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
-        string CurrentStopIdentifier = CurrentStop.identifier;
-        string CurrentStopName = CurrentStop.DisplayName;
         List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedStopAtStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
         List<string> orderedPickupStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-
-        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1} with the following selected stations: {2}, in the following direction: {4}",
-            LocomotiveName, CurrentStopName, orderedStopAtStations, settings.DirectionOfTravel.ToString());
 
         if (passengerLocomotive.Settings.Disable)
         {
@@ -155,6 +150,19 @@ public class PassengerHelperPassengerStop : GameBehaviour
             logger.Information("Do not have at least 2 stop at stations selected");
             return false;
         }
+
+        if (CurrentStop == null)
+        {
+            logger.Information("Current Stop is null, not proceeding with unload transfer passengers.");
+            return false;
+        }
+
+        string CurrentStopIdentifier = CurrentStop.identifier;
+        string CurrentStopName = CurrentStop.DisplayName;
+
+
+        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1}.",
+            LocomotiveName, CurrentStopName);
 
         // v1
         // does train consider this station a transfer station?
@@ -234,12 +242,10 @@ public class PassengerHelperPassengerStop : GameBehaviour
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
         string LocomotiveName = _locomotive.DisplayName;
-        string CurrentStopIdentifier = this.passengerStop.identifier;
-        string CurrentStopName = this.passengerStop.DisplayName;
-        List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
+        PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
         List<string> orderedTerminusStations = settings.StationSettings.Where(station => station.Value.TerminusStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> orderedSelectedStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
-        List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation == true).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedStopAtStations = settings.StationSettings.Where(station => station.Value.StopAtStation == true).Select(station => station.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
+        List<string> orderedPickupStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(d => orderedStations.IndexOf(d)).ToList();
 
         if (passengerLocomotive.Settings.Disable)
         {
@@ -253,14 +259,22 @@ public class PassengerHelperPassengerStop : GameBehaviour
             return false;
         }
 
-        if (orderedSelectedStations.Count < 2)
+        if (orderedStopAtStations.Count < 2)
         {
             logger.Information("Do not have at least 2 stop at stations selected");
             return false;
         }
 
-        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1} with {2} coaches, the following selected stations: {3}, in the following direction: {4}",
-            LocomotiveName, CurrentStopName, coaches.Count(), orderedSelectedStations, settings.DirectionOfTravel.ToString());
+        if (CurrentStop == null)
+        {
+            logger.Information("Current Stop is null, not proceeding with unload transfer passengers.");
+            return false;
+        }
+
+        string CurrentStopIdentifier = CurrentStop.identifier;
+        string CurrentStopName = CurrentStop.DisplayName;
+
+        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1}", LocomotiveName, CurrentStopName);
 
         bool stationHasAvailableTransferPassengers = _stationTransferGroups.Count > 0;
         bool shouldLoadTransferPassengers = stationHasAvailableTransferPassengers && this._stationTransferGroups.Select(s => s.Destination).Intersect(carMarker.Destinations).Count() > 0;

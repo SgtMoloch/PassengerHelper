@@ -96,6 +96,11 @@ public static class PassengerStopPatches
             return true;
         }
 
+        if (passengerLocomotive.Settings.Disable)
+        {
+            return true;
+        }
+
         MethodInfo CalculateBonusMultiplier = typeof(PassengerStop).GetMethod("CalculateBonusMultiplier", BindingFlags.NonPublic | BindingFlags.Static);
         MethodInfo MarkerForCar = typeof(PassengerStop).GetMethod("MarkerForCar", BindingFlags.NonPublic | BindingFlags.Static);
         MethodInfo FirePassengerStopEdgeMoved = typeof(PassengerStop).GetMethod("FirePassengerStopEdgeMoved", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -180,6 +185,11 @@ public static class PassengerStopPatches
 
         logger.Debug("Patched Load method");
         if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
+        {
+            return true;
+        }
+
+        if (passengerLocomotive.Settings.Disable)
         {
             return true;
         }
