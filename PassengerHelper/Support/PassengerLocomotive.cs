@@ -354,6 +354,36 @@ public class PassengerLocomotive
             TrainStatus.StoppedInsufficientStopAtStations = false;
         }
 
+        if (TrainStatus.StoppedWaitForFullLoad && Settings.WaitForFullPassengersTerminusStation)
+        {
+            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
+            bool notFull = false;
+            foreach (Car coach in coaches)
+            {
+                PassengerMarker? marker = coach.GetPassengerMarker();
+                if (marker == null)
+                {
+                    logger.Information("Passenger car not full, remaining stopped");
+                    notFull = true;
+                    break;
+                }
+
+                LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
+                int maxCapacity = (int)loadSlot.MaximumCapacity;
+                PassengerMarker actualMarker = marker.Value;
+                bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(CurrentStation.identifier);
+                bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
+                if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
+                {
+                    logger.Information("Passenger car not full, remaining stopped");
+                    notFull = true;
+                    break;
+                }
+            }
+
+            TrainStatus.StoppedWaitForFullLoad = notFull;
+        }
+
         // train is stopped because of low diesel, coal or water
         if (TrainStatus.StoppedForDiesel || TrainStatus.StoppedForCoal || TrainStatus.StoppedForWater)
         {

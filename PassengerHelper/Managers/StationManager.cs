@@ -192,6 +192,41 @@ public class StationManager
             return true;
         }
 
+        if (settings.WaitForFullPassengersTerminusStation && settings.StationSettings[passengerLocomotive.CurrentStation.identifier].TerminusStation == true)
+        {
+            logger.Information("Waiting For full Passengers at terminus.");
+
+            List<Car> coaches = passengerLocomotive._locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
+            foreach (Car coach in coaches)
+            {
+                PassengerMarker? marker = coach.GetPassengerMarker();
+                if (marker == null)
+                {
+                    logger.Information("Passenger car not full, remaining stopped");
+                    passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                    passengerLocomotive.TrainStatus.CurrentReasonForStop = "Waiting for full passengers at terminus station";
+                    passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = true;
+                    return true;
+                }
+
+                LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
+                int maxCapacity = (int)loadSlot.MaximumCapacity;
+                PassengerMarker actualMarker = marker.Value;
+                bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(passengerLocomotive.CurrentStation.identifier);
+                bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
+                if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
+                {
+                    logger.Information("Passenger car not full, remaining stopped");
+                    passengerLocomotive.TrainStatus.CurrentlyStopped = true;
+                    passengerLocomotive.TrainStatus.CurrentReasonForStop = "Waiting for full passengers at terminus station";
+                    passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = true;
+                    return true;
+                }
+            }
+            
+            logger.Information("Passengers are full, continuing.");
+        }
+
         return false;
     }
 
@@ -359,7 +394,7 @@ public class StationManager
                 }
             }
 
-            if (!terminusStationProcedureRetVal)
+            if (!terminusStationProcedureRetVal && !passengerLocomotive.TrainStatus.TerminusStationProcedureComplete)
             {
                 passengerLocomotive.PreviousStation = CurrentStop;
                 passengerLocomotive.TrainStatus.AtTerminusStationWest = atTerminusStationWest;
@@ -370,38 +405,6 @@ public class StationManager
 
                 settingsManager.SaveSettings(LocomotiveName, passengerLocomotive.TrainStatus);
             }
-
-            if ((passengerLocomotive.TrainStatus.AtTerminusStationWest || passengerLocomotive.TrainStatus.AtTerminusStationEast) && settings.WaitForFullPassengersTerminusStation)
-            {
-                logger.Information("Waiting For full Passengers at terminus.");
-
-                foreach (Car coach in coaches)
-                {
-                    PassengerMarker? marker = coach.GetPassengerMarker();
-
-                    if (marker != null && marker.HasValue)
-                    {
-                        LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
-                        int maxCapacity = (int)loadSlot.MaximumCapacity;
-                        PassengerMarker actualMarker = marker.Value;
-                        if (actualMarker.TotalPassengers < maxCapacity)
-                        {
-                            logger.Information("Passenger car not full, remaining stopped");
-                            passengerLocomotive.TrainStatus.CurrentlyStopped = true;
-                            passengerLocomotive.TrainStatus.CurrentReasonForStop = "Waiting for full passengers at terminus station";
-                            passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = true;
-                            return true;
-                        }
-                    }
-                }
-
-                passengerLocomotive.TrainStatus.StoppedWaitForFullLoad = false;
-                passengerLocomotive.TrainStatus.CurrentlyStopped = false;
-                passengerLocomotive.TrainStatus.CurrentReasonForStop = "";
-
-                logger.Information("Passengers are full, continuing.");
-            }
-
 
             // setting the previous stop on the settings changes the hash, so re-cache the settings
             passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
