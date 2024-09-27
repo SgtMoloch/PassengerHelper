@@ -98,7 +98,7 @@ public class SettingsManager
     {
 
         string locomotiveDisplayName = _locomotive.DisplayName;
-        
+
         if (!this.settingsWindowShowing.TryGetValue(_locomotive, out var showing))
         {
             this.settingsWindowShowing.Add(_locomotive, false);
@@ -265,13 +265,13 @@ public class PassengerSettingsWindow
                 ClearSelections(passengerLocomotiveSettings, stationStops);
                 SelectAllStopAt(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
-                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
+                SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
             });
             hBuilder.AddButton("PickUp All Stations", () =>
             {
                 SelectAllPickup(passengerLocomotiveSettings, stationStops);
             });
-            hBuilder.AddButton("Alarka Branch", () =>
+            IConfigurableElement button = hBuilder.AddButton("Alarka Branch", () =>
             {
                 ClearSelections(passengerLocomotiveSettings, stationStops);
                 passengerLocomotiveSettings.StationSettings["alarkajct"].TerminusStation = true;
@@ -285,13 +285,16 @@ public class PassengerSettingsWindow
 
                 SelectAllPickup(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
-                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
+                SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
             });
+
+            button.RectTransform.GetComponentInChildren<Button>().interactable = stationStops.Select(ps => ps.identifier).Contains("alarka");
+
             hBuilder.AddButton("Clear Selections", () =>
             {
                 ClearSelections(passengerLocomotiveSettings, stationStops);
                 SetInteractions(passengerLocomotiveSettings, stationStops);
-                SelectStationOnCoaches(passengerLocomotiveSettings,stationStops,coaches);
+                SelectStationOnCoaches(passengerLocomotiveSettings, stationStops, coaches);
             });
         });
 
