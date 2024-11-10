@@ -10,7 +10,7 @@ using Support;
 using RollingStock;
 using Serilog;
 using GameObjects;
-using Model.OpsNew;
+using Model.Ops;
 using System.Reflection;
 using Game;
 
@@ -50,7 +50,7 @@ public static class PassengerStopPatches
         {
             AutoEngineerPersistence persistence = new(engine.KeyValueObject);
 
-            if (!persistence.Orders.Enabled || persistence.Orders.Yard)
+            if (!persistence.Orders.Enabled || persistence.Orders.Mode == Game.Messages.AutoEngineerMode.Yard)
             {
                 // manual mode or yard mode
                 return;
@@ -127,7 +127,7 @@ public static class PassengerStopPatches
 
         for (int i = 0; i < carMarker.Groups.Count; i++)
         {
-            PassengerMarker.Group carMarkerGroup = carMarker.Groups[i];
+            PassengerGroup carMarkerGroup = carMarker.Groups[i];
             if (carMarkerGroup.Count <= 0)
             {
                 continue;

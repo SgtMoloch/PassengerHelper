@@ -39,10 +39,10 @@ public static class CarInspectorPatches
         builder.Spacing = 8f;
         AutoEngineerPersistence persistence = new AutoEngineerPersistence(_car.KeyValueObject);
         AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
-        AutoEngineerMode mode2 = helper.Mode();
+        AutoEngineerMode mode2 = helper.Mode;
         builder.AddObserver(persistence.ObserveOrders(delegate
         {
-            if (helper.Mode() != mode2)
+            if (helper.Mode != mode2)
             {
                 builder.Rebuild();
             }

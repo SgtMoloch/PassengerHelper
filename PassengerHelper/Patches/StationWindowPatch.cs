@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Core;
 using HarmonyLib;
-using Model.OpsNew;
+using Model.Ops;
 using GameObjects;
 using RollingStock;
 using Serilog;
@@ -37,10 +37,10 @@ public class StationWindowPatch
 
             IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._stationTransfersWaiting;
 
-            IReadOnlyDictionary<string, int> waiting = passengerStop.Waiting;
-            IEnumerable<KeyValuePair<string, int>> enumerable = waiting.Where((KeyValuePair<string, int> pair) => pair.Value > 0);
+            IReadOnlyDictionary<string, PassengerStop.WaitingInfo> waiting = passengerStop.Waiting;
+            IEnumerable<KeyValuePair<string, PassengerStop.WaitingInfo>> enumerable = waiting.Where((KeyValuePair<string, PassengerStop.WaitingInfo> pair) => pair.Value.Total > 0);
             bool flag = waiting.Count == 0;
-            int number = waiting.Sum((KeyValuePair<string, int> kv) => kv.Value);
+            int number = waiting.Sum((KeyValuePair<string, PassengerStop.WaitingInfo> kv) => kv.Value.Total);
             string text = (flag ? "no passengers" : number.Pluralize("passenger"));
 
             // transfer passengers
@@ -61,11 +61,11 @@ public class StationWindowPatch
                                 builder.AddLabel("<b>Count</b>").Width(100f);
                                 builder.AddLabel("<b>Destination</b>");
                             });
-                foreach (KeyValuePair<string, int> item in enumerable)
+                foreach (KeyValuePair<string, PassengerStop.WaitingInfo> item in enumerable)
                 {
                     item.Deconstruct(out var key, out var value);
                     string identifier = key;
-                    int numWaiting = value;
+                    int numWaiting = value.Total;
                     string destName = PassengerStop.NameForIdentifier(identifier);
                     builder.HStack(delegate (UIPanelBuilder builder)
                     {
@@ -127,7 +127,7 @@ public class StationWindowPatch
             {
                 PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
-                List<PassengerMarker.Group> _transferWaiting = passengerHelperPassengerStop._stationTransferGroups;
+                List<PassengerGroup> _transferWaiting = passengerHelperPassengerStop._stationTransferGroups;
 
                 foreach (string stationId in plugin.orderedStations)
                 {
@@ -136,7 +136,7 @@ public class StationWindowPatch
                         continue;
                     }
 
-                    passengerHelperPassengerStop._stationTransferGroups.Add(new PassengerMarker.Group(passengerStop.identifier, stationId, UnityEngine.Random.Range(10, 100), TimeWeather.Now));
+                    passengerHelperPassengerStop._stationTransferGroups.Add(new PassengerGroup(passengerStop.identifier, stationId, UnityEngine.Random.Range(10, 100), TimeWeather.Now));
                 }
             });
         }

@@ -12,7 +12,7 @@ using Model;
 using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
-using Model.OpsNew;
+using Model.Ops;
 using RollingStock;
 using Serilog;
 using UI.EngineControls;
