@@ -10,7 +10,7 @@ using Serilog;
 using System.Collections.Generic;
 using System.Linq;
 using global::PassengerHelperPlugin.Managers;
-using Model.OpsNew;
+using Model.Ops;
 using Game;
 
 public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>

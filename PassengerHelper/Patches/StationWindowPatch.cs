@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Core;
 using HarmonyLib;
-using Model.OpsNew;
+using Model.Ops;
 using GameObjects;
 using RollingStock;
 using Serilog;
@@ -37,10 +37,10 @@ public class StationWindowPatch
 
             IReadOnlyDictionary<string, int> _transfersWaiting = passengerHelperPassengerStop._stationTransfersWaiting;
 
-            IReadOnlyDictionary<string, int> waiting = passengerStop.Waiting;
-            IEnumerable<KeyValuePair<string, int>> enumerable = waiting.Where((KeyValuePair<string, int> pair) => pair.Value > 0);
+            IReadOnlyDictionary<string, PassengerStop.WaitingInfo> waiting = passengerStop.Waiting;
+            IEnumerable<KeyValuePair<string, PassengerStop.WaitingInfo>> enumerable = waiting.Where((KeyValuePair<string, PassengerStop.WaitingInfo> pair) => pair.Value.Total > 0);
             bool flag = waiting.Count == 0;
-            int number = waiting.Sum((KeyValuePair<string, int> kv) => kv.Value);
+            int number = waiting.Sum((KeyValuePair<string, PassengerStop.WaitingInfo> kv) => kv.Value.Total);
             string text = (flag ? "no passengers" : number.Pluralize("passenger"));
 
             // transfer passengers
@@ -58,21 +58,42 @@ public class StationWindowPatch
                 builder.Spacer(8f);
                 builder.HStack(delegate (UIPanelBuilder builder)
                             {
-                                builder.AddLabel("<b>Count</b>").Width(100f);
-                                builder.AddLabel("<b>Destination</b>");
+                                builder.AddLabel("<b>Count</b>").Width(80f);
+                                builder.AddLabel("<b>Destination</b>").Width(200f);
+                                builder.AddLabel("<b>Longest Wait</b>");
                             });
-                foreach (KeyValuePair<string, int> item in enumerable)
+                GameDateTime now = TimeWeather.Now;
+                foreach (KeyValuePair<string, PassengerStop.WaitingInfo> item in enumerable)
+            {
+                item.Deconstruct(out var key, out var value);
+                string identifier = key;
+                PassengerStop.WaitingInfo waitingInfo = value;
+                string destName = PassengerStop.NameForIdentifier(identifier);
+                builder.HStack(delegate (UIPanelBuilder builder)
                 {
-                    item.Deconstruct(out var key, out var value);
-                    string identifier = key;
-                    int numWaiting = value;
-                    string destName = PassengerStop.NameForIdentifier(identifier);
-                    builder.HStack(delegate (UIPanelBuilder builder)
+                    builder.AddLabel($"{waitingInfo.Total}").Width(80f);
+                    builder.AddLabel(destName).Width(200f);
+                    GameDateTime gameDateTime = new GameDateTime(3.4028234663852886E+38);
+                    GameDateTime gameDateTime2 = GameDateTime.Zero;
+                    foreach (WaitingPassengerGroup group in waitingInfo.Groups)
                     {
-                        builder.AddLabel($"{numWaiting}").Width(100f);
-                        builder.AddLabel(destName);
-                    });
-                }
+                        if (!(group.Origin == passengerStop.identifier))
+                        {
+                            if (group.Boarded < gameDateTime)
+                            {
+                                gameDateTime = group.Boarded;
+                            }
+
+                            if (group.Boarded > gameDateTime2)
+                            {
+                                gameDateTime2 = group.Boarded;
+                            }
+                        }
+                    }
+
+                    builder.AddLabel((gameDateTime2.TotalSeconds == 0.0) ? "N/A" : (gameDateTime.IntervalString(now, GameDateTimeInterval.Style.Short) ?? ""));
+                });
+            }
             }
 
             builder.AddLabel(passengerStop.DisplayName + " has " + transferText + " waiting.");
@@ -127,7 +148,7 @@ public class StationWindowPatch
             {
                 PassengerHelperPassengerStop passengerHelperPassengerStop = passengerStop.GetComponentInChildren<PassengerHelperPassengerStop>();
 
-                List<PassengerMarker.Group> _transferWaiting = passengerHelperPassengerStop._stationTransferGroups;
+                List<PassengerGroup> _transferWaiting = passengerHelperPassengerStop._stationTransferGroups;
 
                 foreach (string stationId in plugin.orderedStations)
                 {
@@ -136,7 +157,7 @@ public class StationWindowPatch
                         continue;
                     }
 
-                    passengerHelperPassengerStop._stationTransferGroups.Add(new PassengerMarker.Group(passengerStop.identifier, stationId, UnityEngine.Random.Range(10, 100), TimeWeather.Now));
+                    passengerHelperPassengerStop._stationTransferGroups.Add(new PassengerGroup(passengerStop.identifier, stationId, UnityEngine.Random.Range(10, 100), TimeWeather.Now));
                 }
             });
         }

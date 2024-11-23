@@ -10,7 +10,7 @@ using Game.Messages;
 using Game.State;
 using HarmonyLib;
 using KeyValue.Runtime;
-using Model.OpsNew;
+using Model.Ops;
 using RollingStock;
 using Serilog;
 using UnityEngine;
@@ -28,7 +28,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
     private KeyValueObject _keyValueObject;
     private Coroutine _loop;
     private string KeyValueIdentifier => "pass.passhelper." + identifier;
-    internal List<PassengerMarker.Group> _stationTransferGroups = new();
+    internal List<PassengerGroup> _stationTransferGroups = new();
     internal Dictionary<string, int> _stationTransfersWaiting => _stationTransferGroups.GroupBy(g => g.Destination).ToDictionary(k => k.Key, v => v.Sum(g => g.Count));
     private IDisposable _observer;
     private readonly List<string> orderedStations = PassengerHelperPlugin.Shared.orderedStations;
@@ -115,7 +115,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
             List<Value> transferGroupListValue = dictionaryValue["transfer_group_list"].ArrayValue.ToList();
 
             this._stationTransferGroups.Clear();
-            this._stationTransferGroups.AddRange(transferGroupListValue.Select(g => PassengerMarker.Group.FromPropertyValue(g)));
+            this._stationTransferGroups.AddRange(transferGroupListValue.Select(g => PassengerGroup.FromPropertyValue(g)));
         }
         catch (Exception exception)
         {
@@ -123,7 +123,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
         }
     }
 
-    public bool UnloadTransferPassengers(PassengerLocomotive passengerLocomotive, Car coach, PassengerMarker carMarker, PassengerMarker.Group carGroup, ref int carGroupIndex)
+    public bool UnloadTransferPassengers(PassengerLocomotive passengerLocomotive, Car coach, PassengerMarker carMarker, PassengerGroup carGroup, ref int carGroupIndex)
     {
         PassengerLocomotiveSettings settings = passengerLocomotive.Settings;
         BaseLocomotive _locomotive = passengerLocomotive._locomotive;
@@ -203,11 +203,11 @@ public class PassengerHelperPassengerStop : GameBehaviour
                     string groupOrigin = carGroup.Origin;
                     GameDateTime groupBoarded = carGroup.Boarded;
 
-                    PassengerMarker.Group stationGroup;
+                    PassengerGroup stationGroup;
                     int groupIndex = -1;
                     for (int i = 0; i < this._stationTransferGroups.Count; i++)
                     {
-                        PassengerMarker.Group group = this._stationTransferGroups[i];
+                        PassengerGroup group = this._stationTransferGroups[i];
                         if (group.Destination == groupDestination && group.Origin == groupOrigin && group.Boarded == groupBoarded)
                         {
                             groupIndex = i;
@@ -217,7 +217,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
                     if (groupIndex == -1)
                     {
-                        stationGroup = new PassengerMarker.Group(carGroup.Origin, carGroup.Destination, 0, carGroup.Boarded);
+                        stationGroup = new PassengerGroup(carGroup.Origin, carGroup.Destination, 0, carGroup.Boarded);
                         this._stationTransferGroups.Add(stationGroup);
                         groupIndex = this._stationTransferGroups.Count - 1;
                     }
@@ -285,11 +285,11 @@ public class PassengerHelperPassengerStop : GameBehaviour
             logger.Debug("Coach has the following passenger marker: {0}", carMarker);
             foreach (string destination in carMarker.Destinations)
             {
-                PassengerMarker.Group stationGroup;
+                PassengerGroup stationGroup;
                 int groupIndex = -1;
                 for (int i = 0; i < this._stationTransferGroups.Count; i++)
                 {
-                    PassengerMarker.Group group = this._stationTransferGroups[i];
+                    PassengerGroup group = this._stationTransferGroups[i];
                     logger.Debug("Checking group: {0}", group);
                     if (group.Count <= 0)
                     {
@@ -318,7 +318,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
 
                 for (int i = 0; i < carMarker.Groups.Count; i++)
                 {
-                    PassengerMarker.Group carGroup = carMarker.Groups[i];
+                    PassengerGroup carGroup = carMarker.Groups[i];
                     if (carGroup.Destination == stationGroup.Destination && carGroup.Origin == stationGroup.Origin && carGroup.Boarded == stationGroup.Boarded)
                     {
                         logger.Debug("Found existing group on car to add too: {0}", carGroup);
@@ -334,7 +334,7 @@ public class PassengerHelperPassengerStop : GameBehaviour
                 logger.Debug("Did not find existing group on car to add too, creating new group");
                 stationGroup.Count--;
                 this._stationTransferGroups[groupIndex] = stationGroup;
-                carMarker.Groups.Add(new PassengerMarker.Group(stationGroup.Origin, stationGroup.Destination, 1, stationGroup.Boarded));
+                carMarker.Groups.Add(new PassengerGroup(stationGroup.Origin, stationGroup.Destination, 1, stationGroup.Boarded));
                 coach.SetPassengerMarker(carMarker);
                 SaveState();
                 return true;
