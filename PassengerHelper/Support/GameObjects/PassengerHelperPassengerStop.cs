@@ -160,14 +160,12 @@ public class PassengerHelperPassengerStop : GameBehaviour
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
 
-
-        logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1}.",
-            LocomotiveName, CurrentStopName);
-
         // v1
         // does train consider this station a transfer station?
         if (settings.StationSettings[CurrentStopIdentifier].TransferStation)
         {
+            logger.Information("Running UnloadTransferPassengers procedure for Train {0} at {1}.",
+            LocomotiveName, CurrentStopName);
 
             logger.Information("Train has this station as a transfer station");
             // does train have transfer passengers?
@@ -274,12 +272,12 @@ public class PassengerHelperPassengerStop : GameBehaviour
         string CurrentStopIdentifier = CurrentStop.identifier;
         string CurrentStopName = CurrentStop.DisplayName;
 
-        logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1}", LocomotiveName, CurrentStopName);
 
         bool stationHasAvailableTransferPassengers = _stationTransferGroups.Count > 0;
         bool shouldLoadTransferPassengers = stationHasAvailableTransferPassengers && this._stationTransferGroups.Select(s => s.Destination).Intersect(carMarker.Destinations).Count() > 0;
         if (shouldLoadTransferPassengers)
         {
+            logger.Information("Running LoadTransferPassengers procedure for Train {0} at {1}", LocomotiveName, CurrentStopName);
             logger.Information("Station Manager has the following groups: {0}", _stationTransferGroups);
             logger.Information("The current station {0} contains {1} groups, checking to see if any of them can be loaded onto the current train", CurrentStopName, _stationTransferGroups.Count);
             logger.Debug("Coach has the following passenger marker: {0}", carMarker);
