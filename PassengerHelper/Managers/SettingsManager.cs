@@ -799,6 +799,20 @@ public class PassengerSettingsWindow
             });
         builder.HStack(delegate (UIPanelBuilder builder)
         {
+            builder.AddToggle(() => passengerLocomotiveSettings.PreventLoadWhenPausedAtStation, delegate (bool on)
+            {
+                logger.Information("Prevent loading when paused at station set to {0}", on);
+                passengerLocomotiveSettings.PreventLoadWhenPausedAtStation = on;
+            }).Tooltip("Prevent loading of passengers when paused Toggle", $"Toggle whether the AI should not load passengers if the train is paused at a station")
+            .Width(25f);
+            builder.AddLabel("Prevent Loading of Passengers When Paused", delegate (TMP_Text text)
+            {
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
+            }).FlexibleWidth(1f);
+        });
+        builder.HStack(delegate (UIPanelBuilder builder)
+        {
             builder.AddToggle(() => passengerLocomotiveSettings.WaitForFullPassengersTerminusStation, delegate (bool on)
             {
                 logger.Information("Wait for full passengers at terminus station set to {0}", on);

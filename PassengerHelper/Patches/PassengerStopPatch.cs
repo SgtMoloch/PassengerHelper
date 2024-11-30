@@ -195,6 +195,12 @@ public static class PassengerStopPatches
             return true;
         }
 
+        if (passengerLocomotive.Settings.TrainStatus.CurrentlyStopped && passengerLocomotive.Settings.PreventLoadWhenPausedAtStation)
+        {
+            __result = true;
+            return false;
+        }
+
         MethodInfo PassengerCapacity = typeof(PassengerStop).GetMethod("PassengerCapacity", BindingFlags.NonPublic | BindingFlags.Instance);
         MethodInfo MarkerForCar = typeof(PassengerStop).GetMethod("MarkerForCar", BindingFlags.NonPublic | BindingFlags.Static);
 
