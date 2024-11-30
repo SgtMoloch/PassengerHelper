@@ -836,6 +836,7 @@ public class PassengerSettingsWindow
             builder.RebuildOnEvent<DOTChangedEvent>();
 
             builder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
+            builder.AddLabel("Reminder: Going towards Sylva is East and going towards Andrews is West");
             builder.Spacer().FlexibleWidth(1f);
         });
 
