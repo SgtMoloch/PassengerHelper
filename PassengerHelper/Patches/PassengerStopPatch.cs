@@ -126,6 +126,8 @@ public static class PassengerStopPatches
             car.SetPassengerMarker(value);
         }
 
+        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
+
         for (int i = 0; i < value.Groups.Count; i++)
         {
             PassengerGroup passengerGroup = value.Groups[i];
@@ -165,6 +167,26 @@ public static class PassengerStopPatches
                         FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
                     }
                 }
+                __result = true;
+                return false;
+            }
+
+            if (!(passengerGroup.Boarded >= gameDateTime))
+            {
+                passengerGroup.Count--;
+                if (passengerGroup.Count > 0)
+                {
+                    value.Groups[i] = passengerGroup;
+                }
+                else
+                {
+                    value.Groups.RemoveAt(i);
+                    i--;
+                }
+                car.SetPassengerMarker(value);
+                QueuePayment.Invoke(__instance, new object[] { 1, passengerGroup.Origin, __instance.identifier, bonusMultiplier });
+                FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
+
                 __result = true;
                 return false;
             }
