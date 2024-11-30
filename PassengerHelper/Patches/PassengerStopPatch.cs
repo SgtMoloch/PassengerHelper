@@ -195,7 +195,14 @@ public static class PassengerStopPatches
             return true;
         }
 
-        if (passengerLocomotive.Settings.TrainStatus.CurrentlyStopped && passengerLocomotive.Settings.PreventLoadWhenPausedAtStation)
+        bool trainIsPaused = passengerLocomotive.Settings.TrainStatus.CurrentlyStopped;
+        bool preventPaxLoad = passengerLocomotive.Settings.PreventLoadWhenPausedAtStation;
+        bool trainAtTerminus = passengerLocomotive.Settings.TrainStatus.AtTerminusStationEast || passengerLocomotive.Settings.TrainStatus.AtTerminusStationWest;
+        bool waitForFullLoadAtTerminus = passengerLocomotive.Settings.WaitForFullPassengersTerminusStation;
+
+        bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
+
+        if (shouldNotLoad)
         {
             __result = true;
             return false;
