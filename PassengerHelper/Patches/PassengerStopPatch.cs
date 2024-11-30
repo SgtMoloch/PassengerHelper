@@ -113,55 +113,55 @@ public static class PassengerStopPatches
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
 
         float bonusMultiplier = (float)CalculateBonusMultiplier.Invoke(null, new object[] { car });
-        PassengerMarker carMarker = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
-        bool nullLastStop = string.IsNullOrEmpty(carMarker.LastStopIdentifier);
-        if (nullLastStop || carMarker.LastStopIdentifier != __instance.identifier)
+        PassengerMarker value = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
+        bool nullLastStop = string.IsNullOrEmpty(value.LastStopIdentifier);
+        if (nullLastStop || value.LastStopIdentifier != __instance.identifier)
         {
             if (!nullLastStop)
             {
-                FirePassengerStopEdgeMoved.Invoke(__instance, new object[] { carMarker.LastStopIdentifier });
+                FirePassengerStopEdgeMoved.Invoke(__instance, new object[] { value.LastStopIdentifier });
             }
 
-            carMarker.LastStopIdentifier = __instance.identifier;
-            car.SetPassengerMarker(carMarker);
+            value.LastStopIdentifier = __instance.identifier;
+            car.SetPassengerMarker(value);
         }
 
-        for (int i = 0; i < carMarker.Groups.Count; i++)
+        for (int i = 0; i < value.Groups.Count; i++)
         {
-            PassengerGroup carMarkerGroup = carMarker.Groups[i];
-            if (carMarkerGroup.Count <= 0)
+            PassengerGroup passengerGroup = value.Groups[i];
+            if (passengerGroup.Count <= 0)
             {
                 continue;
             }
 
-            bool groupIsForDestinationSelectedOnCar = carMarker.Destinations.Contains(carMarkerGroup.Destination);
-            bool groupDestinationIsThisDestination = carMarkerGroup.Destination == __instance.identifier;
+            bool groupIsForDestinationSelectedOnCar = value.Destinations.Contains(passengerGroup.Destination);
+            bool groupDestinationIsThisDestination = passengerGroup.Destination == __instance.identifier;
 
             if (!(!groupDestinationIsThisDestination && groupIsForDestinationSelectedOnCar))
             {
-                carMarkerGroup.Count--;
-                if (carMarkerGroup.Count > 0)
+                passengerGroup.Count--;
+                if (passengerGroup.Count > 0)
                 {
-                    carMarker.Groups[i] = carMarkerGroup;
+                    value.Groups[i] = passengerGroup;
                 }
                 else
                 {
-                    carMarker.Groups.RemoveAt(i);
+                    value.Groups.RemoveAt(i);
                     i--;
                 }
 
-                car.SetPassengerMarker(carMarker);
+                car.SetPassengerMarker(value);
                 if (groupDestinationIsThisDestination)
                 {
-                    QueuePayment.Invoke(__instance, new object[] { 1, carMarkerGroup.Origin, carMarkerGroup.Destination, bonusMultiplier });
+                    QueuePayment.Invoke(__instance, new object[] { 1, passengerGroup.Origin, passengerGroup.Destination, bonusMultiplier });
                     FirePassengerStopServed.Invoke(__instance, new object[] { 1, car.Condition });
                 }
                 else
                 {
-                    logger.Information("Group destination is not this station and destination is not marked on car. group: {0}", carMarkerGroup);
-                    if (!passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive, car, carMarker, carMarkerGroup, ref i))
+                    logger.Information("Group destination is not this station and destination is not marked on car. group: {0}", passengerGroup);
+                    if (!passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive, car, value, passengerGroup, ref i))
                     {
-                        UnloadPassengersToWait.Invoke(__instance, new object[] { carMarkerGroup.Destination, 1 });
+                        UnloadPassengersToWait.Invoke(__instance, new object[] { passengerGroup, 1 });
                         FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
                     }
                 }
@@ -198,10 +198,10 @@ public static class PassengerStopPatches
         MethodInfo PassengerCapacity = typeof(PassengerStop).GetMethod("PassengerCapacity", BindingFlags.NonPublic | BindingFlags.Instance);
         MethodInfo MarkerForCar = typeof(PassengerStop).GetMethod("MarkerForCar", BindingFlags.NonPublic | BindingFlags.Static);
 
-        PassengerMarker carMarker = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
+        PassengerMarker value = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
 
-        int carCapacity = (int)PassengerCapacity.Invoke(__instance, new object[] { car }) - carMarker.TotalPassengers;
-        if (carCapacity <= 0)
+        int num = (int)PassengerCapacity.Invoke(__instance, new object[] { car }) - value.TotalPassengers;
+        if (num <= 0)
         {
             __result = false;
             return false;
@@ -209,7 +209,7 @@ public static class PassengerStopPatches
 
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
 
-        if (passengerHelperPassengerStop.LoadTransferPassengers(passengerLocomotive, car, carMarker, carCapacity))
+        if (passengerHelperPassengerStop.LoadTransferPassengers(passengerLocomotive, car, value, num))
         {
             __result = true;
             return false;
@@ -220,17 +220,17 @@ public static class PassengerStopPatches
 
     private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
     {
-        logger.Information("Attempting to find locomotive for car {0}", car.DisplayName);
+        logger.Debug("Attempting to find locomotive for car {0}", car.DisplayName);
         List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
         foreach (Car engine in engines)
         {
-            logger.Information("Checking {0}", engine.DisplayName);
+            logger.Debug("Checking {0}", engine.DisplayName);
             if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
             {
                 return true;
             }
         }
-        logger.Information("Did not find locomotive");
+        logger.Error("Did not find locomotive for car {0}", car.DisplayName);
 
         passengerLocomotive = null;
 

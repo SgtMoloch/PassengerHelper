@@ -347,11 +347,4 @@ public class PassengerHelperPassengerStop : GameBehaviour
         // if you are past it, ignore
         // if it is in the direction you are traveling, load all passengers for station up to and past the transfer station
     }
-
-
-
-    private int PassengerCapacity(Car car, PassengerStop CurrentStop)
-    {
-        return (int)car.Definition.LoadSlots.First((LoadSlot slot) => slot.LoadRequirementsMatch(CurrentStop.passengerLoad)).MaximumCapacity;
-    }
 }
