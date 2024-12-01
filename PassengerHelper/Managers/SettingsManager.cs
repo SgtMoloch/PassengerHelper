@@ -850,7 +850,27 @@ public class PassengerSettingsWindow
             builder.RebuildOnEvent<DOTChangedEvent>();
 
             builder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
-            builder.AddLabel("Reminder: Going towards Sylva is East and going towards Andrews is West");
+            builder.Spacer().Width(5f);
+            builder.AddButton("?", () =>
+            {
+                Window dotHelpWindow = uIHelper.CreateWindow(450, 200, Window.Position.Center);
+
+                dotHelpWindow.Title = "Direction of Travel Help";
+
+                uIHelper.PopulateWindow(dotHelpWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
+                {
+                    builder.VStack(delegate (UIPanelBuilder builder)
+                    {
+                        builder.AddLabel("Direction of travel is a setting that Passenger Helper uses to determine the cardinal direction of the train. "
+                        + "Because a train can be in forward or reverse, it is impossible to know which way the train is actually heading with the reverser setting alone. "
+                        + "This allows passenger helper to select the right stations and become automated.");
+                        builder.Spacer().Height(5f);
+                        builder.AddLabel("For clarity, Going towards Sylva is East and going towards Andrews is West");
+                    });
+                });
+
+                dotHelpWindow.ShowWindow();
+            });
             builder.Spacer().FlexibleWidth(1f);
         });
 
