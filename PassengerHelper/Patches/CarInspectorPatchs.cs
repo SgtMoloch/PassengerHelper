@@ -17,6 +17,7 @@ using System.Reflection.Emit;
 using System.Linq;
 using TMPro;
 using UnityEngine.UI;
+using Model.Ops;
 
 [HarmonyPatch]
 public static class CarInspectorPatches
@@ -40,7 +41,7 @@ public static class CarInspectorPatches
         AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
         AutoEngineerMode mode2 = helper.Mode;
 
-        if (mode2 == AutoEngineerMode.Road)
+        if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
         {
             builder.HStack(delegate (UIPanelBuilder builder)
             {
