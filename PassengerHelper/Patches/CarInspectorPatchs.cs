@@ -74,6 +74,7 @@ public static class CarInspectorPatches
             return;
         }
 
-        ____window.SetResizable(new Vector2(400, 400), new Vector2(400, 515));
+        Vector2 cs = ____window.GetContentSize();
+        ____window.SetContentSize(cs + new Vector2(-2, 30));
     }
 }
