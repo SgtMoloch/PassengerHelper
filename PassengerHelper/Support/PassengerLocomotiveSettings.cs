@@ -146,9 +146,9 @@ public enum PassengerMode
 
 public enum DirectionOfTravel
 {
-    EAST,
+    WEST,
     UNKNOWN,
-    WEST
+    EAST
 }
 
 public class TrainStatus
