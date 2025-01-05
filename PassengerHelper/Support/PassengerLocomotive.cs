@@ -497,9 +497,17 @@ public class PassengerLocomotive
 
     private bool TryGetTender(out Car tender)
     {
-        if (hasTender && _locomotive.TryGetAdjacentCar(_locomotive.EndToLogical(End.R), out tender) && tender.Archetype == CarArchetype.Tender)
+        if (hasTender)
         {
-            return true;
+            if (_locomotive.TryGetAdjacentCar(_locomotive.EndToLogical(End.R), out tender) && tender.Archetype == CarArchetype.Tender)
+            {
+                return true;
+            }
+            if (_locomotive.Definition.LoadSlots.FindIndex((Predicate<LoadSlot>)(loadSlot => loadSlot.RequiredLoadIdentifier == "coal")) != -1)
+            {
+                tender = _locomotive;
+                return true;
+            }
         }
 
         throw new Exception("steam engine with no tender. How????");
