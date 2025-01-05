@@ -11,6 +11,7 @@ using Core;
 using RollingStock;
 using Serilog;
 using GameObjects;
+using Model.Ops;
 
 [HarmonyPatch]
 public class StationAgentPatch

@@ -8,6 +8,7 @@ using System.Reflection;
 using Game;
 using RollingStock;
 using Support;
+using Model.Ops;
 
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
