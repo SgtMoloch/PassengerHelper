@@ -1,7 +1,17 @@
 {
-  "manifestVersion": 1,
+  "manifestVersion": 5,
   "id": "Moloch.PassengerHelper",
-  "name": "PassengerHelper",
+  "name": "Passenger Helper",
   "version": "$(AssemblyVersion)",
-  "assemblies": [ "PassengerHelper" ]
+  "assemblies": [ "PassengerHelper" ],
+  "requires": [
+    {
+      "id": "railloader",
+      "notBefore": "1.9.6.8"
+    },
+    {
+      "id": "railroader",
+      "notBefore": "2024.6"
+    }
+  ]
 }
