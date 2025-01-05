@@ -62,10 +62,9 @@ public static class CarInspectorPatches
         }
     }
 
-
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
-    private static void PopulateAIPanel(Window ____window)
+    [HarmonyPatch(typeof(CarInspector), "OnEnable")]
+    private static void OnEnable(Window ____window)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
 
@@ -75,6 +74,12 @@ public static class CarInspectorPatches
         }
 
         Vector2 cs = ____window.GetContentSize();
-        ____window.SetContentSize(cs + new Vector2(-2, 30));
+
+        if (cs.y < 430)
+        {
+            ____window.SetContentSize(new Vector2(cs.x, cs.y + 30));
+
+        }
+
     }
 }
