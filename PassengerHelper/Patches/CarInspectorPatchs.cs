@@ -62,9 +62,11 @@ public static class CarInspectorPatches
         }
     }
 
+    private static Vector2? originalWindowSize;
+
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(CarInspector), "OnEnable")]
-    private static void OnEnable(Window ____window)
+    [HarmonyPatch(typeof(CarInspector), "PopulatePanel")]
+    private static void PopulatePanel(Window ____window)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
 
@@ -73,13 +75,30 @@ public static class CarInspectorPatches
             return;
         }
 
-        Vector2 cs = ____window.GetContentSize();
+        int baseHeight = 322;
+        int heightToAdd = 30;
+        int newHeight = baseHeight + heightToAdd;
 
-        if (cs.y < 430)
+        bool waypointToDestination = Harmony.HasAnyPatches("SwitchToDestination");
+        bool smartOrders = Harmony.HasAnyPatches("SmartOrders");
+
+        if (smartOrders)
         {
-            ____window.SetContentSize(new Vector2(cs.x, cs.y + 30));
-
+            newHeight = 424;
         }
 
+        if (waypointToDestination)
+        {
+            if (newHeight < 392)
+            {
+                newHeight = 392;
+            }
+        }
+
+        if(originalWindowSize == null) {
+            originalWindowSize = ____window.GetContentSize();
+        }
+
+        ____window.SetContentSize(new Vector2(originalWindowSize.Value.x - 2, newHeight));
     }
 }

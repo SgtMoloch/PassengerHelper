@@ -223,7 +223,7 @@ public class StationManager
                     return true;
                 }
             }
-            
+
             logger.Information("Passengers are full, continuing.");
         }
 
@@ -972,7 +972,7 @@ public class StationManager
 
                 if (directionOfTravel == DirectionOfTravel.EAST)
                 {
-                    logger.Information("Train is heading East and is at cochran, so selecting all pickup stations except alarka");
+                    logger.Information("Train is heading East so selecting all pickup stations");
                     expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
                     expectedSelectedDestinations.Remove(alarkaIdentifier);
                 }
@@ -985,9 +985,24 @@ public class StationManager
                 return false;
             }
 
+            if (directionOfTravel == DirectionOfTravel.EAST)
+            {
+                logger.Information("Train is now heading East, so selecting alarka and cochran as pickup stations if needed");
+                if (pickUpPassengerStations.Contains(alarkaIdentifier))
+                {
+                    logger.Information("adding alarka");
+                    expectedSelectedDestinations.Add(alarkaIdentifier);
+                }
+
+                if (pickUpPassengerStations.Contains(cochranIdentifier))
+                {
+                    logger.Information("adding cochran");
+                    expectedSelectedDestinations.Add(cochranIdentifier);
+                }
+            }
+
             return true;
         }
-
 
         logger.Information("Train has a station other than alarkajct for the east terminus");
 
@@ -999,7 +1014,7 @@ public class StationManager
             {
                 if (currentIndex_Pickup > pickUpPassengerStations.IndexOf(alarkajctIdentifier))
                 {
-                    logger.Information("Train is heading East and is at cochran, so selecting all pickup stations except alarka");
+                    logger.Information("Train is heading East, selecting all pickup stations except alarka");
                     expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
                     expectedSelectedDestinations.Remove(alarkaIdentifier);
 
