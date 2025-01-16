@@ -25,8 +25,8 @@ public static class CarInspectorPatches
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(CarInspectorPatches));
 
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(CarInspector), "PopulateAIPanel")]
-    private static void PopulateAIPanel(UIPanelBuilder builder, CarInspector __instance)
+    [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
+    private static void PopulateCarPanel(UIPanelBuilder builder, CarInspector __instance)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
 
@@ -43,6 +43,7 @@ public static class CarInspectorPatches
 
         if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
         {
+            builder.Spacer(5f);
             builder.HStack(delegate (UIPanelBuilder builder)
             {
                 builder.AddButton("PassengerSettings", delegate
