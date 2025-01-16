@@ -18,6 +18,7 @@ using System.Linq;
 using TMPro;
 using UnityEngine.UI;
 using Model.Ops;
+using Model.Definition;
 
 [HarmonyPatch]
 public static class CarInspectorPatches
@@ -26,7 +27,7 @@ public static class CarInspectorPatches
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
-    private static void PopulateCarPanel(UIPanelBuilder builder, CarInspector __instance)
+    private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)
     {
         PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
 
@@ -35,31 +36,34 @@ public static class CarInspectorPatches
             return;
         }
 
-        BaseLocomotive _car = (BaseLocomotive)(typeof(CarInspector).GetField("_car", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(__instance));
-
-        AutoEngineerPersistence persistence = new AutoEngineerPersistence(_car.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
-        AutoEngineerMode mode2 = helper.Mode;
-
-        if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+        if (____car.Archetype == CarArchetype.LocomotiveDiesel || ____car.Archetype == CarArchetype.LocomotiveSteam)
         {
-            builder.Spacer(5f);
-            builder.HStack(delegate (UIPanelBuilder builder)
-            {
-                builder.AddButton("PassengerSettings", delegate
-                {
-                    plugin.settingsManager.ShowSettingsWindow(_car);
-                }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
+            BaseLocomotive _car = (BaseLocomotive)____car;
 
-                PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
-                if (passengerLocomotive.TrainStatus.CurrentlyStopped)
+            AutoEngineerPersistence persistence = new AutoEngineerPersistence(_car.KeyValueObject);
+            AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
+            AutoEngineerMode mode2 = helper.Mode;
+
+            if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+            {
+                builder.Spacer(5f);
+                builder.HStack(delegate (UIPanelBuilder builder)
                 {
-                    builder.AddButton("Continue", delegate
+                    builder.AddButton("PassengerSettings", delegate
                     {
-                        passengerLocomotive.TrainStatus.Continue = true;
-                    }).Tooltip("Resume travel", "Resume travel");
-                }
-            });
+                        plugin.settingsManager.ShowSettingsWindow(_car);
+                    }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
+
+                    PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
+                    if (passengerLocomotive.TrainStatus.CurrentlyStopped)
+                    {
+                        builder.AddButton("Continue", delegate
+                        {
+                            passengerLocomotive.TrainStatus.Continue = true;
+                        }).Tooltip("Resume travel", "Resume travel");
+                    }
+                });
+            }
         }
     }
 
@@ -96,7 +100,8 @@ public static class CarInspectorPatches
             }
         }
 
-        if(originalWindowSize == null) {
+        if (originalWindowSize == null)
+        {
             originalWindowSize = ____window.GetContentSize();
         }
 
