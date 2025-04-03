@@ -61,13 +61,13 @@ public class SettingsManager
 
     public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
     {
-        logger.Information("Getting Passenger Settings for {0}", locomotiveDisplayName);
+        logger.Debug("Getting Passenger Settings for {0}", locomotiveDisplayName);
         if (!_settings.TryGetValue(locomotiveDisplayName, out PassengerLocomotiveSettings settings))
         {
             logger.Information("Did not Find settings for {0}, creating new settings", locomotiveDisplayName);
             settings = new PassengerLocomotiveSettings();
 
-            logger.Information("Adding new settings to internal Dictionary");
+            logger.Debug("Adding new settings to internal Dictionary");
             this._settings.Add(locomotiveDisplayName, settings);
 
             SaveSettings();
@@ -363,8 +363,11 @@ public class PassengerSettingsWindow
 
         if (passengerLocomotiveSettings.StationSettings["alarkajct"].TransferStation)
         {
-            passengerLocomotiveSettings.StationSettings["alarka"].TransferStation = false;
-            interactableStationMap["alarka"].Transfer = false;
+            if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
+            {
+                passengerLocomotiveSettings.StationSettings["alarka"].TransferStation = false;
+                interactableStationMap["alarka"].Transfer = false;
+            }
         }
 
         if (passengerLocomotiveSettings.StationSettings["alarka"].TransferStation)

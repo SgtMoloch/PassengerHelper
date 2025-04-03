@@ -14,6 +14,9 @@ using Model.Ops;
 using System.Reflection;
 using Game;
 using Game.Messages;
+using static Model.Ops.PassengerStop;
+using KeyValue.Runtime;
+using System;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
@@ -34,6 +37,43 @@ public static class PassengerStopPatches
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.gameObject.AddComponent<PassengerHelperPassengerStop>();
         passengerHelperPassengerStop.gameObject.SetActive(true);
     }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(PassengerStop), "LoadState")]
+    private static void LoadState(PassengerStop __instance)
+    {
+        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        if (!plugin.IsEnabled)
+        {
+            return;
+        }
+        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponent<PassengerHelperPassengerStop>();
+
+        IReadOnlyDictionary<string, Value> dictionaryValue = passengerHelperPassengerStop._keyValueObject["pass-helper-state"].DictionaryValue;
+        logger.Information("loaded state is: {0}", dictionaryValue);
+
+        if (!dictionaryValue.Any())
+        {
+            return;
+        }
+        try
+        {
+            List<Value> transferGroupListValue = dictionaryValue["transfer_group_list"].ArrayValue.ToList();
+            List<PassengerGroup> groups = transferGroupListValue.Select(g => PassengerGroup.FromPropertyValue(g)).ToList();
+
+            MethodInfo OffsetWaiting = typeof(PassengerStop).GetMethod("OffsetWaiting", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            foreach (PassengerGroup g in groups)
+            {
+                OffsetWaiting.Invoke(__instance, new object[] { g.Destination, g.Origin, TimeWeather.Now, g.Count });
+            }
+        }
+        catch (Exception exception)
+        {
+            Log.Error(exception, "Exception in LoadState {identifier}", __instance.identifier);
+        }
+    }
+
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
@@ -83,120 +123,6 @@ public static class PassengerStopPatches
     }
 
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(PassengerStop), "UnloadCar")]
-    private static bool UnloadCar(ref bool __result, Car car, PassengerStop __instance)
-    {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
-        {
-            return true;
-        }
-        logger.Debug("Patched unload method");
-        if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
-        {
-            return true;
-        }
-
-        if (passengerLocomotive.Settings.Disable)
-        {
-            return true;
-        }
-
-        MethodInfo CalculateBonusMultiplier = typeof(PassengerStop).GetMethod("CalculateBonusMultiplier", BindingFlags.NonPublic | BindingFlags.Static);
-        MethodInfo MarkerForCar = typeof(PassengerStop).GetMethod("MarkerForCar", BindingFlags.NonPublic | BindingFlags.Static);
-        MethodInfo FirePassengerStopEdgeMoved = typeof(PassengerStop).GetMethod("FirePassengerStopEdgeMoved", BindingFlags.NonPublic | BindingFlags.Instance);
-        MethodInfo QueuePayment = typeof(PassengerStop).GetMethod("QueuePayment", BindingFlags.NonPublic | BindingFlags.Instance);
-        MethodInfo FirePassengerStopServed = typeof(PassengerStop).GetMethod("FirePassengerStopServed", BindingFlags.NonPublic | BindingFlags.Instance);
-        MethodInfo UnloadPassengersToWait = typeof(PassengerStop).GetMethod("UnloadPassengersToWait", BindingFlags.NonPublic | BindingFlags.Instance);
-        MethodInfo PassengerCapacity = typeof(PassengerStop).GetMethod("PassengerCapacity", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
-
-        float bonusMultiplier = (float)CalculateBonusMultiplier.Invoke(null, new object[] { car });
-        PassengerMarker value = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
-        bool nullLastStop = string.IsNullOrEmpty(value.LastStopIdentifier);
-        if (nullLastStop || value.LastStopIdentifier != __instance.identifier)
-        {
-            if (!nullLastStop)
-            {
-                FirePassengerStopEdgeMoved.Invoke(__instance, new object[] { value.LastStopIdentifier });
-            }
-
-            value.LastStopIdentifier = __instance.identifier;
-            car.SetPassengerMarker(value);
-        }
-
-        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
-
-        for (int i = 0; i < value.Groups.Count; i++)
-        {
-            PassengerGroup passengerGroup = value.Groups[i];
-            if (passengerGroup.Count <= 0)
-            {
-                continue;
-            }
-
-            bool groupIsForDestinationSelectedOnCar = value.Destinations.Contains(passengerGroup.Destination);
-            bool groupDestinationIsThisDestination = passengerGroup.Destination == __instance.identifier;
-
-            if (!(!groupDestinationIsThisDestination && groupIsForDestinationSelectedOnCar))
-            {
-                passengerGroup.Count--;
-                if (passengerGroup.Count > 0)
-                {
-                    value.Groups[i] = passengerGroup;
-                }
-                else
-                {
-                    value.Groups.RemoveAt(i);
-                    i--;
-                }
-
-                car.SetPassengerMarker(value);
-                if (groupDestinationIsThisDestination)
-                {
-                    QueuePayment.Invoke(__instance, new object[] { 1, passengerGroup.Origin, passengerGroup.Destination, bonusMultiplier });
-                    FirePassengerStopServed.Invoke(__instance, new object[] { 1, car.Condition });
-                }
-                else
-                {
-                    logger.Information("Group destination is not this station and destination is not marked on car. group: {0}", passengerGroup);
-                    if (!passengerHelperPassengerStop.UnloadTransferPassengers(passengerLocomotive, car, value, passengerGroup, ref i))
-                    {
-                        UnloadPassengersToWait.Invoke(__instance, new object[] { passengerGroup, 1 });
-                        FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
-                    }
-                }
-                __result = true;
-                return false;
-            }
-
-            if (!(passengerGroup.Boarded >= gameDateTime))
-            {
-                passengerGroup.Count--;
-                if (passengerGroup.Count > 0)
-                {
-                    value.Groups[i] = passengerGroup;
-                }
-                else
-                {
-                    value.Groups.RemoveAt(i);
-                    i--;
-                }
-                car.SetPassengerMarker(value);
-                QueuePayment.Invoke(__instance, new object[] { 1, passengerGroup.Origin, __instance.identifier, bonusMultiplier });
-                FirePassengerStopServed.Invoke(__instance, new object[] { -1, car.Condition });
-
-                __result = true;
-                return false;
-            }
-        }
-
-        __result = false;
-        return false;
-    }
-
-    [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
     private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
     {
@@ -225,26 +151,6 @@ public static class PassengerStopPatches
         bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
 
         if (shouldNotLoad)
-        {
-            __result = true;
-            return false;
-        }
-
-        MethodInfo PassengerCapacity = typeof(PassengerStop).GetMethod("PassengerCapacity", BindingFlags.NonPublic | BindingFlags.Instance);
-        MethodInfo MarkerForCar = typeof(PassengerStop).GetMethod("MarkerForCar", BindingFlags.NonPublic | BindingFlags.Static);
-
-        PassengerMarker value = (PassengerMarker)MarkerForCar.Invoke(null, new object[] { car });
-
-        int num = (int)PassengerCapacity.Invoke(__instance, new object[] { car }) - value.TotalPassengers;
-        if (num <= 0)
-        {
-            __result = false;
-            return false;
-        }
-
-        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponentInChildren<PassengerHelperPassengerStop>();
-
-        if (passengerHelperPassengerStop.LoadTransferPassengers(passengerLocomotive, car, value, num))
         {
             __result = true;
             return false;
