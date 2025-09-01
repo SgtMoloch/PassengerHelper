@@ -57,13 +57,13 @@ public class TrainManager
 
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
     {
-        logger.Information("Getting PassengerLocomotive for {0}", locomotive.DisplayName);
+        logger.Debug("Getting PassengerLocomotive for {0}", locomotive.DisplayName);
         if (!this.passengerLocomotives.TryGetValue(locomotive.DisplayName, out PassengerLocomotive passengerLocomotive))
         {
             logger.Information("Did not find existing PassengerLocomotive for {0}, looking for existing PassengerSettings and creating a new Passenger Locomotive", locomotive.DisplayName);
             passengerLocomotive = new PassengerLocomotive(locomotive, settingsManager.GetSettings(locomotive.DisplayName));
 
-            logger.Information("Adding new Passenger Locomotive to internal Dictionary");
+            logger.Debug("Adding new Passenger Locomotive to internal Dictionary");
 
             this.passengerLocomotives.Add(locomotive.DisplayName, passengerLocomotive);
         }

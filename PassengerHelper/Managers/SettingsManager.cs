@@ -9,6 +9,7 @@ using Game.Messages;
 using Game.State;
 using Model;
 using Model.Definition;
+using Model.Ops;
 using Railloader;
 using RollingStock;
 using Serilog;
@@ -60,13 +61,13 @@ public class SettingsManager
 
     public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
     {
-        logger.Information("Getting Passenger Settings for {0}", locomotiveDisplayName);
+        logger.Debug("Getting Passenger Settings for {0}", locomotiveDisplayName);
         if (!_settings.TryGetValue(locomotiveDisplayName, out PassengerLocomotiveSettings settings))
         {
             logger.Information("Did not Find settings for {0}, creating new settings", locomotiveDisplayName);
             settings = new PassengerLocomotiveSettings();
 
-            logger.Information("Adding new settings to internal Dictionary");
+            logger.Debug("Adding new settings to internal Dictionary");
             this._settings.Add(locomotiveDisplayName, settings);
 
             SaveSettings();
@@ -362,8 +363,11 @@ public class PassengerSettingsWindow
 
         if (passengerLocomotiveSettings.StationSettings["alarkajct"].TransferStation)
         {
-            passengerLocomotiveSettings.StationSettings["alarka"].TransferStation = false;
-            interactableStationMap["alarka"].Transfer = false;
+            if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
+            {
+                passengerLocomotiveSettings.StationSettings["alarka"].TransferStation = false;
+                interactableStationMap["alarka"].Transfer = false;
+            }
         }
 
         if (passengerLocomotiveSettings.StationSettings["alarka"].TransferStation)
@@ -799,6 +803,20 @@ public class PassengerSettingsWindow
             });
         builder.HStack(delegate (UIPanelBuilder builder)
         {
+            builder.AddToggle(() => passengerLocomotiveSettings.PreventLoadWhenPausedAtStation, delegate (bool on)
+            {
+                logger.Information("Prevent loading when paused at station set to {0}", on);
+                passengerLocomotiveSettings.PreventLoadWhenPausedAtStation = on;
+            }).Tooltip("Prevent loading of passengers when paused Toggle", $"Toggle whether the AI should not load passengers if the train is paused at a station")
+            .Width(25f);
+            builder.AddLabel("Prevent Loading of Passengers When Paused", delegate (TMP_Text text)
+            {
+                text.textWrappingMode = TextWrappingModes.NoWrap;
+                text.overflowMode = TextOverflowModes.Ellipsis;
+            }).FlexibleWidth(1f);
+        });
+        builder.HStack(delegate (UIPanelBuilder builder)
+        {
             builder.AddToggle(() => passengerLocomotiveSettings.WaitForFullPassengersTerminusStation, delegate (bool on)
             {
                 logger.Information("Wait for full passengers at terminus station set to {0}", on);
@@ -836,6 +854,27 @@ public class PassengerSettingsWindow
             builder.RebuildOnEvent<DOTChangedEvent>();
 
             builder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotiveSettings.DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
+            builder.Spacer().Width(5f);
+            builder.AddButton("?", () =>
+            {
+                Window dotHelpWindow = uIHelper.CreateWindow(450, 200, Window.Position.Center);
+
+                dotHelpWindow.Title = "Direction of Travel Help";
+
+                uIHelper.PopulateWindow(dotHelpWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
+                {
+                    builder.VStack(delegate (UIPanelBuilder builder)
+                    {
+                        builder.AddLabel("Direction of travel is a setting that Passenger Helper uses to determine the cardinal direction of the train. "
+                        + "Because a train can be in forward or reverse, it is impossible to know which way the train is actually heading with the reverser setting alone. "
+                        + "This allows passenger helper to select the right stations and become automated.");
+                        builder.Spacer().Height(5f);
+                        builder.AddLabel("For clarity, Going towards Sylva is East and going towards Andrews is West");
+                    });
+                });
+
+                dotHelpWindow.ShowWindow();
+            });
             builder.Spacer().FlexibleWidth(1f);
         });
 

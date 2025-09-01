@@ -3,6 +3,7 @@ namespace PassengerHelperPlugin.Patches;
 using System.Linq;
 using Game.Progression;
 using HarmonyLib;
+using Model.Ops;
 using RollingStock;
 using Serilog;
 using Support;
@@ -16,7 +17,7 @@ public static class MapFeatureManagerPatches
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]
     private static void HandleFeatureEnablesChanged()
     {
-        logger.Information("Progressions Changed. Checking Stations");
+        logger.Debug("Progressions Changed. Checking Stations");
         PassengerHelperPlugin shared = PassengerHelperPlugin.Shared;
 
         if (!shared.IsEnabled)
@@ -36,7 +37,7 @@ public static class MapFeatureManagerPatches
             {
                 if (ps.ProgressionDisabled)
                 {
-                    logger.Information($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
+                    logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
                     setting.StationSettings[ps.identifier] = new StationSetting();
                 }
             });

@@ -26,6 +26,7 @@ public class PassengerLocomotiveSettings
     public float WaterLevel { get; set; } = 0.10f;
     public bool PauseAtNextStation { get; set; } = false;
     public bool PauseAtTerminusStation { get; set; } = false;
+    public bool PreventLoadWhenPausedAtStation {get; set; } = false;
     public bool WaitForFullPassengersTerminusStation { get; set; } = false;
     public bool Disable { get; set; } = true;
     public DirectionOfTravel DirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
@@ -145,9 +146,9 @@ public enum PassengerMode
 
 public enum DirectionOfTravel
 {
-    EAST,
+    WEST,
     UNKNOWN,
-    WEST
+    EAST
 }
 
 public class TrainStatus
