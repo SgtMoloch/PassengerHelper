@@ -36,7 +36,7 @@ public static class CarInspectorPatches
             return;
         }
 
-        if (____car.Archetype == CarArchetype.LocomotiveDiesel || ____car.Archetype == CarArchetype.LocomotiveSteam)
+        if (____car.IsLocomotive)
         {
             BaseLocomotive _car = (BaseLocomotive)____car;
 
@@ -44,7 +44,11 @@ public static class CarInspectorPatches
             AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
             AutoEngineerMode mode2 = helper.Mode;
 
-            if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+            bool AEMode = mode2 == AutoEngineerMode.Road || mode2 == AutoEngineerMode.Waypoint;
+
+            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
+
+            if (_car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
             {
                 builder.Spacer(5f);
                 builder.HStack(delegate (UIPanelBuilder builder)
@@ -54,8 +58,16 @@ public static class CarInspectorPatches
                         plugin.settingsManager.ShowSettingsWindow(_car);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
-                    if (passengerLocomotive.TrainStatus.CurrentlyStopped)
+                    if (passengerLocomotive.settingsHash != 0 && passengerLocomotive.stationSettingsHash != 0)
+                    {
+                        builder.AddButton("Reset Cache", delegate
+                        {
+                            passengerLocomotive.ResetSettingsHash();
+                            passengerLocomotive.ResetStatusFlags();
+                        }).Tooltip("Resets internal settings cache", "Reset internal settings cache");
+                    }
+
+                    if (AEMode && passengerLocomotive.TrainStatus.CurrentlyStopped)
                     {
                         builder.AddButton("Continue", delegate
                         {
