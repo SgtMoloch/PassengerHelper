@@ -20,7 +20,7 @@ public static class MapFeatureManagerPatches
         logger.Debug("Progressions Changed. Checking Stations");
         PassengerHelperPlugin shared = PassengerHelperPlugin.Shared;
 
-        if (!shared.IsEnabled)
+        if (!shared.IsEnabled || !shared.passengerHelperSettingsGO.Loaded)
         {
             return;
         }
