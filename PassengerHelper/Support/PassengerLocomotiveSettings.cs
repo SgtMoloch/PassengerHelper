@@ -4,20 +4,34 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
+using Model;
 using KeyValue.Runtime;
 using Serilog;
 using UI.Builder;
+using Game.Messages;
+using System.Reflection;
+using Game.State;
+using Support.GameObjects;
 
 public class PassengerLocomotiveSettings
 {
-
-    [NonSerialized]
-    Action<bool> onChange;
-
-    public PassengerLocomotiveSettings()
+    public static class PassengerLocomotiveSettingKeys
     {
-        onChange += (value) => Messenger.Default.Send(new DOTChangedEvent());
-    }
+        public static string PauseForDiesel = "pause_for_diesel";
+        public static string DieselLevel = "diesel_level";
+        public static string PauseForCoal = "pause_for_coal";
+        public static string CoalLevel = "coal_level";
+        public static string PauseForWater = "pause_for_water";
+        public static string WaterLevel = "water_level";
+        public static string PauseAtNextStation = "pause_next_station";
+        public static string PauseAtTerminusStation = "pause_terminus_station";
+        public static string PreventLoadWhenPausedAtStation = "prevent_load_when_paused";
+        public static string WaitForFullPassengersTerminusStation = "wait_for_full_load_at_terminus_station";
+        public static string Disable = "disable";
+        public static string DirectionOfTravel = "direction_of_travel";
+        public static string DoTLocked = "dot_locked";
+        public static string TrainStatus = "train_status";
+}
 
     public bool PauseForDiesel { get; set; } = false;
     public float DieselLevel { get; set; } = 0.10f;
@@ -38,10 +52,6 @@ public class PassengerLocomotiveSettings
         set
         {
             _dotLocked = value;
-            if (onChange != null)
-            {
-                onChange(value);
-            }
         }
     }
     public bool gameLoadFlag { get; set; } = false;
@@ -66,20 +76,6 @@ public class PassengerLocomotiveSettings
             { "rhodo", new StationSetting() },
             { "andrews", new StationSetting() }
         };
-    public List<string> GetStopAtStations()
-    {
-        return StationSettings.Where(ss => ss.Value.StopAtStation == true).Select(ss => ss.Key).ToList();
-    }
-
-    public List<string> GetTerminusStations()
-    {
-        return StationSettings.Where(ss => ss.Value.TerminusStation == true).Select(ss => ss.Key).ToList();
-    }
-
-    public List<string> GetPickupStations()
-    {
-        return StationSettings.Where(ss => ss.Value.PickupPassengersForStation == true).Select(ss => ss.Key).ToList();
-    }
 
     internal int getStationSettingsHash()
     {
@@ -143,27 +139,28 @@ public class PassengerLocomotiveSettings
             PauseAtTerminusStation = dictionaryValue["pause_terminus_station"].BoolValue,
             PreventLoadWhenPausedAtStation = dictionaryValue["prevent_load_when_paused"].BoolValue,
             WaitForFullPassengersTerminusStation = dictionaryValue["wait_for_full_load_at_terminus_station"].BoolValue,
-            DirectionOfTravel = Enum.Parse<DirectionOfTravel>(dictionaryValue["direction_of_travel"].StringValue),
+            DirectionOfTravel = (DirectionOfTravel)dictionaryValue["direction_of_travel"].IntValue,
             DoTLocked = dictionaryValue["dot_locked"].BoolValue,
             TrainStatus = TrainStatus.FromPropertyValue(dictionaryValue["train_status"]),
+            Disable = dictionaryValue["disable"].BoolValue,
             //TODO: make this dynamic for modded station support
             StationSettings = new()
             {
-                { "sylva",  StationSetting.FromPropertyValue(dictionaryValue["sylva_station_settings"]) },
-                { "dillsboro",  StationSetting.FromPropertyValue(dictionaryValue["dillsboro_station_settings"]) },
-                { "wilmot",  StationSetting.FromPropertyValue(dictionaryValue["wilmot_station_settings"]) },
-                { "whittier",  StationSetting.FromPropertyValue(dictionaryValue["whittier_station_settings"]) },
-                { "ela",  StationSetting.FromPropertyValue(dictionaryValue["ela_station_settings"]) },
-                { "bryson",  StationSetting.FromPropertyValue(dictionaryValue["bryson_station_settings"]) },
-                { "hemingway",  StationSetting.FromPropertyValue(dictionaryValue["hemingway_station_settings"]) },
-                { "alarkajct",  StationSetting.FromPropertyValue(dictionaryValue["alarkajct_station_settings"]) },
-                { "cochran",  StationSetting.FromPropertyValue(dictionaryValue["cochran_station_settings"]) },
-                { "alarka",  StationSetting.FromPropertyValue(dictionaryValue["alarka_station_settings"]) },
-                { "almond",  StationSetting.FromPropertyValue(dictionaryValue["almond_station_settings"]) },
-                { "nantahala",  StationSetting.FromPropertyValue(dictionaryValue["nantahala_station_settings"]) },
-                { "topton",  StationSetting.FromPropertyValue(dictionaryValue["topton_station_settings"]) },
-                { "rhodo",  StationSetting.FromPropertyValue(dictionaryValue["rhodo_station_settings"]) },
-                { "andrews",  StationSetting.FromPropertyValue(dictionaryValue["andrews_station_settings"]) }
+                { "sylva",  StationSetting.FromPropertyValue(dictionaryValue["sylva"]) },
+                { "dillsboro",  StationSetting.FromPropertyValue(dictionaryValue["dillsboro"]) },
+                { "wilmot",  StationSetting.FromPropertyValue(dictionaryValue["wilmot"]) },
+                { "whittier",  StationSetting.FromPropertyValue(dictionaryValue["whittier"]) },
+                { "ela",  StationSetting.FromPropertyValue(dictionaryValue["ela"]) },
+                { "bryson",  StationSetting.FromPropertyValue(dictionaryValue["bryson"]) },
+                { "hemingway",  StationSetting.FromPropertyValue(dictionaryValue["hemingway"]) },
+                { "alarkajct",  StationSetting.FromPropertyValue(dictionaryValue["alarkajct"]) },
+                { "cochran",  StationSetting.FromPropertyValue(dictionaryValue["cochran"]) },
+                { "alarka",  StationSetting.FromPropertyValue(dictionaryValue["alarka"]) },
+                { "almond",  StationSetting.FromPropertyValue(dictionaryValue["almond"]) },
+                { "nantahala",  StationSetting.FromPropertyValue(dictionaryValue["nantahala"]) },
+                { "topton",  StationSetting.FromPropertyValue(dictionaryValue["topton"]) },
+                { "rhodo",  StationSetting.FromPropertyValue(dictionaryValue["rhodo"]) },
+                { "andrews",  StationSetting.FromPropertyValue(dictionaryValue["andrews"]) }
             }
         };
     }
@@ -181,29 +178,40 @@ public class PassengerLocomotiveSettings
         dictionaryValue["pause_terminus_station"] = Value.Bool(PauseAtTerminusStation);
         dictionaryValue["prevent_load_when_paused"] = Value.Bool(PreventLoadWhenPausedAtStation);
         dictionaryValue["wait_for_full_load_at_terminus_station"] = Value.Bool(WaitForFullPassengersTerminusStation);
-        dictionaryValue["direction_of_travel"] = Value.String(DirectionOfTravel.ToString());
+        dictionaryValue["direction_of_travel"] = Value.Int((int)DirectionOfTravel);
         dictionaryValue["dot_locked"] = Value.Bool(DoTLocked);
         dictionaryValue["train_status"] = TrainStatus.PropertyValue();
+        dictionaryValue["disable"] = Value.Bool(Disable);
 
         //TODO: make this dynamic for modded station support
-        dictionaryValue["sylva_station_settings"] = StationSettings["sylva"].PropertyValue();
-        dictionaryValue["dillsboro_station_settings"] = StationSettings["dillsboro"].PropertyValue();
-        dictionaryValue["wilmot_station_settings"] = StationSettings["wilmot"].PropertyValue();
-        dictionaryValue["whittier_station_settings"] = StationSettings["whittier"].PropertyValue();
-        dictionaryValue["ela_station_settings"] = StationSettings["ela"].PropertyValue();
-        dictionaryValue["bryson_station_settings"] = StationSettings["bryson"].PropertyValue();
-        dictionaryValue["hemingway_station_settings"] = StationSettings["hemingway"].PropertyValue();
-        dictionaryValue["alarkajct_station_settings"] = StationSettings["alarkajct"].PropertyValue();
-        dictionaryValue["cochran_station_settings"] = StationSettings["cochran"].PropertyValue();
-        dictionaryValue["alarka_station_settings"] = StationSettings["alarka"].PropertyValue();
-        dictionaryValue["almond_station_settings"] = StationSettings["almond"].PropertyValue();
-        dictionaryValue["nantahala_station_settings"] = StationSettings["nantahala"].PropertyValue();
-        dictionaryValue["topton_station_settings"] = StationSettings["topton"].PropertyValue();
-        dictionaryValue["rhodo_station_settings"] = StationSettings["rhodo"].PropertyValue();
-        dictionaryValue["andrews_station_settings"] = StationSettings["andrews"].PropertyValue();
+        dictionaryValue["sylva"] = StationSettings["sylva"].PropertyValue();
+        dictionaryValue["dillsboro"] = StationSettings["dillsboro"].PropertyValue();
+        dictionaryValue["wilmot"] = StationSettings["wilmot"].PropertyValue();
+        dictionaryValue["whittier"] = StationSettings["whittier"].PropertyValue();
+        dictionaryValue["ela"] = StationSettings["ela"].PropertyValue();
+        dictionaryValue["bryson"] = StationSettings["bryson"].PropertyValue();
+        dictionaryValue["hemingway"] = StationSettings["hemingway"].PropertyValue();
+        dictionaryValue["alarkajct"] = StationSettings["alarkajct"].PropertyValue();
+        dictionaryValue["cochran"] = StationSettings["cochran"].PropertyValue();
+        dictionaryValue["alarka"] = StationSettings["alarka"].PropertyValue();
+        dictionaryValue["almond"] = StationSettings["almond"].PropertyValue();
+        dictionaryValue["nantahala"] = StationSettings["nantahala"].PropertyValue();
+        dictionaryValue["topton"] = StationSettings["topton"].PropertyValue();
+        dictionaryValue["rhodo"] = StationSettings["rhodo"].PropertyValue();
+        dictionaryValue["andrews"] = StationSettings["andrews"].PropertyValue();
 
         return Value.Dictionary(dictionaryValue);
     }
+}
+
+public static class StationSettingKeys
+{
+    public static string StopAtStation = "stop_at_station";
+    public static string TerminusStation = "terminus_station";
+    public static string PickupPassengersForStation = "pick_up_station";
+    public static string PauseAtStation = "pause_at_station";
+    public static string TransferStation = "transfer_station";
+    public static string PassengerMode = "passenger_mode";
 }
 
 public class StationSetting
@@ -235,7 +243,7 @@ public class StationSetting
             PickupPassengersForStation = dictionaryValue["pick_up_station"].BoolValue,
             PauseAtStation = dictionaryValue["pause_at_station"].BoolValue,
             TransferStation = dictionaryValue["transfer_station"].BoolValue,
-            PassengerMode = Enum.Parse<PassengerMode>(dictionaryValue["passenger_mode"].StringValue)
+            PassengerMode = (PassengerMode)dictionaryValue["passenger_mode"].IntValue
         };
     }
 
@@ -248,7 +256,7 @@ public class StationSetting
         dictionaryValue["pick_up_station"] = Value.Bool(PickupPassengersForStation);
         dictionaryValue["pause_at_station"] = Value.Bool(PauseAtStation);
         dictionaryValue["transfer_station"] = Value.Bool(TransferStation);
-        dictionaryValue["passenger_mode"] = Value.String(PassengerMode.ToString());
+        dictionaryValue["passenger_mode"] = Value.Int(((int)PassengerMode));
 
         return Value.Dictionary(dictionaryValue);
     }

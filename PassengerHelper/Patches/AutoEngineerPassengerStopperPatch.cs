@@ -7,7 +7,7 @@ using Serilog;
 using System.Reflection;
 using Game;
 using RollingStock;
-using Support;
+using Support.GameObjects;
 using Model.Ops;
 
 [HarmonyPatch]

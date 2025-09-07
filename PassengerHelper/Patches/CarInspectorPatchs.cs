@@ -3,6 +3,7 @@ namespace PassengerHelperPlugin.Patches;
 using System.Reflection;
 using Game.Messages;
 using Support;
+using Support.GameObjects;
 using HarmonyLib;
 using Model;
 using Model.AI;
@@ -55,7 +56,7 @@ public static class CarInspectorPatches
                 {
                     builder.AddButton("PassengerSettings", delegate
                     {
-                        plugin.settingsManager.ShowSettingsWindow(_car);
+                        plugin.settingsManager.ShowSettingsWindow(passengerLocomotive);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
                     if (passengerLocomotive.settingsHash != 0 && passengerLocomotive.stationSettingsHash != 0)

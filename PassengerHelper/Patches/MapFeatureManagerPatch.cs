@@ -20,7 +20,7 @@ public static class MapFeatureManagerPatches
         logger.Debug("Progressions Changed. Checking Stations");
         PassengerHelperPlugin shared = PassengerHelperPlugin.Shared;
 
-        if (!shared.IsEnabled || !shared.passengerHelperSettingsGO.Loaded)
+        if (!shared.IsEnabled)
         {
             return;
         }
@@ -29,18 +29,18 @@ public static class MapFeatureManagerPatches
         {
             string name = ps.identifier;
             string formalName = ps.name;
-
-            shared.settingsManager.GetAllSettings()
-            .Select(p => p.Value)
-            .ToList()
-            .ForEach(setting =>
-            {
-                if (ps.ProgressionDisabled)
-                {
-                    logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
-                    setting.StationSettings[ps.identifier] = new StationSetting();
-                }
-            });
+            // TODO: move this logic into Passenger Locomotive
+            // shared.settingsManager.GetAllSettings()
+            // .Select(p => p.Value)
+            // .ToList()
+            // .ForEach(setting =>
+            // {
+            //     if (ps.ProgressionDisabled)
+            //     {
+            //         logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
+            //         setting.StationSettings[ps.identifier] = new StationSetting();
+            //     }
+            // });
         });
     }
 }

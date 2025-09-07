@@ -7,6 +7,10 @@ using Model;
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
+using Model.Definition;
+using Game.Messages;
+using static Model.Car;
+using Support.GameObjects;
 
 public class TrainManager
 {
@@ -61,7 +65,7 @@ public class TrainManager
         if (!this.passengerLocomotives.TryGetValue(locomotive.DisplayName, out PassengerLocomotive passengerLocomotive))
         {
             logger.Information("Did not find existing PassengerLocomotive for {0}, looking for existing PassengerSettings and creating a new Passenger Locomotive", locomotive.DisplayName);
-            passengerLocomotive = new PassengerLocomotive(locomotive, settingsManager.GetSettings(locomotive.DisplayName));
+            passengerLocomotive = new PassengerLocomotive(locomotive);
 
             logger.Debug("Adding new Passenger Locomotive to internal Dictionary");
 
@@ -69,5 +73,25 @@ public class TrainManager
         }
 
         return passengerLocomotive;
+    }
+
+    public PassengerLocomotive GetPassengerLocomotive(Car car)
+    {
+        logger.Debug("Getting PassengerLocomotive coupled to {0}", car.DisplayName);
+
+        // find all cars coupled to car
+        // filter to only locomotives
+        // filter out MU locomotives
+        List<Car> engines = car.EnumerateCoupled()
+        .Where(car => car.IsLocomotive)
+        .Where(loco => loco.ControlProperties[PropertyChange.Control.Mu] == false)
+        .ToList();
+
+        if (engines.Count > 1)
+        {
+            throw new System.Exception("More than 1 engine is coupled to car: " + car.DisplayName + " and those additional engines are NOT mu, therefore unable to determine which engine is the actual passenger locomotive");
+        }
+
+        return GetPassengerLocomotive((BaseLocomotive)engines[0]);
     }
 }

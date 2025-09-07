@@ -5,3 +5,4 @@ bin
 .editorconfig
 PassengerHelper/PassengerHelper.generated.sln
 .vscode/settings.json
+.vscode/launch.json

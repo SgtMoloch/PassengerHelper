@@ -7,11 +7,10 @@ using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
 using Game.Messages;
 using Game.State;
-using GameObjects;
+using Support.GameObjects;
 using Model;
 using Model.Definition;
 using Model.Ops;
-using Support.GameObjects;
 using Railloader;
 using RollingStock;
 using Serilog;
@@ -26,7 +25,6 @@ using UnityEngine.UI;
 public class SettingsManager
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
-    private Dictionary<string, PassengerLocomotiveSettings> _settings;
     internal IUIHelper uIHelper { get; }
     private PassengerHelperPlugin plugin;
     private Dictionary<BaseLocomotive, bool> settingsWindowShowing = new();
@@ -39,54 +37,53 @@ public class SettingsManager
         Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
 
-    public void LoadSettings()
-    {
-        PassengerHelperSettingsGO passengerHelperSettingsGO = UnityEngine.Object.FindObjectOfType<PassengerHelperSettingsGO>();
-        this._settings = passengerHelperSettingsGO.passengerLocomotivesSettings;
-    }
+    // public void LoadSettings()
+    // {
     
-    public void SaveSettings()
-    {
-        logger.Debug("Saving settings");
-        plugin.SaveSettings(this._settings);
-    }
+    // }
 
-    public void SaveSettings(string locomotiveName, TrainStatus trainStatus)
-    {
-        _settings[locomotiveName].TrainStatus = trainStatus;
-        SaveSettings();
-    }
+    // public void SaveSettings()
+    // {
+    //     logger.Debug("Saving settings");
+    //     plugin.SaveSettings(this._settings);
+    // }
+
+    // public void SaveSettings(string locomotiveName, TrainStatus trainStatus)
+    // {
+    //     _settings[locomotiveName].TrainStatus = trainStatus;
+    //     SaveSettings();
+    // }
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)
     {
-        foreach (PassengerLocomotiveSettings settings in _settings.Values)
-        {
-            settings.gameLoadFlag = true;
-        }
-        SaveSettings();
+        // foreach (PassengerLocomotiveSettings settings in _settings.Values)
+        // {
+        //     settings.gameLoadFlag = true;
+        // }
+        // SaveSettings();
     }
 
-    public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
-    {
-        logger.Debug("Getting Passenger Settings for {0}", locomotiveDisplayName);
-        if (!_settings.TryGetValue(locomotiveDisplayName, out PassengerLocomotiveSettings settings))
-        {
-            logger.Information("Did not Find settings for {0}, creating new settings", locomotiveDisplayName);
-            settings = new PassengerLocomotiveSettings();
+    // public PassengerLocomotiveSettings GetSettings(string locomotiveDisplayName)
+    // {
+    //     logger.Debug("Getting Passenger Settings for {0}", locomotiveDisplayName);
+    //     if (!_settings.TryGetValue(locomotiveDisplayName, out PassengerLocomotiveSettings settings))
+    //     {
+    //         logger.Information("Did not Find settings for {0}, creating new settings", locomotiveDisplayName);
+    //         settings = new PassengerLocomotiveSettings();
 
-            logger.Debug("Adding new settings to internal Dictionary");
-            this._settings.Add(locomotiveDisplayName, settings);
+    //         logger.Debug("Adding new settings to internal Dictionary");
+    //         this._settings.Add(locomotiveDisplayName, settings);
 
-            SaveSettings();
-        }
+    //         SaveSettings();
+    //     }
 
-        return settings;
-    }
+    //     return settings;
+    // }
 
-    public Dictionary<string, PassengerLocomotiveSettings> GetAllSettings()
-    {
-        return this._settings;
-    }
+    // public Dictionary<string, PassengerLocomotiveSettings> GetAllSettings()
+    // {
+    //     return this._settings;
+    // }
 
     private Window CreateSettingsWindow(string locomotiveDisplayName)
     {
@@ -97,8 +94,9 @@ public class SettingsManager
         return passengerSettingsWindow;
     }
 
-    internal void ShowSettingsWindow(BaseLocomotive _locomotive)
+    internal void ShowSettingsWindow(PassengerLocomotive passengerLocomotive)
     {
+        BaseLocomotive _locomotive = passengerLocomotive._locomotive;
 
         string locomotiveDisplayName = _locomotive.DisplayName;
 
@@ -117,16 +115,15 @@ public class SettingsManager
         Window passengerSettingsWindow = CreateSettingsWindow(locomotiveDisplayName);
 
         PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.plugin.stationManager);
-        PassengerLocomotiveSettings passengerLocomotiveSettings = GetSettings(locomotiveDisplayName);
 
-        settingsWindow.PopulateAndShowSettingsWindow(passengerSettingsWindow, passengerLocomotiveSettings, _locomotive);
+        settingsWindow.PopulateAndShowSettingsWindow(passengerSettingsWindow, passengerLocomotive);
 
         passengerSettingsWindow.OnShownDidChange += (showing) =>
         {
             if (!showing)
             {
                 this.settingsWindowShowing[_locomotive] = false;
-                SaveSettings();
+                // SaveSettings();
             }
         };
 

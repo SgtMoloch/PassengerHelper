@@ -6,10 +6,11 @@
 
   <!-- Replace the default version if something was set for it -->
   <PropertyGroup Condition="'$(AssemblyVersion)' == '' OR '$(MajorVersion)' != '' OR '$(MinorVersion)' != ''">
-    <MajorVersion Condition="'$(MajorVersion)' == ''">1</MajorVersion>
-    <MinorVersion Condition="'$(MinorVersion)' == ''">2</MinorVersion>
-    <PatchVersion Condition="'$(PatchVersion)' == ''">2</PatchVersion>
-    <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion)</AssemblyVersion>
+    <MajorVersion Condition="'$(MajorVersion)' == ''">2</MajorVersion>
+    <MinorVersion Condition="'$(MinorVersion)' == ''">0</MinorVersion>
+    <PatchVersion Condition="'$(PatchVersion)' == ''">0</PatchVersion>
+    <Revision Condition="'$(Revision)' == ''">1</Revision>
+    <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion).$(Revision)</AssemblyVersion>
     <FileVersion>$(AssemblyVersion)</FileVersion>
     <ProductVersion>$(AssemblyVersion)</ProductVersion>
   </PropertyGroup>

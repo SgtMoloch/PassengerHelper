@@ -20,8 +20,6 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 {
     static Serilog.ILogger logger = Log.ForContext(typeof(PassengerHelperPlugin));
 
-    internal PassengerHelperSettingsGO passengerHelperSettingsGO;
-
     private readonly IModdingContext ctx;
     private readonly IModDefinition self;
 
@@ -56,16 +54,11 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
 
     public void SaveSettings(Dictionary<string, PassengerLocomotiveSettings> settings)
     {
-        passengerHelperSettingsGO.SaveState();
+        // passengerHelperSettingsGO.SaveState();
     }
 
     private void OnMapDidLoad(MapDidLoadEvent @event)
     {
-        GameObject val = new GameObject("[Moloch PH Settings]");
-        UnityEngine.Object.DontDestroyOnLoad((UnityEngine.Object)val);
-        passengerHelperSettingsGO = val.AddComponent<PassengerHelperSettingsGO>();
-        passengerHelperSettingsGO.enabled = true;
-
-        settingsManager.LoadSettings();
+        // settingsManager.LoadSettings();
     }
 }
