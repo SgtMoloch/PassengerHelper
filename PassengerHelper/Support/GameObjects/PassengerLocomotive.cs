@@ -14,6 +14,7 @@ using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
 using Model.Ops;
+using Managers;
 using RollingStock;
 using Serilog;
 using UI.EngineControls;
@@ -26,7 +27,7 @@ public class PassengerLocomotive
 
     internal BaseLocomotive _locomotive;
 
-    public PassengerLocomotiveSettings PassengerLocomotiveSettings = new();
+    public PassengerLocomotiveSettings PassengerLocomotiveSettings;
 
     private PassengerStop? _currentStop = null;
     private PassengerStop? _previousStop = null;
@@ -86,12 +87,15 @@ public class PassengerLocomotive
 
     internal KeyValueObject _keyValueObject;
 
-    internal string KeyValueIdentifier => "moloch.passengerhelper." + _locomotive.DisplayName.Replace(" ", "");
+    internal string KeyValueIdentifier => "moloch.passengerhelper";
 
-    public PassengerLocomotive(BaseLocomotive _locomotive)
+    internal SettingsManager settingsManager;
+
+    public PassengerLocomotive(BaseLocomotive _locomotive, SettingsManager settingsManager)
     {
         this._locomotive = _locomotive;
         this._keyValueObject = _locomotive.KeyValueObject;
+        this.settingsManager = settingsManager;
 
         StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier, _keyValueObject, AuthorizationRequirement.HostOnly);
 
@@ -102,8 +106,9 @@ public class PassengerLocomotive
 
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-        LoadSettings();
         this.FuelCar = GetFuelCar();
+
+        LoadSettings();
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
@@ -130,50 +135,31 @@ public class PassengerLocomotive
             }
             _selfSentOrders = false;
         });
+
+        
     }
 
-    public void LoadState()
+    private void SaveState()
     {
-        Value dictionaryValue = _keyValueObject[KeyValueIdentifier];
-        logger.Information(dictionaryValue);
-        logger.Information(dictionaryValue.IsNull.ToString());
-        logger.Information(_keyValueObject.Keys.Contains(KeyValueIdentifier).ToString());
-
-        if (dictionaryValue.IsNull || !_keyValueObject.Keys.Contains(KeyValueIdentifier))
-        {
-            SaveState();
-            return;
-        }
-
-        try
-        {
-            this.PassengerLocomotiveSettings = PassengerLocomotiveSettings.FromPropertyValue(dictionaryValue);
-        }
-        catch (Exception exception)
-        {
-            Log.Error(exception, "Exception in PassengerLocomotive LoadState");
-        }
+        settingsManager.SaveSettings(this);
     }
 
-    public void SaveState()
-    {
-        StateManager.ApplyLocal(new PropertyChange(_locomotive.id, KeyValueIdentifier, PropertyValueConverter.RuntimeToSnapshot(this.PassengerLocomotiveSettings.PropertyValue())));
-    }
-
-    private void LoadSettings()
+    public void LoadSettings()
     {
         Value dictionaryValue = _keyValueObject[KeyValueIdentifier];
         if (dictionaryValue.IsNull || !_keyValueObject.Keys.Contains(KeyValueIdentifier))
         {
-            SaveState();
-            this.TrainStatus = new TrainStatus();
+            logger.Information("Creating new settings for {0}", _locomotive.DisplayName);
+            this.PassengerLocomotiveSettings = settingsManager.CreateNewSettings(this);
         }
         else
         {
-            this.TrainStatus = TrainStatus.FromPropertyValue(_keyValueObject[KeyValueIdentifier][PassengerLocomotiveSettingKeys.TrainStatus]);
+            logger.Information("Loading existing settings for {0}", _locomotive.DisplayName);
+            this.PassengerLocomotiveSettings = settingsManager.LoadSettings(this);
         }
 
-    
+        this.TrainStatus = this.PassengerLocomotiveSettings.TrainStatus;
+
         IEnumerable<PassengerStop> stations = PassengerStop.FindAll();
 
         if (TrainStatus.CurrentStation.Length > 0)
@@ -223,91 +209,6 @@ public class PassengerLocomotive
             PassengerLocomotiveSettings.DoTLocked = false;
         }
 
-    }
-
-    public IReadOnlyDictionary<string, Value> GetSettingsForStation(string station)
-    {
-        return this._keyValueObject[KeyValueIdentifier][station].DictionaryValue;
-    }
-
-    public IReadOnlyDictionary<string, Value> GetTrainStatus()
-    {
-        return this._keyValueObject[KeyValueIdentifier]["train_status"].DictionaryValue;
-    }
-
-    public IReadOnlyDictionary<string, Value> GetPassengerSettings()
-    {
-        return this._keyValueObject[KeyValueIdentifier].DictionaryValue;
-    }
-
-    public Dictionary<string, Value> GetMutableSettingsForStation(string station)
-    {
-        return new(this._keyValueObject[KeyValueIdentifier][station].DictionaryValue);
-    }
-
-    public Dictionary<string, Value> GetMutableTrainStatus()
-    {
-        return new(this._keyValueObject[KeyValueIdentifier]["train_status"].DictionaryValue);
-    }
-
-    public Dictionary<string, Value> GetMutablePassengerSettings()
-    {
-        return new(this._keyValueObject[KeyValueIdentifier].DictionaryValue);
-    }
-
-    public Dictionary<string, Value> UpdateStationSettings(string station, Dictionary<string, Value> stationSettings, Dictionary<string, Value> settings)
-    {
-        settings[station] = Value.Dictionary(stationSettings);
-
-        return settings;
-    }
-
-    public Dictionary<string, Value> UpdateTrainStatus(Dictionary<string, Value> trainStatus, Dictionary<string, Value> settings)
-    {
-        settings["train_status"] = Value.Dictionary(trainStatus);
-
-        return settings;
-    }
-
-    public Dictionary<string, Value> UpdateSetting(string settingId, Value value, Dictionary<string, Value> settings)
-    {
-        settings[settingId] = value;
-
-        return settings;
-    }
-
-
-    public void SaveStationSettings(string station, Dictionary<string, Value> stationSettings)
-    {
-        Dictionary<string, Value> newSettings = GetMutablePassengerSettings();
-
-        newSettings[station] = Value.Dictionary(stationSettings);
-
-        SaveSettings(newSettings);
-    }
-
-    public void SaveTrainStatus(Dictionary<string, Value> trainStatus)
-    {
-        Dictionary<string, Value> newSettings = GetMutablePassengerSettings();
-        newSettings["train_status"] = Value.Dictionary(trainStatus);
-
-        SaveSettings(newSettings);
-    }
-
-    public void SaveSetting(string settingId, Value value)
-    {
-        Dictionary<string, Value> newSettings = GetMutablePassengerSettings();
-        newSettings[settingId] = value;
-
-        SaveSettings(newSettings);
-    }
-
-    public void SaveSettings(Dictionary<string, Value> settings)
-    {
-        logger.Information("Saving settings");
-        logger.Information("settings are: {0}", settings.Select(kv => kv.Key.ToString() + " " + kv.Value.ToString()));
-        
-        StateManager.ApplyLocal(new PropertyChange(_locomotive.id, KeyValueIdentifier, PropertyValueConverter.RuntimeToSnapshot(Value.Dictionary(settings))));
     }
 
     private float GetDieselLevelForLoco()

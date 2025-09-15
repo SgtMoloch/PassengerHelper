@@ -12,10 +12,12 @@ using Game.Messages;
 using System.Reflection;
 using Game.State;
 using Support.GameObjects;
+using static global::PassengerHelperPlugin.Support.PassengerLocomotiveSettings;
+using System.Text;
 
 public class PassengerLocomotiveSettings
 {
-    public static class PassengerLocomotiveSettingKeys
+    public static class SettingKey
     {
         public static string PauseForDiesel = "pause_for_diesel";
         public static string DieselLevel = "diesel_level";
@@ -31,7 +33,45 @@ public class PassengerLocomotiveSettings
         public static string DirectionOfTravel = "direction_of_travel";
         public static string DoTLocked = "dot_locked";
         public static string TrainStatus = "train_status";
-}
+    }
+
+    public static class StationSettingKey
+    {
+        public static string StopAtStation = "stop_at_station";
+        public static string TerminusStation = "terminus_station";
+        public static string PickupPassengersForStation = "pick_up_station";
+        public static string PauseAtStation = "pause_at_station";
+        public static string TransferStation = "transfer_station";
+        public static string PassengerMode = "passenger_mode";
+    }
+
+    internal static class TrainStatusKey
+    {
+        internal static string PreviousStation = "previous_station";
+        internal static string CurrentStation = "current_station";
+        internal static string ArrivedAtStation = "arrived_at_station";
+        internal static string AtTerminusStationEast = "at_terminus_station_east";
+        internal static string AtTerminusStationWest = "at_terminus_station_west";
+        internal static string AtAlarkaStation = "at_alarka_station";
+        internal static string AtCochranStation = "at_cochran_station";
+        internal static string TerminusStationProcedureComplete = "terminus_station_procedure_complete";
+        internal static string StationProcedureComplete = "station_procedure_complete";
+        internal static string CurrentlyStopped = "currently_stopped";
+        internal static string CurrentStopReason = "current_stop_reason";
+        internal static string StoppedUnknownDirection = "stopped_unknown_direction";
+        internal static string StoppedInvalidTerminusStations = "stopped_invalid_terminus_stations";
+        internal static string StoppedInvalidStations = "stopped_invalid_stations";
+        internal static string StoppedDiesel = "stopped_diesel";
+        internal static string StoppedCoal = "stopped_coal";
+        internal static string StoppedWater = "stopped_water";
+        internal static string StoppedNextStation = "stopped_next_station";
+        internal static string StoppedTerminusStation = "stopped_terminus_station";
+        internal static string StoppedPause = "stopped_pause";
+        internal static string StoppedFullLoad = "stopped_full_load";
+        internal static string ReadyToDepart = "ready_to_depart";
+        internal static string Departed = "departed";
+        internal static string Continue = "continue";
+    }
 
     public bool PauseForDiesel { get; set; } = false;
     public float DieselLevel { get; set; } = 0.10f;
@@ -59,23 +99,7 @@ public class PassengerLocomotiveSettings
     // settings to save current status of train for next game load
     public TrainStatus TrainStatus { get; set; } = new TrainStatus();
 
-    public SortedDictionary<string, StationSetting> StationSettings { get; set; } = new() {
-            { "sylva", new StationSetting() },
-            { "dillsboro", new StationSetting() },
-            { "wilmot", new StationSetting() },
-            { "whittier", new StationSetting() },
-            { "ela", new StationSetting() },
-            { "bryson", new StationSetting() },
-            { "hemingway", new StationSetting() },
-            { "alarkajct", new StationSetting() },
-            { "cochran", new StationSetting() },
-            { "alarka", new StationSetting() },
-            { "almond", new StationSetting() },
-            { "nantahala", new StationSetting() },
-            { "topton", new StationSetting() },
-            { "rhodo", new StationSetting() },
-            { "andrews", new StationSetting() }
-        };
+    public Dictionary<string, StationSetting> StationSettings { get; set; } = new();
 
     internal int getStationSettingsHash()
     {
@@ -119,7 +143,61 @@ public class PassengerLocomotiveSettings
         return result;
     }
 
-    public static PassengerLocomotiveSettings FromPropertyValue(Value value)
+    public override string ToString()
+    {
+        StringBuilder sb = new();
+        sb.Append("PassengerLocomotiveSettings[");
+        sb.Append("PauseForDiesel=");
+        sb.Append(PauseForDiesel + ", ");
+        sb.Append("DieselLevel=");
+        sb.Append(DieselLevel + ", ");
+        sb.Append("PauseForCoal=");
+        sb.Append(PauseForCoal + ", ");
+        sb.Append("CoalLevel=");
+        sb.Append(CoalLevel + ", ");
+        sb.Append("PauseForWater=");
+        sb.Append(PauseForWater + ", ");
+        sb.Append("WaterLevel=");
+        sb.Append(WaterLevel + ", ");
+        sb.Append("PauseAtNextStation=");
+        sb.Append(PauseAtNextStation + ", ");
+        sb.Append("PauseAtTerminusStation=");
+        sb.Append(PauseAtTerminusStation + ", ");
+        sb.Append("PreventLoadWhenPausedAtStation=");
+        sb.Append(PreventLoadWhenPausedAtStation + ", ");
+        sb.Append("WaitForFullPassengersTerminusStation=");
+        sb.Append(WaitForFullPassengersTerminusStation + ", ");
+        sb.Append("Disable=");
+        sb.Append(Disable + ", ");
+        sb.Append("DirectionOfTravel=");
+        sb.Append(DirectionOfTravel + ", ");
+        sb.Append("TrainStatus=[");
+        sb.Append(TrainStatus.ToString() + ", ");
+        sb.Append("StationSettings=[");
+        foreach (string station in StationSettings.Keys)
+        {
+            sb.Append( station + ": " + StationSettings[station].ToString() + ", ");
+        }
+        
+        sb.Append("]");
+        sb.Append("]");
+        return sb.ToString();
+    }
+
+    public PassengerLocomotiveSettings(List<string> stationIds)
+    {
+        foreach (string stationId in stationIds)
+        {
+            StationSettings[stationId] = new();
+        }
+    }
+
+    public PassengerLocomotiveSettings()
+    {
+        
+    }
+
+    public static PassengerLocomotiveSettings FromPropertyValue(Value value, List<string> stations)
     {
         if (value.Type != KeyValue.Runtime.ValueType.Dictionary)
         {
@@ -127,91 +205,70 @@ public class PassengerLocomotiveSettings
         }
 
         IReadOnlyDictionary<string, Value> dictionaryValue = value.DictionaryValue;
-        return new PassengerLocomotiveSettings
+        Dictionary<string, StationSetting> stationSettingDict = new();
+
+        foreach (string stationId in stations)
         {
-            PauseForDiesel = dictionaryValue["pause_for_diesel"].BoolValue,
-            DieselLevel = dictionaryValue["diesel_level"].FloatValue,
-            PauseForCoal = dictionaryValue["pause_for_coal"].BoolValue,
-            CoalLevel = dictionaryValue["coal_level"].FloatValue,
-            PauseForWater = dictionaryValue["pause_for_water"].BoolValue,
-            WaterLevel = dictionaryValue["water_level"].FloatValue,
-            PauseAtNextStation = dictionaryValue["pause_next_station"].BoolValue,
-            PauseAtTerminusStation = dictionaryValue["pause_terminus_station"].BoolValue,
-            PreventLoadWhenPausedAtStation = dictionaryValue["prevent_load_when_paused"].BoolValue,
-            WaitForFullPassengersTerminusStation = dictionaryValue["wait_for_full_load_at_terminus_station"].BoolValue,
-            DirectionOfTravel = (DirectionOfTravel)dictionaryValue["direction_of_travel"].IntValue,
-            DoTLocked = dictionaryValue["dot_locked"].BoolValue,
-            TrainStatus = TrainStatus.FromPropertyValue(dictionaryValue["train_status"]),
-            Disable = dictionaryValue["disable"].BoolValue,
-            //TODO: make this dynamic for modded station support
-            StationSettings = new()
+            stationSettingDict[stationId] = new();
+            if (dictionaryValue.ContainsKey(stationId))
             {
-                { "sylva",  StationSetting.FromPropertyValue(dictionaryValue["sylva"]) },
-                { "dillsboro",  StationSetting.FromPropertyValue(dictionaryValue["dillsboro"]) },
-                { "wilmot",  StationSetting.FromPropertyValue(dictionaryValue["wilmot"]) },
-                { "whittier",  StationSetting.FromPropertyValue(dictionaryValue["whittier"]) },
-                { "ela",  StationSetting.FromPropertyValue(dictionaryValue["ela"]) },
-                { "bryson",  StationSetting.FromPropertyValue(dictionaryValue["bryson"]) },
-                { "hemingway",  StationSetting.FromPropertyValue(dictionaryValue["hemingway"]) },
-                { "alarkajct",  StationSetting.FromPropertyValue(dictionaryValue["alarkajct"]) },
-                { "cochran",  StationSetting.FromPropertyValue(dictionaryValue["cochran"]) },
-                { "alarka",  StationSetting.FromPropertyValue(dictionaryValue["alarka"]) },
-                { "almond",  StationSetting.FromPropertyValue(dictionaryValue["almond"]) },
-                { "nantahala",  StationSetting.FromPropertyValue(dictionaryValue["nantahala"]) },
-                { "topton",  StationSetting.FromPropertyValue(dictionaryValue["topton"]) },
-                { "rhodo",  StationSetting.FromPropertyValue(dictionaryValue["rhodo"]) },
-                { "andrews",  StationSetting.FromPropertyValue(dictionaryValue["andrews"]) }
+                stationSettingDict[stationId] = StationSetting.FromPropertyValue(dictionaryValue[stationId]);
             }
+        }
+
+        PassengerLocomotiveSettings pls = new PassengerLocomotiveSettings
+        {
+            PauseForDiesel = dictionaryValue[SettingKey.PauseForDiesel].BoolValue,
+            DieselLevel = dictionaryValue[SettingKey.DieselLevel].FloatValue,
+            PauseForCoal = dictionaryValue[SettingKey.PauseForCoal].BoolValue,
+            CoalLevel = dictionaryValue[SettingKey.CoalLevel].FloatValue,
+            PauseForWater = dictionaryValue[SettingKey.PauseForWater].BoolValue,
+            WaterLevel = dictionaryValue[SettingKey.WaterLevel].FloatValue,
+            PauseAtNextStation = dictionaryValue[SettingKey.PauseAtNextStation].BoolValue,
+            PauseAtTerminusStation = dictionaryValue[SettingKey.PauseAtTerminusStation].BoolValue,
+            PreventLoadWhenPausedAtStation = dictionaryValue[SettingKey.PreventLoadWhenPausedAtStation].BoolValue,
+            WaitForFullPassengersTerminusStation = dictionaryValue[SettingKey.WaitForFullPassengersTerminusStation].BoolValue,
+            Disable = dictionaryValue[SettingKey.Disable].BoolValue,
+            DirectionOfTravel = (DirectionOfTravel)dictionaryValue[SettingKey.DirectionOfTravel].IntValue,
+            DoTLocked = dictionaryValue[SettingKey.DoTLocked].BoolValue,
+            TrainStatus = TrainStatus.FromPropertyValue(dictionaryValue[SettingKey.TrainStatus]),
+            StationSettings = stationSettingDict
         };
+
+        return pls;
     }
 
     public Value PropertyValue()
     {
-        Dictionary<string, Value> dictionaryValue = new();
-        dictionaryValue["pause_for_diesel"] = Value.Bool(PauseForDiesel);
-        dictionaryValue["diesel_level"] = Value.Float(DieselLevel);
-        dictionaryValue["pause_for_coal"] = Value.Bool(PauseForCoal);
-        dictionaryValue["coal_level"] = Value.Float(CoalLevel);
-        dictionaryValue["pause_for_water"] = Value.Bool(PauseForWater);
-        dictionaryValue["water_level"] = Value.Float(WaterLevel);
-        dictionaryValue["pause_next_station"] = Value.Bool(PauseAtNextStation);
-        dictionaryValue["pause_terminus_station"] = Value.Bool(PauseAtTerminusStation);
-        dictionaryValue["prevent_load_when_paused"] = Value.Bool(PreventLoadWhenPausedAtStation);
-        dictionaryValue["wait_for_full_load_at_terminus_station"] = Value.Bool(WaitForFullPassengersTerminusStation);
-        dictionaryValue["direction_of_travel"] = Value.Int((int)DirectionOfTravel);
-        dictionaryValue["dot_locked"] = Value.Bool(DoTLocked);
-        dictionaryValue["train_status"] = TrainStatus.PropertyValue();
-        dictionaryValue["disable"] = Value.Bool(Disable);
+        Dictionary<string, Value> _settingsDict = new();
 
-        //TODO: make this dynamic for modded station support
-        dictionaryValue["sylva"] = StationSettings["sylva"].PropertyValue();
-        dictionaryValue["dillsboro"] = StationSettings["dillsboro"].PropertyValue();
-        dictionaryValue["wilmot"] = StationSettings["wilmot"].PropertyValue();
-        dictionaryValue["whittier"] = StationSettings["whittier"].PropertyValue();
-        dictionaryValue["ela"] = StationSettings["ela"].PropertyValue();
-        dictionaryValue["bryson"] = StationSettings["bryson"].PropertyValue();
-        dictionaryValue["hemingway"] = StationSettings["hemingway"].PropertyValue();
-        dictionaryValue["alarkajct"] = StationSettings["alarkajct"].PropertyValue();
-        dictionaryValue["cochran"] = StationSettings["cochran"].PropertyValue();
-        dictionaryValue["alarka"] = StationSettings["alarka"].PropertyValue();
-        dictionaryValue["almond"] = StationSettings["almond"].PropertyValue();
-        dictionaryValue["nantahala"] = StationSettings["nantahala"].PropertyValue();
-        dictionaryValue["topton"] = StationSettings["topton"].PropertyValue();
-        dictionaryValue["rhodo"] = StationSettings["rhodo"].PropertyValue();
-        dictionaryValue["andrews"] = StationSettings["andrews"].PropertyValue();
+        _settingsDict[SettingKey.PauseForDiesel] = Value.Bool(PauseForDiesel);
+        _settingsDict[SettingKey.DieselLevel] = Value.Float(DieselLevel);
+        _settingsDict[SettingKey.PauseForCoal] = Value.Bool(PauseForCoal);
+        _settingsDict[SettingKey.CoalLevel] = Value.Float(CoalLevel);
+        _settingsDict[SettingKey.PauseForWater] = Value.Bool(PauseForWater);
+        _settingsDict[SettingKey.WaterLevel] = Value.Float(WaterLevel);
+        _settingsDict[SettingKey.PauseAtNextStation] = Value.Bool(PauseAtNextStation);
+        _settingsDict[SettingKey.PauseAtTerminusStation] = Value.Bool(PauseAtTerminusStation);
+        _settingsDict[SettingKey.PreventLoadWhenPausedAtStation] = Value.Bool(PreventLoadWhenPausedAtStation);
+        _settingsDict[SettingKey.WaitForFullPassengersTerminusStation] = Value.Bool(WaitForFullPassengersTerminusStation);
+        _settingsDict[SettingKey.Disable] = Value.Bool(Disable);
+        _settingsDict[SettingKey.DirectionOfTravel] = Value.Int((int)DirectionOfTravel);
+        _settingsDict[SettingKey.DoTLocked] = Value.Bool(DoTLocked);
+        _settingsDict[SettingKey.TrainStatus] = TrainStatus.PropertyValue();
+        _createStationSettings(_settingsDict);
 
-        return Value.Dictionary(dictionaryValue);
+        return Value.Dictionary(_settingsDict);
     }
-}
+    
+    private void _createStationSettings(Dictionary<string, Value> _settings)
+    {
+        foreach (string ps in StationSettings.Keys)
+        {
+            _settings[ps] = StationSettings[ps].PropertyValue();
+        }
+    }
 
-public static class StationSettingKeys
-{
-    public static string StopAtStation = "stop_at_station";
-    public static string TerminusStation = "terminus_station";
-    public static string PickupPassengersForStation = "pick_up_station";
-    public static string PauseAtStation = "pause_at_station";
-    public static string TransferStation = "transfer_station";
-    public static string PassengerMode = "passenger_mode";
 }
 
 public class StationSetting
@@ -223,9 +280,24 @@ public class StationSetting
     public bool TransferStation { get; set; } = false;
     public PassengerMode PassengerMode { get; set; } = PassengerMode.PointToPoint;
 
-    public override string ToString()
+public override string ToString()
     {
-        return "StationSetting[ StopAtStation=" + StopAtStation + ", TerminusStation=" + TerminusStation + ", PickupPassengersForStation=" + PickupPassengersForStation + ", PauseAtStation=" + PauseAtStation + ", TransferStation=" + TransferStation + "PassengerMode=" + PassengerMode + "]";
+        StringBuilder sb = new();
+        sb.Append("StationSetting[");
+        sb.Append("StopAtStation=");
+        sb.Append(StopAtStation + ", ");
+        sb.Append("TerminusStation=");
+        sb.Append(TerminusStation + ", ");
+        sb.Append("PickupPassengersForStation=");
+        sb.Append(PickupPassengersForStation + ", ");
+        sb.Append("PauseAtStation=");
+        sb.Append(PauseAtStation + ", ");
+        sb.Append("TransferStation=");
+        sb.Append(TransferStation + ", ");
+        sb.Append("PassengerMode=");
+        sb.Append(PassengerMode);
+        sb.Append("]");
+        return sb.ToString();
     }
 
     public static StationSetting FromPropertyValue(Value value)
@@ -238,27 +310,27 @@ public class StationSetting
         IReadOnlyDictionary<string, Value> dictionaryValue = value.DictionaryValue;
         return new StationSetting
         {
-            StopAtStation = dictionaryValue["stop_at_station"].BoolValue,
-            TerminusStation = dictionaryValue["terminus_station"].BoolValue,
-            PickupPassengersForStation = dictionaryValue["pick_up_station"].BoolValue,
-            PauseAtStation = dictionaryValue["pause_at_station"].BoolValue,
-            TransferStation = dictionaryValue["transfer_station"].BoolValue,
-            PassengerMode = (PassengerMode)dictionaryValue["passenger_mode"].IntValue
+            StopAtStation = dictionaryValue[StationSettingKey.StopAtStation].BoolValue,
+            TerminusStation = dictionaryValue[StationSettingKey.TerminusStation].BoolValue,
+            PickupPassengersForStation = dictionaryValue[StationSettingKey.PickupPassengersForStation].BoolValue,
+            PauseAtStation = dictionaryValue[StationSettingKey.PauseAtStation].BoolValue,
+            TransferStation = dictionaryValue[StationSettingKey.TransferStation].BoolValue,
+            PassengerMode = (PassengerMode)dictionaryValue[StationSettingKey.PassengerMode].IntValue
         };
     }
 
     public Value PropertyValue()
     {
-        Dictionary<string, Value> dictionaryValue = new();
+        Dictionary<string, Value> _stationSetting = new();
 
-        dictionaryValue["stop_at_station"] = Value.Bool(StopAtStation);
-        dictionaryValue["terminus_station"] = Value.Bool(TerminusStation);
-        dictionaryValue["pick_up_station"] = Value.Bool(PickupPassengersForStation);
-        dictionaryValue["pause_at_station"] = Value.Bool(PauseAtStation);
-        dictionaryValue["transfer_station"] = Value.Bool(TransferStation);
-        dictionaryValue["passenger_mode"] = Value.Int(((int)PassengerMode));
+        _stationSetting[StationSettingKey.StopAtStation] = Value.Bool(StopAtStation);
+        _stationSetting[StationSettingKey.TerminusStation] = Value.Bool(TerminusStation);
+        _stationSetting[StationSettingKey.PickupPassengersForStation] = Value.Bool(PickupPassengersForStation);
+        _stationSetting[StationSettingKey.PauseAtStation] = Value.Bool(PauseAtStation);
+        _stationSetting[StationSettingKey.TransferStation] = Value.Bool(TransferStation);
+        _stationSetting[StationSettingKey.PassengerMode] = Value.Int(((int)PassengerMode));
 
-        return Value.Dictionary(dictionaryValue);
+        return Value.Dictionary(_stationSetting);
     }
 }
 
@@ -357,63 +429,119 @@ public class TrainStatus
         IReadOnlyDictionary<string, Value> dictionaryValue = value.DictionaryValue;
         return new TrainStatus
         {
-            PreviousStation = dictionaryValue["previous_station"].StringValue,
-            CurrentStation = dictionaryValue["current_station"].StringValue,
-            Arrived = dictionaryValue["arrived_at_station"].BoolValue,
-            AtTerminusStationEast = dictionaryValue["at_terminus_station_east"].BoolValue,
-            AtTerminusStationWest = dictionaryValue["at_terminus_station_west"].BoolValue,
-            AtAlarka = dictionaryValue["at_alarka_station"].BoolValue,
-            AtCochran = dictionaryValue["at_cochran_station"].BoolValue,
-            TerminusStationProcedureComplete = dictionaryValue["terminus_station_procedure_complete"].BoolValue,
-            NonTerminusStationProcedureComplete = dictionaryValue["station_procedure_complete"].BoolValue,
-            CurrentlyStopped = dictionaryValue["currently_stopped"].BoolValue,
-            CurrentReasonForStop = dictionaryValue["current_stop_reason"].StringValue,
-            StoppedUnknownDirection = dictionaryValue["stopped_unknown_direction"].BoolValue,
-            StoppedInsufficientTerminusStations = dictionaryValue["stopped_invalid_terminus_stations"].BoolValue,
-            StoppedInsufficientStopAtStations = dictionaryValue["stopped_invalid_stations"].BoolValue,
-            StoppedForDiesel = dictionaryValue["stopped_diesel"].BoolValue,
-            StoppedForCoal = dictionaryValue["stopped_coal"].BoolValue,
-            StoppedForWater = dictionaryValue["stopped_water"].BoolValue,
-            StoppedNextStation = dictionaryValue["stopped_next_station"].BoolValue,
-            StoppedTerminusStation = dictionaryValue["stopped_terminus_station"].BoolValue,
-            StoppedStationPause = dictionaryValue["stopped_pause"].BoolValue,
-            StoppedWaitForFullLoad = dictionaryValue["stopped_full_load"].BoolValue,
-            ReadyToDepart = dictionaryValue["ready_to_depart"].BoolValue,
-            Departed = dictionaryValue["departed"].BoolValue,
-            Continue = dictionaryValue["continue"].BoolValue,
+            PreviousStation = dictionaryValue[TrainStatusKey.PreviousStation].StringValue,
+            CurrentStation = dictionaryValue[TrainStatusKey.CurrentStation].StringValue,
+            Arrived = dictionaryValue[TrainStatusKey.ArrivedAtStation].BoolValue,
+            AtTerminusStationEast = dictionaryValue[TrainStatusKey.AtTerminusStationEast].BoolValue,
+            AtTerminusStationWest = dictionaryValue[TrainStatusKey.AtTerminusStationWest].BoolValue,
+            AtAlarka = dictionaryValue[TrainStatusKey.AtAlarkaStation].BoolValue,
+            AtCochran = dictionaryValue[TrainStatusKey.AtCochranStation].BoolValue,
+            TerminusStationProcedureComplete = dictionaryValue[TrainStatusKey.TerminusStationProcedureComplete].BoolValue,
+            NonTerminusStationProcedureComplete = dictionaryValue[TrainStatusKey.StationProcedureComplete].BoolValue,
+            CurrentlyStopped = dictionaryValue[TrainStatusKey.CurrentlyStopped].BoolValue,
+            CurrentReasonForStop = dictionaryValue[TrainStatusKey.CurrentStopReason].StringValue,
+            StoppedUnknownDirection = dictionaryValue[TrainStatusKey.StoppedUnknownDirection].BoolValue,
+            StoppedInsufficientTerminusStations = dictionaryValue[TrainStatusKey.StoppedInvalidTerminusStations].BoolValue,
+            StoppedInsufficientStopAtStations = dictionaryValue[TrainStatusKey.StoppedInvalidStations].BoolValue,
+            StoppedForDiesel = dictionaryValue[TrainStatusKey.StoppedDiesel].BoolValue,
+            StoppedForCoal = dictionaryValue[TrainStatusKey.StoppedCoal].BoolValue,
+            StoppedForWater = dictionaryValue[TrainStatusKey.StoppedWater].BoolValue,
+            StoppedNextStation = dictionaryValue[TrainStatusKey.StoppedNextStation].BoolValue,
+            StoppedTerminusStation = dictionaryValue[TrainStatusKey.StoppedTerminusStation].BoolValue,
+            StoppedStationPause = dictionaryValue[TrainStatusKey.StoppedPause].BoolValue,
+            StoppedWaitForFullLoad = dictionaryValue[TrainStatusKey.StoppedFullLoad].BoolValue,
+            ReadyToDepart = dictionaryValue[TrainStatusKey.ReadyToDepart].BoolValue,
+            Departed = dictionaryValue[TrainStatusKey.Departed].BoolValue,
+            Continue = dictionaryValue[TrainStatusKey.Continue].BoolValue,
         };
     }
 
     public Value PropertyValue()
     {
-        Dictionary<string, Value> dictionaryValue = new();
+        Dictionary<string, Value> _trainStatus = new();
 
-        dictionaryValue["previous_station"] = Value.String(PreviousStation);
-        dictionaryValue["current_station"] = Value.String(CurrentStation);
-        dictionaryValue["arrived_at_station"] = Value.Bool(Arrived);
-        dictionaryValue["at_terminus_station_east"] = Value.Bool(AtTerminusStationEast);
-        dictionaryValue["at_terminus_station_west"] = Value.Bool(AtTerminusStationWest);
-        dictionaryValue["at_alarka_station"] = Value.Bool(AtAlarka);
-        dictionaryValue["at_cochran_station"] = Value.Bool(AtCochran);
-        dictionaryValue["terminus_station_procedure_complete"] = Value.Bool(TerminusStationProcedureComplete);
-        dictionaryValue["station_procedure_complete"] = Value.Bool(NonTerminusStationProcedureComplete);
-        dictionaryValue["currently_stopped"] = Value.Bool(CurrentlyStopped);
-        dictionaryValue["current_stop_reason"] = Value.String(CurrentReasonForStop);
-        dictionaryValue["stopped_unknown_direction"] = Value.Bool(StoppedUnknownDirection);
-        dictionaryValue["stopped_invalid_terminus_stations"] = Value.Bool(StoppedInsufficientTerminusStations);
-        dictionaryValue["stopped_invalid_stations"] = Value.Bool(StoppedInsufficientStopAtStations);
-        dictionaryValue["stopped_diesel"] = Value.Bool(StoppedForDiesel);
-        dictionaryValue["stopped_coal"] = Value.Bool(StoppedForCoal);
-        dictionaryValue["stopped_water"] = Value.Bool(StoppedForWater);
-        dictionaryValue["stopped_next_station"] = Value.Bool(StoppedNextStation);
-        dictionaryValue["stopped_terminus_station"] = Value.Bool(StoppedTerminusStation);
-        dictionaryValue["stopped_pause"] = Value.Bool(StoppedStationPause);
-        dictionaryValue["stopped_full_load"] = Value.Bool(StoppedWaitForFullLoad);
-        dictionaryValue["ready_to_depart"] = Value.Bool(ReadyToDepart);
-        dictionaryValue["departed"] = Value.Bool(Departed);
-        dictionaryValue["continue"] = Value.Bool(Continue);
+        _trainStatus[TrainStatusKey.PreviousStation] = Value.String(PreviousStation);
+        _trainStatus[TrainStatusKey.CurrentStation] = Value.String(CurrentStation);
+        _trainStatus[TrainStatusKey.ArrivedAtStation] = Value.Bool(Arrived);
+        _trainStatus[TrainStatusKey.AtTerminusStationEast] = Value.Bool(AtTerminusStationEast);
+        _trainStatus[TrainStatusKey.AtTerminusStationWest] = Value.Bool(AtTerminusStationWest);
+        _trainStatus[TrainStatusKey.AtAlarkaStation] = Value.Bool(AtAlarka);
+        _trainStatus[TrainStatusKey.AtCochranStation] = Value.Bool(AtCochran);
+        _trainStatus[TrainStatusKey.TerminusStationProcedureComplete] = Value.Bool(TerminusStationProcedureComplete);
+        _trainStatus[TrainStatusKey.StationProcedureComplete] = Value.Bool(NonTerminusStationProcedureComplete);
+        _trainStatus[TrainStatusKey.CurrentlyStopped] = Value.Bool(CurrentlyStopped);
+        _trainStatus[TrainStatusKey.CurrentStopReason] = Value.String(CurrentReasonForStop);
+        _trainStatus[TrainStatusKey.StoppedUnknownDirection] = Value.Bool(StoppedUnknownDirection);
+        _trainStatus[TrainStatusKey.StoppedInvalidTerminusStations] = Value.Bool(StoppedInsufficientTerminusStations);
+        _trainStatus[TrainStatusKey.StoppedInvalidStations] = Value.Bool(StoppedInsufficientStopAtStations);
+        _trainStatus[TrainStatusKey.StoppedDiesel] = Value.Bool(StoppedForDiesel);
+        _trainStatus[TrainStatusKey.StoppedCoal] = Value.Bool(StoppedForCoal);
+        _trainStatus[TrainStatusKey.StoppedWater] = Value.Bool(StoppedForWater);
+        _trainStatus[TrainStatusKey.StoppedNextStation] = Value.Bool(StoppedNextStation);
+        _trainStatus[TrainStatusKey.StoppedTerminusStation] = Value.Bool(StoppedTerminusStation);
+        _trainStatus[TrainStatusKey.StoppedPause] = Value.Bool(StoppedStationPause);
+        _trainStatus[TrainStatusKey.StoppedFullLoad] = Value.Bool(StoppedWaitForFullLoad);
+        _trainStatus[TrainStatusKey.ReadyToDepart] = Value.Bool(ReadyToDepart);
+        _trainStatus[TrainStatusKey.Departed] = Value.Bool(Departed);
+        _trainStatus[TrainStatusKey.Continue] = Value.Bool(Continue);
 
-        return Value.Dictionary(dictionaryValue);
+        return Value.Dictionary(_trainStatus);
+    }
+
+    public override string ToString()
+    {
+        StringBuilder sb = new();
+        sb.Append("PassengerLocomotiveSettings[");
+        sb.Append("PreviousStation=");
+        sb.Append(PreviousStation == "" ? "None" : PreviousStation + ", ");
+        sb.Append("CurrentStation=");
+        sb.Append(CurrentStation == "" ? "None" : CurrentStation + ", ");
+        sb.Append("Arrived=");
+        sb.Append(Arrived + ", ");
+        sb.Append("AtTerminusStationEast=");
+        sb.Append(AtTerminusStationEast + ", ");
+        sb.Append("AtTerminusStationWest=");
+        sb.Append(AtTerminusStationWest + ", ");
+        sb.Append("AtAlarka=");
+        sb.Append(AtAlarka + ", ");
+        sb.Append("AtCochran=");
+        sb.Append(AtCochran + ", ");
+        sb.Append("TerminusStationProcedureComplete=");
+        sb.Append(TerminusStationProcedureComplete + ", ");
+        sb.Append("NonTerminusStationProcedureComplete=");
+        sb.Append(NonTerminusStationProcedureComplete + ", ");
+        sb.Append("CurrentlyStopped=");
+        sb.Append(CurrentlyStopped + ", ");
+        sb.Append("CurrentReasonForStop=");
+        sb.Append(CurrentReasonForStop + ", ");
+        sb.Append("StoppedUnknownDirection=");
+        sb.Append(StoppedUnknownDirection + ", ");
+        sb.Append("StoppedInsufficientTerminusStations=");
+        sb.Append(StoppedInsufficientTerminusStations + ", ");
+        sb.Append("StoppedInsufficientStopAtStations=");
+        sb.Append(StoppedInsufficientStopAtStations + ", ");
+        sb.Append("StoppedForDiesel=");
+        sb.Append(StoppedForDiesel + ", ");
+        sb.Append("StoppedForCoal=");
+        sb.Append(StoppedForCoal + ", ");
+        sb.Append("StoppedForWater=");
+        sb.Append(StoppedForWater + ", ");
+        sb.Append("StoppedNextStation=");
+        sb.Append(StoppedNextStation + ", ");
+        sb.Append("StoppedTerminusStation=");
+        sb.Append(StoppedTerminusStation + ", ");
+        sb.Append("StoppedStationPause=");
+        sb.Append(StoppedStationPause + ", ");
+        sb.Append("StoppedWaitForFullLoad=");
+        sb.Append(StoppedWaitForFullLoad + ", ");
+        sb.Append("ReadyToDepart=");
+        sb.Append(ReadyToDepart + ", ");
+        sb.Append("Departed=");
+        sb.Append(Departed + ", ");
+        sb.Append("Continue=");
+        sb.Append(Continue + ", ");
+        sb.Append("]");
+        return sb.ToString();
     }
 }
 

@@ -31,7 +31,6 @@ public class PassengerSettingsWindow
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
     private IUIHelper uIHelper;
-    private StationManager stationManager;
     private List<PassengerStop> stationStops;
 
     internal class Interactable
@@ -132,12 +131,13 @@ public class PassengerSettingsWindow
     }
 
     internal Dictionary<string, Interactable> interactableStationMap = new();
+    internal SettingsManager settingsManager;
 
-    internal PassengerSettingsWindow(IUIHelper uIHelper, StationManager stationManager)
+    internal PassengerSettingsWindow(IUIHelper uIHelper, List<PassengerStop> stationStops, SettingsManager settingsManager)
     {
         this.uIHelper = uIHelper;
-        this.stationManager = stationManager;
-        this.stationStops = this.stationManager.GetPassengerStops();
+        this.stationStops = stationStops;
+        this.settingsManager = settingsManager;
     }
 
     internal void PopulateAndShowSettingsWindow(Window passengerSettingsWindow, PassengerLocomotive passengerLocomotive)
@@ -145,10 +145,6 @@ public class PassengerSettingsWindow
         uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
         {
             logger.Information("Populating passenger helper settings for {0}", passengerLocomotive._locomotive.DisplayName);
-            builder.AddObserver(passengerLocomotive._keyValueObject.Observe(passengerLocomotive.KeyValueIdentifier, delegate
-            {
-                SetInteractions(passengerLocomotive, passengerLocomotive.GetMutablePassengerSettings(), stationStops);
-            }, callInitial: false));
 
             builder.VStack(delegate (UIPanelBuilder builder)
             {
@@ -168,14 +164,13 @@ public class PassengerSettingsWindow
         passengerSettingsWindow.ShowWindow();
     }
 
-    private void PopulateStationSettings(Window passengerSettingsWindow, UIPanelBuilder builder, PassengerLocomotive passengerLocomotive)
+    private void PopulateStationSettings(Window passengerSettingsWindow, UIPanelBuilder builder, PassengerLocomotive pl)
     {
         builder.AddSection("Station Settings:");
 
         logger.Debug("Filtering stations to only unlocked ones");
 
-
-        List<Car> coaches = passengerLocomotive._locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
+        List<Car> coaches = pl._locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
 
         builder.HStack(delegate (UIPanelBuilder builder)
         {
@@ -192,191 +187,193 @@ public class PassengerSettingsWindow
         {
             string stationId = ps.identifier;
             string stationName = ps.name;
-            BuildStationSettingsRow(builder, passengerLocomotive, stationStops, coaches, stationId, stationName);
+            BuildStationSettingsRow(builder, pl, stationStops, coaches, stationId, stationName);
         });
 
-        Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-        SetInteractions(passengerLocomotive, settings, stationStops);
+        SetInteractions(settingsManager.GetSettings(pl), stationStops);
 
         builder.Spacer().Height(5f);
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
             hBuilder.AddButton("StopAt All Stations", () =>
             {
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                settings = ClearSelections(passengerLocomotive, settings, stationStops);
-                settings = SelectAllStopAt(passengerLocomotive, settings, stationStops);
-                settings = SetInteractions(passengerLocomotive, settings, stationStops);
-                passengerLocomotive.SaveSettings(settings);
+                logger.Information("Pls is: {0}", pls.ToString());
 
-                SelectStationOnCoaches(settings, stationStops, coaches);
+                ClearSelections(pls, stationStops);
+                SelectAllStopAt(pls, stationStops);
+                SetInteractions(pls, stationStops);
+
+                logger.Information("Pls is now: {0}", pls.ToString());
+
+                settingsManager.SaveSettings(pl, pls);
+
+                SelectStationOnCoaches(pls.StationSettings, stationStops, coaches);
             });
             hBuilder.AddButton("PickUp All Stations", () =>
             {
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                settings = SelectAllPickup(passengerLocomotive, settings, stationStops);
-                settings = SetInteractions(passengerLocomotive, settings, stationStops);
-                passengerLocomotive.SaveSettings(settings);
+                SelectAllPickup(pls, stationStops);
+                SetInteractions(pls, stationStops);
+
+                settingsManager.SaveSettings(pl, pls);
             });
             IConfigurableElement button = hBuilder.AddButton("Alarka Branch", () =>
             {
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                settings = ClearSelections(passengerLocomotive, settings, stationStops);
-                Dictionary<string, Value> alarkaJctStationSettings = new(settings["alarkajct"].DictionaryValue);
-                Dictionary<string, Value> alarkaStationSettings = new(settings["alarka"].DictionaryValue);
-                Dictionary<string, Value> cochranStationSettings = new(settings["cochran"].DictionaryValue);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                alarkaJctStationSettings[StationSettingKeys.TerminusStation] = Value.Bool(true);
-                alarkaJctStationSettings[StationSettingKeys.TransferStation] = Value.Bool(true);
+                ClearSelections(pls, stationStops);
+                StationSetting alarkaJctStationSettings = new();
+                StationSetting alarkaStationSettings = new();
+                StationSetting cochranStationSettings = new();
 
-                alarkaStationSettings[StationSettingKeys.TerminusStation] = Value.Bool(true);
+                alarkaJctStationSettings.TerminusStation = true;
+                alarkaJctStationSettings.TransferStation = true;
 
-                alarkaJctStationSettings[StationSettingKeys.StopAtStation] = Value.Bool(true);
-                cochranStationSettings[StationSettingKeys.StopAtStation] = Value.Bool(true);
-                alarkaStationSettings[StationSettingKeys.StopAtStation] = Value.Bool(true);
+                alarkaStationSettings.TerminusStation = true;
 
-                settings["alarkajct"] = Value.Dictionary(alarkaJctStationSettings);
-                settings["alarka"] = Value.Dictionary(alarkaStationSettings);
-                settings["cochran"] = Value.Dictionary(cochranStationSettings);
+                alarkaJctStationSettings.StopAtStation = true;
+                cochranStationSettings.StopAtStation = true;
+                alarkaStationSettings.StopAtStation = true;
 
-                settings = SelectAllPickup(passengerLocomotive, settings, stationStops);
-                settings = SetInteractions(passengerLocomotive, settings, stationStops);
-                passengerLocomotive.SaveSettings(settings);
+                pls.StationSettings["alarkajct"] = alarkaJctStationSettings;
+                pls.StationSettings["alarka"] = alarkaStationSettings;
+                pls.StationSettings["cochran"] = cochranStationSettings;
 
-                SelectStationOnCoaches(settings, stationStops, coaches);
+                SelectAllPickup(pls, stationStops);
+                SetInteractions(pls, stationStops);
+
+                settingsManager.SaveSettings(pl, pls);
+
+                SelectStationOnCoaches(pls.StationSettings, stationStops, coaches);
             });
 
             button.RectTransform.GetComponentInChildren<Button>().interactable = stationStops.Select(ps => ps.identifier).Contains("alarka");
 
             hBuilder.AddButton("Clear Selections", () =>
             {
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                settings = ClearSelections(passengerLocomotive, passengerLocomotive.GetMutablePassengerSettings(), stationStops);
-                settings = SetInteractions(passengerLocomotive, settings, stationStops);
-                passengerLocomotive.SaveSettings(settings);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                SelectStationOnCoaches(settings, stationStops, coaches);
+                ClearSelections(pls, stationStops);
+                SetInteractions(pls, stationStops);
+
+                settingsManager.SaveSettings(pl, pls);
+
+                SelectStationOnCoaches(pls.StationSettings, stationStops, coaches);
             });
         });
 
         passengerSettingsWindow.SetContentHeight(400 + (stationStops.Count - 3) * 20);
     }
 
-    private Dictionary<string, Value> ClearSelections(PassengerLocomotive passengerLocomotive, Dictionary<string, Value> settings, List<PassengerStop> stationStops)
+    private void ClearSelections(PassengerLocomotiveSettings pls, List<PassengerStop> stationStops)
     {
         stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) =>
         {
-            settings[stationId] = Value.Dictionary(new StationSetting().PropertyValue().DictionaryValue);
+            pls.StationSettings[stationId] = new();
 
         });
-
-        return settings;
     }
 
-    private Dictionary<string, Value> SelectAllPickup(PassengerLocomotive passengerLocomotive, Dictionary<string, Value> settings, List<PassengerStop> stationStops)
+    private void SelectAllPickup(PassengerLocomotiveSettings pls, List<PassengerStop> stationStops)
     {
         stationStops.Select(ps => ps.identifier).ToList().ForEach((stationId) =>
         {
-            Dictionary<string, Value> stationSetting = new(settings[stationId].DictionaryValue);
-            stationSetting[StationSettingKeys.PickupPassengersForStation] = Value.Bool(true);
-
-            settings[stationId] = Value.Dictionary(stationSetting);
+            pls.StationSettings[stationId].PickupPassengersForStation = true;
         });
-
-        return settings;
     }
 
-    private Dictionary<string, Value> SelectAllStopAt(PassengerLocomotive passengerLocomotive, Dictionary<string, Value> settings, List<PassengerStop> stationStops)
+    private void SelectAllStopAt(PassengerLocomotiveSettings pls, List<PassengerStop> stationStops)
     {
         List<string> stations = stationStops.Select(ps => ps.identifier).ToList();
         for (int i = 0; i < stations.Count; i++)
         {
             string stationId = stations[i];
-            Dictionary<string, Value> stationSetting = new(new StationSetting().PropertyValue().DictionaryValue);
+            StationSetting stationSetting = new();
 
             if (i == 0 || i == stations.Count - 1)
             {
-                stationSetting[StationSettingKeys.TerminusStation] = Value.Bool(true);
+                stationSetting.TerminusStation = true;
             }
-            stationSetting[StationSettingKeys.StopAtStation] = Value.Bool(true);
-            stationSetting[StationSettingKeys.PickupPassengersForStation] = Value.Bool(true);
 
-            settings[stationId] = Value.Dictionary(stationSetting);
+            stationSetting.StopAtStation = true;
+            stationSetting.PickupPassengersForStation = true;
+
+            pls.StationSettings[stationId] = stationSetting;
         }
-
-        return settings;
     }
 
-    private Dictionary<string, Value> SetInteractions(PassengerLocomotive passengerLocomotive, Dictionary<string, Value> settings, List<PassengerStop> stationStops)
+    private void SetInteractions(PassengerLocomotiveSettings pls, List<PassengerStop> stationStops)
     {
-        bool pickUpCountBigger = GetPickupStationsCount(settings, stationStops) > GetStopAtStationsCount(settings, stationStops);
+        Dictionary<string, StationSetting> allStationSettings = pls.StationSettings;
 
-        foreach (string stationId2 in stationStops.Select(ps => ps.identifier).ToList())
+        bool pickUpCountBigger = GetPickupStationsCount(allStationSettings, stationStops) > GetStopAtStationsCount(allStationSettings, stationStops);
+
+        foreach (string stationId in stationStops.Select(ps => ps.identifier).ToList())
         {
-            bool isAlarkaJct = stationId2 == "alarkajct";
-            bool isAlarka = stationId2 == "alarka";
-            bool isSylva = stationId2 == "sylva";
-            bool isAndrews = stationId2 == "andrews";
-            Dictionary<string, Value> stationSettings = new(settings[stationId2].DictionaryValue);
-            logger.Debug("pre interaction station settings for {0} are: {1}", stationId2, stationSettings.Select(kv => kv.Key.ToString() + ": " + kv.Value.ToString()));
+            bool isAlarkaJct = stationId == "alarkajct";
+            bool isAlarka = stationId == "alarka";
+            bool isSylva = stationId == "sylva";
+            bool isAndrews = stationId == "andrews";
+            StationSetting stationSettings = allStationSettings[stationId];
 
-            bool stopAtSelected = stationSettings[StationSettingKeys.StopAtStation].BoolValue;
+            logger.Debug("pre interaction station settings for {0} are: {1}", stationId, stationSettings);
 
-            bool pauseSetting = stationSettings[StationSettingKeys.PauseAtStation].BoolValue && stopAtSelected;
-            stationSettings[StationSettingKeys.PauseAtStation] = Value.Bool(pauseSetting);
+            bool stopAtSelected = stationSettings.StopAtStation;
 
-            //passengerLocomotiveSettings.StationSettings[stationId2].TerminusStation &= stopAtSelected;
-            bool terminusSetting = stationSettings[StationSettingKeys.TerminusStation].BoolValue && stopAtSelected;
-            stationSettings[StationSettingKeys.TerminusStation] = Value.Bool(terminusSetting);
+            bool pauseSetting = stationSettings.PauseAtStation && stopAtSelected;
+            stationSettings.PauseAtStation = pauseSetting;
+
+            bool terminusSetting = stationSettings.TerminusStation && stopAtSelected;
+            stationSettings.TerminusStation = terminusSetting;
 
             bool terminusSelected = terminusSetting;
 
-            bool transferSetting = stationSettings[StationSettingKeys.TransferStation].BoolValue && stopAtSelected
-                                                                                    && pickUpCountBigger
-                                                                                    && (terminusSelected || isAlarkaJct)
-                                                                                    && !isSylva
-                                                                                    && !isAndrews;
+            bool transferSetting = stationSettings.TransferStation && stopAtSelected
+                                                                    && pickUpCountBigger
+                                                                    && (terminusSelected || isAlarkaJct)
+                                                                    && !isSylva
+                                                                    && !isAndrews;
 
-            stationSettings[StationSettingKeys.TransferStation] = Value.Bool(transferSetting);
+            stationSettings.TransferStation = transferSetting;
 
-            if (interactableStationMap.ContainsKey(stationId2))
+            if (interactableStationMap.ContainsKey(stationId))
             {
-                interactableStationMap[stationId2].Transfer = stopAtSelected
+                interactableStationMap[stationId].Transfer = stopAtSelected
                                                                 && pickUpCountBigger
                                                                 && (terminusSelected || isAlarkaJct)
                                                                 && !isSylva
                                                                 && !isAndrews;
-                interactableStationMap[stationId2].Mode = stopAtSelected && (terminusSelected || isAlarka);
-                interactableStationMap[stationId2].Pause = stopAtSelected;
+                interactableStationMap[stationId].Mode = stopAtSelected && (terminusSelected || isAlarka);
+                interactableStationMap[stationId].Pause = stopAtSelected;
             }
 
-            settings[stationId2] = Value.Dictionary(stationSettings);
-            logger.Debug("post interaction station settings for {0} are: {1}", stationId2, stationSettings.Select(kv => kv.Key.ToString() + ": " + kv.Value.ToString()));
+            logger.Debug("post interaction station settings for {0} are: {1}", stationId, stationSettings);
         }
 
-        Dictionary<string, Value> alarkJctSettings = new(settings["alarkajct"].DictionaryValue);
-        Dictionary<string, Value> alarkaSettings = new(settings["alarka"].DictionaryValue);
+        StationSetting alarkJctSettings = allStationSettings["alarkajct"];
+        StationSetting alarkaSettings = allStationSettings["alarka"];
 
-        if (alarkJctSettings[StationSettingKeys.TransferStation].BoolValue)
+        if (alarkJctSettings.TransferStation)
         {
             if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
             {
-                alarkaSettings[StationSettingKeys.TransferStation] = Value.Bool(false);
-                settings["alarka"] = Value.Dictionary(alarkaSettings);
+                alarkaSettings.TransferStation = false;
+                // settings["alarka"] = Value.Dictionary(alarkaSettings);
                 interactableStationMap["alarka"].Transfer = false;
             }
         }
 
-        if (alarkaSettings[StationSettingKeys.TransferStation].BoolValue)
+        if (alarkaSettings.TransferStation)
         {
-            alarkJctSettings[StationSettingKeys.TransferStation] = Value.Bool(false);
-            settings["alarkajct"] = Value.Dictionary(alarkJctSettings);
+            alarkJctSettings.TransferStation = false;
+            // settings["alarkajct"] = Value.Dictionary(alarkJctSettings);
             interactableStationMap["alarkajct"].Transfer = false;
         }
 
-        List<string> terminusStations = settings.Where(kvp => stationStops.Select(ps => ps.identifier).Contains(kvp.Key) && kvp.Value[StationSettingKeys.TerminusStation].BoolValue == true).Select(kvp => kvp.Key).ToList();
+        List<string> terminusStations = allStationSettings.Where(kvp => stationStops.Select(ps => ps.identifier).Contains(kvp.Key) && kvp.Value.TerminusStation).Select(kvp => kvp.Key).ToList();
         bool twoTerminusStations = terminusStations.Count == 2;
         List<string> stops = stationStops.Select(ps => ps.identifier).ToList();
 
@@ -402,26 +399,26 @@ public class PassengerSettingsWindow
         {
             foreach (string stationId in stops)
             {
-                IReadOnlyDictionary<string, Value> stationSettings = settings[stationId].DictionaryValue;
+                StationSetting stationSettings = allStationSettings[stationId];
 
-                bool stopAtSelected = stationSettings[StationSettingKeys.StopAtStation].BoolValue;
-                bool terminusSelected = stationSettings[StationSettingKeys.TerminusStation].BoolValue;
+                bool stopAtSelected = stationSettings.StopAtStation;
+                bool terminusSelected = stationSettings.TerminusStation;
                 interactableStationMap[stationId].Terminus = terminusSelected || stopAtSelected;
             }
         }
-
-        return settings;
     }
 
-    private TooltipInfo getTerminusTooltip(PassengerLocomotive passengerLocomotive, string stationName, Toggle TerminusToggle)
+    private TooltipInfo getTerminusTooltip(PassengerLocomotiveSettings pls, string stationName, Toggle TerminusToggle)
     {
         string tooltip = "";
+        Dictionary<string, StationSetting> allStationSettings = pls.StationSettings;
+        int terminusCount = allStationSettings.Where(kvp => kvp.Value.PickupPassengersForStation).Count();
 
         if (TerminusToggle.interactable)
         {
             tooltip = $"Toggle whether {stationName} should be a terminus station.";
         }
-        else if (passengerLocomotive.GetPassengerSettings().Where(x => x.Value[StationSettingKeys.TerminusStation].BoolValue).Count() == 2)
+        else if (terminusCount == 2)
         {
             tooltip = $"Disabled due to 2 Terminus stations being selected.";
         }
@@ -433,7 +430,7 @@ public class PassengerSettingsWindow
         return new TooltipInfo("Terminus Station Toggle", tooltip);
     }
 
-    private TooltipInfo getPauseTooltip(PassengerLocomotive passengerLocomotive, string stationName, Toggle PauseToggle)
+    private TooltipInfo getPauseTooltip(string stationName, Toggle PauseToggle)
     {
         string tooltip = "";
         if (PauseToggle.interactable)
@@ -448,12 +445,12 @@ public class PassengerSettingsWindow
         return new TooltipInfo("Pause at Station Toggle", tooltip);
     }
 
-    private TooltipInfo getTransferTooltip(PassengerLocomotive passengerLocomotive, string stationName, string stationId, Toggle TransferToggle)
+    private TooltipInfo getTransferTooltip(PassengerLocomotiveSettings pls, string stationName, string stationId, Toggle TransferToggle)
     {
         string tooltip = "";
-        IReadOnlyDictionary<string, Value> stationSettings = passengerLocomotive.GetPassengerSettings();
-        int pickUpStationCount = stationSettings.Where(kvp => kvp.Value[StationSettingKeys.PickupPassengersForStation].BoolValue).Count();
-        int stopAtStationCount = stationSettings.Where(kvp => kvp.Value[StationSettingKeys.StopAtStation].BoolValue).Count();
+        Dictionary<string, StationSetting> allStationSettings = pls.StationSettings;
+        int pickUpStationCount = allStationSettings.Where(kvp => kvp.Value.PickupPassengersForStation).Count();
+        int stopAtStationCount = allStationSettings.Where(kvp => kvp.Value.StopAtStation).Count();
 
         if (TransferToggle.interactable)
         {
@@ -463,7 +460,7 @@ public class PassengerSettingsWindow
         {
             tooltip = $"Disabled due to {stationName} not capable of being a transfer station due to end of map.";
         }
-        else if (!stationSettings[stationId][StationSettingKeys.StopAtStation].BoolValue)
+        else if (!allStationSettings[stationId].StopAtStation)
         {
             tooltip = $"Disabled due to StopAt for {stationName} not being selected.";
         }
@@ -471,15 +468,15 @@ public class PassengerSettingsWindow
         {
             tooltip = "Disabled due to there not being more PickUp stations than StopAt stations.";
         }
-        else if (stationId != "alarkajct" && !stationSettings[stationId][StationSettingKeys.TerminusStation].BoolValue)
+        else if (stationId != "alarkajct" && !allStationSettings[stationId].TerminusStation)
         {
             tooltip = "Disabled due to the station not being a Terminus station.";
         }
-        else if (stationId == "alarkajct" && stationSettings["alarka"][StationSettingKeys.TransferStation].BoolValue)
+        else if (stationId == "alarkajct" && allStationSettings["alarka"].TransferStation)
         {
             tooltip = "Disabled due to Alarka being a Transfer Station. Only 1 of each can be selected as a Transfer Station.";
         }
-        else if (stationId == "alarka" && stationSettings["alarkajct"][StationSettingKeys.TransferStation].BoolValue)
+        else if (stationId == "alarka" && allStationSettings["alarkajct"].TransferStation)
         {
             tooltip = "Disabled due to Alarka Jct being a Transfer Station. Only 1 of each can be selected as a Transfer Station.";
         }
@@ -491,7 +488,7 @@ public class PassengerSettingsWindow
         return new TooltipInfo("Transfer Station Toggle", tooltip);
     }
 
-    private TooltipInfo getModeTooltip(PassengerLocomotive passengerLocomotive, string stationName, string stationId, TMP_Dropdown ModeDropdown)
+    private TooltipInfo getModeTooltip(bool IsTerminusStation, string stationName, string stationId, TMP_Dropdown ModeDropdown)
     {
         string tooltip = "";
 
@@ -499,7 +496,7 @@ public class PassengerSettingsWindow
         {
             tooltip = $"Choose whether the train should be Point to Point or Loop mode at {stationName}.";
         }
-        else if (stationId != "alarka" && !passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.TerminusStation].BoolValue)
+        else if (stationId != "alarka" && !IsTerminusStation)
         {
             tooltip = $"Disabled due to Terminus Station for {stationName} not being selected.";
         }
@@ -515,11 +512,11 @@ public class PassengerSettingsWindow
         return new TooltipInfo("Station Mode Selector", tooltip);
     }
 
-    private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotive passengerLocomotive, List<PassengerStop> stationStops, List<Car> coaches, string stationId, string stationName)
+    private void BuildStationSettingsRow(UIPanelBuilder builder, PassengerLocomotive pl, List<PassengerStop> stationStops, List<Car> coaches, string stationId, string stationName)
     {
         PassengerMode[] passengerModes = ((PassengerMode[])Enum.GetValues(typeof(PassengerMode)));
         List<string> passengerModList = passengerModes.Select(s => s.ToString()).ToList();
-        
+
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
             hBuilder.AddLabel(stationName, delegate (TMP_Text text)
@@ -528,36 +525,32 @@ public class PassengerSettingsWindow
                 text.overflowMode = TextOverflowModes.Ellipsis;
             }).Width(175f);
 
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.StopAtStation].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).StopAtStation, delegate (bool on)
             {
                 logger.Debug("StopAt for {0} set to {1}", stationId, on);
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                stationSettings[StationSettingKeys.StopAtStation] = Value.Bool(on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.StationSettings[stationId].StopAtStation = on;
 
                 if (on)
                 {
-                    stationSettings[StationSettingKeys.PickupPassengersForStation] = Value.Bool(true);
+                    pls.StationSettings[stationId].PickupPassengersForStation = on;
                 }
-
-                settings[stationId] = Value.Dictionary(stationSettings);
 
                 if (interactableStationMap[stationId] != null)
                 {
-                    settings = SetInteractions(passengerLocomotive, settings, stationStops);
+                    SetInteractions(pls, stationStops);
                 }
 
-                passengerLocomotive.SaveSettings(settings);
+                settingsManager.SaveSettings(pl, pls);
 
-                SelectStationOnCoaches(settings, stationStops, coaches);
+                SelectStationOnCoaches(pls.StationSettings, stationStops, coaches);
             }).Tooltip("StopAt Station Toggle", $"Toggle whether {stationName} should be stopped at by the train")
             .Width(70f);
 
-            RectTransform terminusToggle = hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.TerminusStation].BoolValue, delegate (bool on)
+            RectTransform terminusToggle = hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).TerminusStation, delegate (bool on)
             {
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                int numTerminusStations = settings.Where(s => s.Value[StationSettingKeys.TerminusStation].BoolValue).Count();
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                int numTerminusStations = pls.StationSettings.Where(s => s.Value.TerminusStation).Count();
 
                 logger.Debug("There are currently {0} terminus stations set", numTerminusStations);
                 if (numTerminusStations >= 2 && on == true)
@@ -567,120 +560,111 @@ public class PassengerSettingsWindow
                 else
                 {
                     logger.Debug("IsTerminusStation for {0} set to {1}", stationId, on);
-                    stationSettings[StationSettingKeys.TerminusStation] = Value.Bool(on);
-
-                    settings[stationId] = Value.Dictionary(stationSettings);
+                    pls.StationSettings[stationId].TerminusStation = on;
 
                     if (interactableStationMap[stationId] != null)
                     {
-                        settings = SetInteractions(passengerLocomotive, settings, stationStops);
+                        SetInteractions(pls, stationStops);
                     }
 
-                    passengerLocomotive.SaveSettings(settings);
+                    settingsManager.SaveSettings(pl, pls);
                 }
             }).Width(85f);
 
-            terminusToggle.Tooltip(() => getTerminusTooltip(passengerLocomotive, stationName, terminusToggle.GetComponentInChildren<Toggle>()));
+            terminusToggle.Tooltip(() => getTerminusTooltip(settingsManager.GetSettings(pl), stationName, terminusToggle.GetComponentInChildren<Toggle>()));
 
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.PickupPassengersForStation].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).PickupPassengersForStation, delegate (bool on)
             {
                 logger.Debug("Pickup Passengers for {0} set to {1}", stationId, on);
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                stationSettings[StationSettingKeys.PickupPassengersForStation] = Value.Bool(on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+
+                pls.StationSettings[stationId].PickupPassengersForStation = on;
 
                 if (!on)
                 {
-                    stationSettings[StationSettingKeys.StopAtStation] = Value.Bool(false);
+                    pls.StationSettings[stationId].StopAtStation = false;
                 }
-
-                settings[stationId] = Value.Dictionary(stationSettings);
 
                 if (interactableStationMap[stationId] != null)
                 {
-                    settings = SetInteractions(passengerLocomotive, settings, stationStops);
+                    SetInteractions(pls, stationStops);
                 }
 
-                passengerLocomotive.SaveSettings(settings);
+                settingsManager.SaveSettings(pl, pls);
 
-                SelectStationOnCoaches(settings, stationStops, coaches);
+                SelectStationOnCoaches(pls.StationSettings, stationStops, coaches);
             }).Tooltip("PickUp Station Toggle", $"Toggle whether passengers for {stationName} should be picked up at the stations toggled in 'Stop At'")
             .Width(70f);
 
-            RectTransform pauseAtStationToggle = hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.PauseAtStation].BoolValue, delegate (bool on)
+            RectTransform pauseAtStationToggle = hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).PauseAtStation, delegate (bool on)
             {
                 logger.Debug("Pause for {0} set to {1}", stationId, on);
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                stationSettings[StationSettingKeys.PauseAtStation] = Value.Bool(on);
-                passengerLocomotive.SaveStationSettings(stationId, stationSettings);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.StationSettings[stationId].PauseAtStation = on;
+                settingsManager.SaveSettings(pl, pls);
             })
             .Width(60f);
 
-            pauseAtStationToggle.Tooltip(() => getPauseTooltip(passengerLocomotive, stationName, pauseAtStationToggle.GetComponentInChildren<Toggle>()));
+            pauseAtStationToggle.Tooltip(() => getPauseTooltip(stationName, pauseAtStationToggle.GetComponentInChildren<Toggle>()));
 
-            RectTransform transferStationToggle = hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.TransferStation].BoolValue, delegate (bool on)
+            RectTransform transferStationToggle = hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).TransferStation, delegate (bool on)
             {
                 logger.Debug("Transfer for {0} set to {1}", stationId, on);
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                stationSettings[StationSettingKeys.TransferStation] = Value.Bool(on);
-
-                settings[stationId] = Value.Dictionary(stationSettings);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.StationSettings[stationId].TransferStation = on;
 
                 if (interactableStationMap[stationId] != null)
                 {
-                    settings = SetInteractions(passengerLocomotive, settings, stationStops);
+                    SetInteractions(pls, stationStops);
                 }
 
-                passengerLocomotive.SaveSettings(settings);
+                settingsManager.SaveSettings(pl, pls);
             })
             .Width(85f);
 
-            transferStationToggle.Tooltip(() => getTransferTooltip(passengerLocomotive, stationName, stationId, transferStationToggle.GetComponentInChildren<Toggle>()));
+            transferStationToggle.Tooltip(() => getTransferTooltip(settingsManager.GetSettings(pl), stationName, stationId, transferStationToggle.GetComponentInChildren<Toggle>()));
 
-            RectTransform passengerModeDropDown = hBuilder.AddDropdown(passengerModList, (int)passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.PassengerMode].IntValue, delegate (int index)
+            RectTransform passengerModeDropDown = hBuilder.AddDropdown(passengerModList, (int)settingsManager.GetStationSetting(pl, stationId).PassengerMode, delegate (int index)
             {
                 logger.Debug("Passenger Mode for {0} set to {1}", stationId, passengerModes[index].ToString());
-                Dictionary<string, Value> settings = passengerLocomotive.GetMutablePassengerSettings();
-                Dictionary<string, Value> stationSettings = new(settings[stationId].DictionaryValue);
-                stationSettings[StationSettingKeys.PassengerMode] = Value.Int(index);
-                passengerLocomotive.SaveStationSettings(stationId, stationSettings);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.StationSettings[stationId].PassengerMode = (PassengerMode)index;
+                settingsManager.SaveSettings(pl, pls);
             }).Width(125f).Height(20f);
 
-            passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>().gameObject.AddComponent<DropDownUpdater>().Configure(() => (int)passengerLocomotive.GetPassengerSettings()[stationId][StationSettingKeys.PassengerMode].IntValue);
-            passengerModeDropDown.Tooltip(() => getModeTooltip(passengerLocomotive, stationName, stationId, passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>()));
+            passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>().gameObject.AddComponent<DropDownUpdater>().Configure(() => (int)settingsManager.GetStationSetting(pl, stationId).PassengerMode);
+            passengerModeDropDown.Tooltip(() => getModeTooltip(settingsManager.GetStationSetting(pl, stationId).TerminusStation, stationName, stationId, passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>()));
 
             interactableStationMap[stationId] = new Interactable(terminusToggle.GetComponentInChildren<Toggle>(), pauseAtStationToggle.GetComponentInChildren<Toggle>(), transferStationToggle.GetComponentInChildren<Toggle>(), passengerModeDropDown.GetComponentInChildren<TMP_Dropdown>());
         });
     }
 
-    private int GetPickupStationsCount(IReadOnlyDictionary<string, Value> stationSettings, List<PassengerStop> stationStops)
+    private int GetPickupStationsCount(Dictionary<string, StationSetting> stationSettings, List<PassengerStop> stationStops)
     {
         return stationSettings
         .Where(kv => stationStops
                     .Select(stp => stp.identifier).Contains(kv.Key)
-                    && kv.Value[StationSettingKeys.PickupPassengersForStation].BoolValue)
+                    && kv.Value.PickupPassengersForStation)
         .Select(stp => stp.Key)
         .ToList().Count;
     }
 
-    private int GetStopAtStationsCount(IReadOnlyDictionary<string, Value> stationSettings, List<PassengerStop> stationStops)
+    private int GetStopAtStationsCount(Dictionary<string, StationSetting> stationSettings, List<PassengerStop> stationStops)
     {
         return stationSettings
         .Where(kv => stationStops
                     .Select(stp => stp.identifier).Contains(kv.Key)
-                    && kv.Value[StationSettingKeys.StopAtStation].BoolValue)
+                    && kv.Value.StopAtStation)
         .Select(stp => stp.Key)
         .ToList().Count;
     }
-    private void SelectStationOnCoaches(IReadOnlyDictionary<string, Value> stationSettings, List<PassengerStop> stationStops, List<Car> coaches)
+    private void SelectStationOnCoaches(Dictionary<string, StationSetting> stationSettings, List<PassengerStop> stationStops, List<Car> coaches)
     {
         List<string> passengerStopsToSelect = stationSettings
         .Where(kv =>
                 stationStops
                 .Select(stp => stp.identifier)
-                .Contains(kv.Key) && kv.Value[StationSettingKeys.PickupPassengersForStation].BoolValue)
+                .Contains(kv.Key) && kv.Value.PickupPassengersForStation)
                 .Select(stp => stp.Key)
                 .ToList();
 
@@ -692,34 +676,38 @@ public class PassengerSettingsWindow
         }
     }
 
-    private void PopulateSettings(UIPanelBuilder builder, PassengerLocomotive passengerLocomotive)
+    private void PopulateSettings(UIPanelBuilder builder, PassengerLocomotive pl)
     {
         builder.AddSection("Settings:");
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.Disable].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).Disable, delegate (bool on)
             {
                 logger.Information("Disable set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.Disable = on;
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.Disable, Value.Bool(on));
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Disable Passenger Helper Toggle", $"Toggle whether PassengerHelper should be disabled or not")
             .Width(25f);
             hBuilder.AddLabel("Disable").FlexibleWidth(1f);
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PauseForDiesel].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForDiesel, delegate (bool on)
             {
                 logger.Debug("Pause for Diesel set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.PauseForDiesel = on;
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PauseForDiesel, Value.Bool(on));
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Pause for Low Diesel Toggle", $"Toggle whether the AI should pause for low diesel")
             .Width(25f);
             hBuilder.AddLabel("Pause for low Diesel").Width(200f);
-            hBuilder.AddLabel(() => "Pause at " + (passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DieselLevel].FloatValue * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
+            hBuilder.AddLabel(() => "Pause at: " + (settingsManager.GetSettings(pl).DieselLevel * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
             hBuilder.Spacer().Width(2f);
             hBuilder.AddLabel("Set to: ");
-            hBuilder.AddInputField((passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DieselLevel].FloatValue * 100).ToString(), delegate (string val)
+            hBuilder.AddInputField((settingsManager.GetSettings(pl).DieselLevel * 100).ToString(), delegate (string val)
             {
                 if (float.TryParse(val, out float value))
                 {
@@ -730,8 +718,10 @@ public class PassengerSettingsWindow
                     }
 
                     logger.Debug("Entered a Diesel Level: {0}%", value);
+                    PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.DieselLevel, Value.Float(value / 100));
+                    pls.DieselLevel = value / 100;
+                    settingsManager.SaveSettings(pl, pls);
                 }
             }, null, 2)
             .Tooltip("Diesel Level Percentage", "Set the percentage of diesel remaining that should trigger a pause for low diesel")
@@ -742,18 +732,20 @@ public class PassengerSettingsWindow
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PauseForCoal].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForCoal, delegate (bool on)
             {
                 logger.Debug("Pause for Coal set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                pls.PauseForCoal = on;
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PauseForCoal, Value.Bool(on));
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Pause for Low Coal Toggle", $"Toggle whether the AI should pause for low coal")
-            .Width(25f);
+                .Width(25f);
             hBuilder.AddLabel("Pause for low Coal").Width(200f);
-            hBuilder.AddLabel(() => "Pause at " + (passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.CoalLevel].FloatValue * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
+            hBuilder.AddLabel(() => "Pause at: " + (settingsManager.GetSettings(pl).CoalLevel * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
             hBuilder.Spacer().Width(2f);
             hBuilder.AddLabel("Set to: ");
-            hBuilder.AddInputField((passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.CoalLevel].FloatValue * 100).ToString(), delegate (string val)
+            hBuilder.AddInputField((settingsManager.GetSettings(pl).CoalLevel * 100).ToString(), delegate (string val)
             {
                 if (float.TryParse(val, out float value))
                 {
@@ -764,8 +756,10 @@ public class PassengerSettingsWindow
                     }
 
                     logger.Debug("Entered a Coal Level: {0}%", value);
+                    PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.CoalLevel, Value.Float(value / 100));
+                    pls.CoalLevel = value / 100;
+                    settingsManager.SaveSettings(pl, pls);
                 }
             }, null, 2)
             .Tooltip("Coal Level Percentage", "Set the percentage of coal remaining that should trigger a pause for low coal")
@@ -776,109 +770,128 @@ public class PassengerSettingsWindow
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
             {
-                hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PauseForWater].BoolValue, delegate (bool on)
+                hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForWater, delegate (bool on)
                 {
                     logger.Debug("Pause for Water set to {0}", on);
+                    PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                    pls.PauseForWater = on;
 
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PauseForWater, Value.Bool(on));
+                    settingsManager.SaveSettings(pl, pls);
                 }).Tooltip("Pause for Low Water Toggle", $"Toggle whether the AI should pause for low water")
                 .Width(25f);
                 hBuilder.AddLabel("Pause for low Water", delegate (TMP_Text text)
-                {
-                    text.textWrappingMode = TextWrappingModes.NoWrap;
-                    text.overflowMode = TextOverflowModes.Ellipsis;
-                }).Width(200f);
-                hBuilder.AddLabel(() => "Pause at " + (passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.WaterLevel].FloatValue * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
+                                {
+                                    text.textWrappingMode = TextWrappingModes.NoWrap;
+                                    text.overflowMode = TextOverflowModes.Ellipsis;
+                                }).Width(200f);
+                hBuilder.AddLabel(() => "Pause at: " + (settingsManager.GetSettings(pl).WaterLevel * 100).ToString() + "%", UIPanelBuilder.Frequency.Fast);
                 hBuilder.Spacer().Width(2f);
                 hBuilder.AddLabel("Set to: ");
-                hBuilder.AddInputField((passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.WaterLevel].FloatValue * 100).ToString(), delegate (string val)
-            {
-                if (float.TryParse(val, out float value))
+                hBuilder.AddInputField((settingsManager.GetSettings(pl).WaterLevel * 100).ToString(), delegate (string val)
                 {
-                    if (value < 0 || value > 100)
+                    if (float.TryParse(val, out float value))
                     {
-                        logger.Debug("Entered a Water Level greater than 100 or lower than 0");
-                        return;
+                        if (value < 0 || value > 100)
+                        {
+                            logger.Debug("Entered a Water Level greater than 100 or lower than 0");
+                            return;
+                        }
+
+                        logger.Debug("Entered a Water Level: {0}%", value);
+                        PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+
+                        pls.WaterLevel = value / 100;
+                        settingsManager.SaveSettings(pl, pls);
                     }
-
-                    logger.Debug("Entered a Water Level: {0}%", value);
-
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.WaterLevel, Value.Float(value / 100));
-                }
-            }, null, 2)
-            .Tooltip("Water Level Percentage", "Set the percentage of water remaining that should trigger a pause for low water")
-            .Width(50f)
-            .Height(20f);
-            hBuilder.AddLabel("%").FlexibleWidth(1f);
-            hBuilder.Spacer();
+                }, null, 2)
+                .Tooltip("Water Level Percentage", "Set the percentage of water remaining that should trigger a pause for low water")
+                .Width(50f)
+                .Height(20f);
+                hBuilder.AddLabel("%").FlexibleWidth(1f);
+                hBuilder.Spacer();
             });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PauseAtNextStation].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseAtNextStation, delegate (bool on)
             {
                 logger.Debug("Pause at next station set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PauseAtNextStation, Value.Bool(on));
+                pls.PauseAtNextStation = on;
+
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Pause at Next Station Toggle", $"Toggle whether the AI should pause at the next station")
-            .Width(25f);
+        .Width(25f);
             hBuilder.AddLabel("Pause At Next Station").FlexibleWidth(1f);
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
             {
-                hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PauseAtTerminusStation].BoolValue, delegate (bool on)
+                hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseAtTerminusStation, delegate (bool on)
                 {
                     logger.Debug("Pause at terminus station set to {0}", on);
+                    PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PauseAtTerminusStation, Value.Bool(on));
+                    pls.PauseAtTerminusStation = on;
+
+                    settingsManager.SaveSettings(pl, pls);
                 }).Tooltip("Pause At Terminus Station Toggle", $"Toggle whether the AI should pause at the terminus station(s)")
-                .Width(25f);
+            .Width(25f);
                 hBuilder.AddLabel("Pause At Terminus Station").FlexibleWidth(1f);
             });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.PreventLoadWhenPausedAtStation].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PreventLoadWhenPausedAtStation, delegate (bool on)
             {
                 logger.Debug("Prevent loading when paused at station set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.PreventLoadWhenPausedAtStation, Value.Bool(on));
+                pls.PreventLoadWhenPausedAtStation = on;
+
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Prevent loading of passengers when paused Toggle", $"Toggle whether the AI should not load passengers if the train is paused at a station")
-            .Width(25f);
+        .Width(25f);
             hBuilder.AddLabel("Prevent Loading of Passengers When Paused").FlexibleWidth(1f);
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
-            hBuilder.AddToggle(() => passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.WaitForFullPassengersTerminusStation].BoolValue, delegate (bool on)
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).WaitForFullPassengersTerminusStation, delegate (bool on)
             {
                 logger.Debug("Wait for full passengers at terminus station set to {0}", on);
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.WaitForFullPassengersTerminusStation, Value.Bool(on));
+                pls.WaitForFullPassengersTerminusStation = on;
+
+                settingsManager.SaveSettings(pl, pls);
             }).Tooltip("Wait for Full Passengers at Terminus Station Toggle", $"Toggle whether the AI should wait for a full passenger load at the terminus station before continuing on")
-            .Width(25f);
+        .Width(25f);
             hBuilder.AddLabel("Wait For Full Load at Terminus Station").FlexibleWidth(1f);
         });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
             string tooltipLocked = "The direction setting is currently disabled, as it is being controlled by PassengerHelper. " +
-                                    "If you would like to enable it, it will become adjustable again after manually issuing any " +
-                                    "order to the engine, whether that be changing the AI mode, changing direction, or changing speed. ";
+                                            "If you would like to enable it, it will become adjustable again after manually issuing any " +
+                                            "order to the engine, whether that be changing the AI mode, changing direction, or changing speed. ";
 
             string tooltipUnlocked = "This setting helps PassengerHelper, as without it, if you changed terminus station mid route " +
-                                    "it would probably reverse direction when you wouldn't want that. " +
-                                    "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. " +
-                                    "This is more of an edge case than anything else.";
+                                            "it would probably reverse direction when you wouldn't want that. " +
+                                            "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. " +
+                                            "This is more of an edge case than anything else.";
 
-            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DirectionOfTravel].IntValue), () => Enum.GetValues(typeof(DirectionOfTravel)).GetValue(passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DirectionOfTravel].IntValue).ToString(), delegate (float value)
-                {
-                    int newValue = (int)value;
+            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (int)settingsManager.GetSettings(pl).DirectionOfTravel, () => settingsManager.GetSettings(pl).DirectionOfTravel.ToString(), delegate (float value)
+                        {
+                            int newValue = (int)value;
 
-                    DirectionOfTravel newDirectionOfTravel = (DirectionOfTravel)Enum.GetValues(typeof(DirectionOfTravel)).GetValue(newValue);
-                    logger.Information("Set direction of travel to: {0}", newDirectionOfTravel.ToString());
+                            DirectionOfTravel newDirectionOfTravel = (DirectionOfTravel)newValue;
+                            logger.Information("Set direction of travel to: {0}", newDirectionOfTravel.ToString());
+                            PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                    passengerLocomotive.SaveSetting(PassengerLocomotiveSettingKeys.DirectionOfTravel, Value.Int(newValue));
-                }, 1f, 0, 2).Width(150f);
-            dotSlider.GetComponentInChildren<CarControlSlider>().interactable = !passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DoTLocked].BoolValue;
 
-            hBuilder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", passengerLocomotive.GetPassengerSettings()[PassengerLocomotiveSettingKeys.DoTLocked].BoolValue ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
+                            pls.DirectionOfTravel = (DirectionOfTravel)newValue;
+                            settingsManager.SaveSettings(pl, pls);
+                        }, 1f, 0, 2).Width(150f);
+            dotSlider.GetComponentInChildren<CarControlSlider>().interactable = !settingsManager.GetSettings(pl).DoTLocked;
+
+            hBuilder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", settingsManager.GetSettings(pl).DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
             hBuilder.Spacer().Width(5f);
             hBuilder.AddButton("?", () =>
             {

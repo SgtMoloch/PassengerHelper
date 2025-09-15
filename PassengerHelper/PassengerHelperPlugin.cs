@@ -23,6 +23,7 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
     private readonly IModdingContext ctx;
     private readonly IModDefinition self;
 
+    internal UtilManager utilManager { get; }
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
@@ -40,10 +41,10 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
         
         this.self = self;
         this.ctx = ctx;
-
-        SettingsManager settingsManager = new SettingsManager(this, uiHelper);
+        UtilManager utilManager = new UtilManager();
+        SettingsManager settingsManager = new SettingsManager(this, uiHelper, utilManager);
         TrainManager trainManager = new TrainManager(settingsManager);
-        StationManager stationManager = new StationManager(settingsManager, trainManager, orderedStations);
+        StationManager stationManager = new StationManager(settingsManager, trainManager, utilManager);
 
         this.settingsManager = settingsManager;
         this.trainManager = trainManager;
