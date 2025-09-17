@@ -9,7 +9,7 @@ using Model.Definition;
 using Support;
 using RollingStock;
 using Serilog;
-using GameObjects;
+using Support.GameObjects;
 using Model.Ops;
 using System.Reflection;
 using Game;
@@ -17,6 +17,7 @@ using Game.Messages;
 using static Model.Ops.PassengerStop;
 using KeyValue.Runtime;
 using System;
+using Managers;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
@@ -50,7 +51,6 @@ public static class PassengerStopPatches
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponent<PassengerHelperPassengerStop>();
 
         IReadOnlyDictionary<string, Value> dictionaryValue = passengerHelperPassengerStop._keyValueObject["pass-helper-state"].DictionaryValue;
-        logger.Information("loaded state is: {0}", dictionaryValue);
 
         if (!dictionaryValue.Any())
         {
@@ -58,6 +58,8 @@ public static class PassengerStopPatches
         }
         try
         {
+            logger.Information("Converting old PH transfer passengers to base game passengers. loaded state is: {0}", dictionaryValue);
+
             List<Value> transferGroupListValue = dictionaryValue["transfer_group_list"].ArrayValue.ToList();
             List<PassengerGroup> groups = transferGroupListValue.Select(g => PassengerGroup.FromPropertyValue(g)).ToList();
 
@@ -67,6 +69,10 @@ public static class PassengerStopPatches
             {
                 OffsetWaiting.Invoke(__instance, new object[] { g.Destination, g.Origin, TimeWeather.Now, g.Count });
             }
+
+            Dictionary<string, Value> newDict = new();
+            newDict["transfer_group_list"] = Value.Dictionary(new Dictionary<string, Value>());
+            passengerHelperPassengerStop._keyValueObject["pass-helper-state"] = Value.Dictionary(newDict);
         }
         catch (Exception exception)
         {
@@ -85,39 +91,23 @@ public static class PassengerStopPatches
             return;
         }
 
-        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
+        //inject station logic here
+        //need quick return value since this method gets called repeatedly
 
-        foreach (Car engine in engines)
+        // only reach out to station manager if we should be working the car
+        if (__result)
         {
-            AutoEngineerPersistence persistence = new(engine.KeyValueObject);
+            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
+            StationManager stationManager = plugin.stationManager;
 
-            if (persistence.Orders.Mode != AutoEngineerMode.Road)
+            // check if we should run the procedure
+            bool runProcedure = stationManager.ShouldRunStationProcedure(pl, __instance);
+
+            // if yes, run the procedure. only run it once
+            if (runProcedure)
             {
-                // manual mode or yard mode
-                return;
-            }
-
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out PassengerLocomotive passengerLocomotive))
-            {
-                if (passengerLocomotive.Settings.Disable)
-                {
-                    // Passenger Helper disabled
-                    return;
-                }
-
-                if (passengerLocomotive.TrainStatus.Arrived && passengerLocomotive.CurrentStation == __instance)
-                {
-                    return;
-                }
-
-                if (!passengerLocomotive.TrainStatus.Arrived && !passengerLocomotive.TrainStatus.ReadyToDepart && !passengerLocomotive.TrainStatus.Departed)
-                {
-                    return;
-                }
-
-                logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", engine.DisplayName, __instance.DisplayName);
-                __result = false;
-                break;
+                logger.Information("PassengerStopPatch::ShouldWorkCar Running station procedure");
+                stationManager.RunStationProcedure(pl, __instance);
             }
         }
     }
@@ -133,20 +123,18 @@ public static class PassengerStopPatches
         }
 
         logger.Debug("Patched Load method");
-        if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
+        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
+        PassengerLocomotiveSettings pls = plugin.settingsManager.GetSettings(pl);
+
+        if (pls.Disable)
         {
             return true;
         }
 
-        if (passengerLocomotive.Settings.Disable)
-        {
-            return true;
-        }
-
-        bool trainIsPaused = passengerLocomotive.Settings.TrainStatus.CurrentlyStopped;
-        bool preventPaxLoad = passengerLocomotive.Settings.PreventLoadWhenPausedAtStation;
-        bool trainAtTerminus = passengerLocomotive.Settings.TrainStatus.AtTerminusStationEast || passengerLocomotive.Settings.TrainStatus.AtTerminusStationWest;
-        bool waitForFullLoadAtTerminus = passengerLocomotive.Settings.WaitForFullPassengersTerminusStation;
+        bool trainIsPaused = pls.TrainStatus.CurrentlyStopped;
+        bool preventPaxLoad = pls.PreventLoadWhenPausedAtStation;
+        bool trainAtTerminus = pls.TrainStatus.AtTerminusStationEast || pls.TrainStatus.AtTerminusStationWest;
+        bool waitForFullLoadAtTerminus = pls.WaitForFullPassengersTerminusStation;
 
         bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
 
@@ -157,24 +145,5 @@ public static class PassengerStopPatches
         }
 
         return true;
-    }
-
-    private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
-    {
-        logger.Debug("Attempting to find locomotive for car {0}", car.DisplayName);
-        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
-        foreach (Car engine in engines)
-        {
-            logger.Debug("Checking {0}", engine.DisplayName);
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
-            {
-                return true;
-            }
-        }
-        logger.Error("Did not find locomotive for car {0}", car.DisplayName);
-
-        passengerLocomotive = null;
-
-        return false;
     }
 }

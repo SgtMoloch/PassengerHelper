@@ -47,7 +47,8 @@ public static class CarInspectorPatches
 
             bool AEMode = mode2 == AutoEngineerMode.Road || mode2 == AutoEngineerMode.Waypoint;
 
-            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
+            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_car);
+            PassengerLocomotiveSettings pls = plugin.settingsManager.GetSettings(pl);
 
             if (_car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
             {
@@ -56,23 +57,25 @@ public static class CarInspectorPatches
                 {
                     builder.AddButton("PassengerSettings", delegate
                     {
-                        plugin.settingsManager.ShowSettingsWindow(passengerLocomotive);
+                        plugin.settingsManager.ShowSettingsWindow(pl);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    if (passengerLocomotive.settingsHash != 0 && passengerLocomotive.stationSettingsHash != 0)
+                    if (pl.settingsHash != 0 && pl.stationSettingsHash != 0)
                     {
                         builder.AddButton("Reset Cache", delegate
                         {
-                            passengerLocomotive.ResetSettingsHash();
-                            passengerLocomotive.ResetStatusFlags();
+                            pl.ResetSettingsHash();
+                            pl.ResetStatusFlags();
+
                         }).Tooltip("Resets internal settings cache", "Reset internal settings cache");
                     }
 
-                    if (AEMode && passengerLocomotive.TrainStatus.CurrentlyStopped)
+                    if (AEMode && pls.TrainStatus.CurrentlyStopped)
                     {
                         builder.AddButton("Continue", delegate
                         {
-                            passengerLocomotive.TrainStatus.Continue = true;
+                            pls.TrainStatus.Continue = true;
+                            plugin.settingsManager.SaveSettings(pl, pls);
                         }).Tooltip("Resume travel", "Resume travel");
                     }
                 });

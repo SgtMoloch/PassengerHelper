@@ -9,6 +9,8 @@ using Game;
 using RollingStock;
 using Support.GameObjects;
 using Model.Ops;
+using global::PassengerHelperPlugin.Managers;
+using global::PassengerHelperPlugin.Support;
 
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
@@ -33,7 +35,10 @@ public static class AutoEngineerPassengerStopperPatches
             return true;
         }
 
-        if (plugin.stationManager.HandleTrainAtStation(_locomotive, _currentStop))
+        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+        StationManager stationManager = plugin.stationManager;
+
+        if (stationManager.HandleTrainAtStation(pl, _currentStop))
         {
             __result = true;
             return false;
@@ -61,16 +66,19 @@ public static class AutoEngineerPassengerStopperPatches
 
         if (_locomotive.VelocityMphAbs >= 5f)
         {
-            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+            PassengerLocomotiveSettings pls = plugin.settingsManager.GetSettings(pl);
 
-            if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.CurrentStation != null)
+            if (pls.TrainStatus.ReadyToDepart && pl.CurrentStation != null)
             {
-                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
-                passengerLocomotive.TrainStatus.Arrived = false;
-                passengerLocomotive.TrainStatus.ReadyToDepart = false;
-                passengerLocomotive.TrainStatus.Departed = true;
-                passengerLocomotive.PreviousStation = passengerLocomotive.CurrentStation;
-                passengerLocomotive.CurrentStation = null;
+                logger.Information("Train {0} has departed {1} at {2}.", pl._locomotive.DisplayName, pl.CurrentStation.DisplayName, TimeWeather.Now);
+                pls.TrainStatus.Arrived = false;
+                pls.TrainStatus.ReadyToDepart = false;
+                pls.TrainStatus.Departed = true;
+                pl.PreviousStation = pl.CurrentStation;
+                pl.CurrentStation = null;
+
+                plugin.settingsManager.SaveSettings(pl, pls);
             }
         }
     }

@@ -106,7 +106,8 @@ public class PassengerLocomotiveSettings
         int prime = 31;
         int result = 1;
 
-        result = prime * result + TrainStatus.GetHashCode();
+        result = prime * result + TrainStatus.PreviousStation.GetHashCode();
+        result = prime * result + TrainStatus.CurrentStation.GetHashCode();
         result = prime * result + StationSettings.GetHashCode();
 
         return result;
@@ -132,12 +133,10 @@ public class PassengerLocomotiveSettings
         result = prime * result + Disable.GetHashCode();
 
         result = prime * result + DirectionOfTravel.GetHashCode();
-        result = prime * result + DoTLocked.GetHashCode();
 
         result = prime * result + gameLoadFlag.GetHashCode();
 
-        result = prime * result + TrainStatus.PreviousStation.GetHashCode();
-        result = prime * result + TrainStatus.CurrentStation.GetHashCode();
+        result = prime * result + TrainStatus.GetHashCode();
         result = prime * result + StationSettings.GetHashCode();
 
         return result;

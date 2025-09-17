@@ -25,62 +25,6 @@ using KeyValue.Runtime;
 
 public class SettingsManager
 {
-    internal static class SettingKey
-    {
-        internal static string PauseForDiesel = "pause_for_diesel";
-        internal static string DieselLevel = "diesel_level";
-        internal static string PauseForCoal = "pause_for_coal";
-        internal static string CoalLevel = "coal_level";
-        internal static string PauseForWater = "pause_for_water";
-        internal static string WaterLevel = "water_level";
-        internal static string PauseAtNextStation = "pause_next_station";
-        internal static string PauseAtTerminusStation = "pause_terminus_station";
-        internal static string PreventLoadWhenPausedAtStation = "prevent_load_when_paused";
-        internal static string WaitForFullPassengersTerminusStation = "wait_for_full_load_at_terminus_station";
-        internal static string Disable = "disable";
-        internal static string DirectionOfTravel = "direction_of_travel";
-        internal static string DoTLocked = "dot_locked";
-        internal static string TrainStatus = "train_status";
-    }
-
-    internal static class StationSettingKey
-    {
-        internal static string StopAtStation = "stop_at_station";
-        internal static string TerminusStation = "terminus_station";
-        internal static string PickupPassengersForStation = "pick_up_station";
-        internal static string PauseAtStation = "pause_at_station";
-        internal static string TransferStation = "transfer_station";
-        internal static string PassengerMode = "passenger_mode";
-    }
-
-    internal static class TrainStatusKey
-    {
-        internal static string PreviousStation = "previous_station";
-        internal static string CurrentStation = "current_station";
-        internal static string ArrivedAtStation = "arrived_at_station";
-        internal static string AtTerminusStationEast = "at_terminus_station_east";
-        internal static string AtTerminusStationWest = "at_terminus_station_west";
-        internal static string AtAlarkaStation = "at_alarka_station";
-        internal static string AtCochranStation = "at_cochran_station";
-        internal static string TerminusStationProcedureComplete = "terminus_station_procedure_complete";
-        internal static string StationProcedureComplete = "station_procedure_complete";
-        internal static string CurrentlyStopped = "currently_stopped";
-        internal static string CurrentStopReason = "current_stop_reason";
-        internal static string StoppedUnknownDirection = "stopped_unknown_direction";
-        internal static string StoppedInvalidTerminusStations = "stopped_invalid_terminus_stations";
-        internal static string StoppedInvalidStations = "stopped_invalid_stations";
-        internal static string StoppedDiesel = "stopped_diesel";
-        internal static string StoppedCoal = "stopped_coal";
-        internal static string StoppedWater = "stopped_water";
-        internal static string StoppedNextStation = "stopped_next_station";
-        internal static string StoppedTerminusStation = "stopped_terminus_station";
-        internal static string StoppedPause = "stopped_pause";
-        internal static string StoppedFullLoad = "stopped_full_load";
-        internal static string ReadyToDepart = "ready_to_depart";
-        internal static string Departed = "departed";
-        internal static string Continue = "continue";
-    }
-
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
     internal IUIHelper uIHelper { get; }
     private PassengerHelperPlugin plugin;
@@ -116,12 +60,12 @@ public class SettingsManager
 
         SaveSettings(pl, pls);
 
-       IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
-       {
-           logger.Information("updating settings map existing loco, new values: {0}", val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
-           PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
-           plsMap[pl] = pls;
-       }, callInitial: false);
+        IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
+        {
+            logger.Information("updating settings map existing loco, new values: {0}", val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
+            PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+            plsMap[pl] = pls;
+        }, callInitial: false);
 
         plKeyObvDisposeMap[pl] = plObv;
 
@@ -238,7 +182,8 @@ public class SettingsManager
             if (!showing)
             {
                 this.settingsWindowShowing[_locomotive] = false;
-                // SaveSettings();
+                StateManager.DebugAssertIsHost();
+                SaveManager.Shared.Save(null);
             }
         };
 
