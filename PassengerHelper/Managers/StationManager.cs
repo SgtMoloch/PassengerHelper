@@ -734,7 +734,7 @@ public class StationManager
                     }
                     else
                     {
-                        int nextStopAtStationPickupIndex = pickUpPassengerStations.IndexOf(orderedStopAtStations[currentIndex - 1]);
+                        int nextStopAtStationPickupIndex = atWestTerminus ? eastTerminusIndex_Pickup : pickUpPassengerStations.IndexOf(orderedStopAtStations[currentIndex - 1]);
                         logger.Information("StationManager::CheckTransferStation::Selecting pickup stations {0} that are further east of the next StopAt station: {1}", pickUpPassengerStations.GetRange(0, nextStopAtStationPickupIndex + 1), orderedStopAtStations[currentIndex - 1]);
                         // select all to the east of the current station
                         expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, nextStopAtStationPickupIndex + 1));

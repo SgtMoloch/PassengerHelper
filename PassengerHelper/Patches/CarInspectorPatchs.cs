@@ -60,13 +60,16 @@ public static class CarInspectorPatches
                         plugin.settingsManager.ShowSettingsWindow(pl);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    if (pl.settingsHash != 0 && pl.stationSettingsHash != 0)
+                    if (pl.settingsHash == pls.getSettingsHash() && pl.stationSettingsHash == pls.getStationSettingsHash())
                     {
                         builder.AddButton("Reset Cache", delegate
                         {
                             pl.ResetSettingsHash();
                             pl.ResetStatusFlags();
+                            pl.PreviousStation = null;
+                            pl.CurrentStation = null;
 
+                            builder.Rebuild();
                         }).Tooltip("Resets internal settings cache", "Reset internal settings cache");
                     }
 
