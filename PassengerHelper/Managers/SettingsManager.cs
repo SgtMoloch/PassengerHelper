@@ -40,7 +40,7 @@ public class SettingsManager
         this.uIHelper = uIHelper;
         this.utilManager = utilManager;
 
-        Messenger.Default.Register<MapWillUnloadEvent>(this, OnMapWillUnload);
+        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
 
     public void SaveSettings(PassengerLocomotive pl, PassengerLocomotiveSettings pls)
@@ -132,7 +132,7 @@ public class SettingsManager
         return plsMap[pl].TrainStatus;
     }
 
-    private void OnMapWillUnload(MapWillUnloadEvent @event)
+    private void OnMapDidUnload(MapDidUnloadEvent @event)
     {
         foreach (KeyValuePair<PassengerLocomotive, PassengerLocomotiveSettings> kvp in plsMap)
         {

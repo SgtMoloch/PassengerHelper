@@ -79,13 +79,19 @@ public class StationManager
 
         if (pl.settingsHash == 0 && pl.stationSettingsHash == 0)
         {
-            logger.Information("running due to both station settings and settings hash being 0");
+            logger.Information("running due to both station settings hash and settings hash being 0");
             return true;
         }
 
-        if (pl.settingsHash != pls.getSettingsHash() || pl.stationSettingsHash != pls.getStationSettingsHash())
+        if (pl.settingsHash != 0 && pl.settingsHash != pls.getSettingsHash())
         {
-            logger.Information("running due to both mis match between cached hash and actual hash");
+            logger.Information("running due to mis match between cached settings hash and actual settings hash");
+            return true;
+        }
+
+        if (pl.stationSettingsHash != 0 && pl.stationSettingsHash != pls.getStationSettingsHash())
+        {
+            logger.Information("running due to mis match between cached station settings hash and actual station settings hash");
             return true;
         }
 
@@ -345,6 +351,7 @@ public class StationManager
 
         logger.Information("StationManager::RunStationProcedure::Setting Previous stop to the current stop");
         pl.PreviousStation = ps;
+        pl.StationProcedureRan = true;
 
         pls.TrainStatus.NonTerminusStationProcedureComplete = !atTerminus;
         pls.TrainStatus.TerminusStationProcedureComplete = atTerminus;

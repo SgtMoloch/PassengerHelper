@@ -9,8 +9,9 @@
 - settings should persist after pressing Save Settings and reopening the settings window
 - Changing direction manually while in AERoad should change Direction of Travel to Unknown
 ### New Testing
-- settings should save when closing the window, but reloading the save without saving should not persist the changed settings
-- settings should persist between save loads when saving before reloading
+- settings should save when closing the window
+- closing the settings window should cause a game save
+- settings should persist between save loads, assuming settings window was closes
 - settings should be seen in MP, setting changes by anyone should cause the updated value to show up for everyone else
 
 ## Car Inspector
@@ -25,7 +26,7 @@
 ## Station Procedure
 ### Bugfix
 - When running To Alarka with Jct as a transfer station, should correctly pick up all pickup passengers if to the west of jct, including those to the east of jct
-    - previously it would not select the stations further east
+    - previously it would not select the stations further west
 ### Manual Mode
 #### New Testing
 - Passeneger Helper should work in manual mode now.
@@ -40,7 +41,7 @@
     - transfer stations should work as appropiate
     - train should not need to wait until it is centered on the station span to run the procedure
     - train should be unaffected by any 'Pause at/Pause for' settings
-    - passenger helper should work in this mode for custom stations
+    - passenger helper should work in this mode for custom stations - not currently implemented
     - reverser direction should be automatically changed
 ### AERoad Mode
 #### Regression Testing

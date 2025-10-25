@@ -30,6 +30,7 @@ public class PassengerLocomotive
 
     private PassengerStop? _currentStop = null;
     private PassengerStop? _previousStop = null;
+    public bool StationProcedureRan { get; set; } = false;
     public PassengerStop? CurrentStation
     {
         get
