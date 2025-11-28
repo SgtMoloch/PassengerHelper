@@ -1,4 +1,4 @@
-﻿namespace PassengerHelperPlugin.Support;
+﻿namespace PassengerHelper.Support;
 
 using System;
 using System.Collections.Generic;

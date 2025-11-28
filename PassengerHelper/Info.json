@@ -1,0 +1,10 @@
+{
+    "Id": "Moloch.PassengerHelper",
+    "DisplayName": "Passenger Helper",
+    "Author": "SgtMoloch",
+    "Version": "$(AssemblyVersion)",
+    "ManagerVersion": "0.31.0",
+    "AssemblyName": "$(AssemblyName)",
+    "EntryMethod": "$(AssemblyName).UUM.Loader.Load",
+    "HomePage": "https://www.nexusmods.com/railroader/mods/257"
+}

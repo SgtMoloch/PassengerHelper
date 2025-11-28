@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Linq;
 using Game.Progression;
@@ -18,7 +18,7 @@ public static class MapFeatureManagerPatches
     private static void HandleFeatureEnablesChanged()
     {
         logger.Debug("Progressions Changed. Checking Stations");
-        PassengerHelperPlugin shared = PassengerHelperPlugin.Shared;
+        PassengerHelper shared = PassengerHelper.Shared;
 
         if (!shared.IsEnabled)
         {

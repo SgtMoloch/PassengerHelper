@@ -7,8 +7,8 @@
   <!-- Replace the default version if something was set for it -->
   <PropertyGroup Condition="'$(AssemblyVersion)' == '' OR '$(MajorVersion)' != '' OR '$(MinorVersion)' != ''">
     <MajorVersion Condition="'$(MajorVersion)' == ''">1</MajorVersion>
-    <MinorVersion Condition="'$(MinorVersion)' == ''">2</MinorVersion>
-    <PatchVersion Condition="'$(PatchVersion)' == ''">2</PatchVersion>
+    <MinorVersion Condition="'$(MinorVersion)' == ''">3</MinorVersion>
+    <PatchVersion Condition="'$(PatchVersion)' == ''">0</PatchVersion>
     <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion)</AssemblyVersion>
     <FileVersion>$(AssemblyVersion)</FileVersion>
     <ProductVersion>$(AssemblyVersion)</ProductVersion>
@@ -29,8 +29,8 @@
 
 
   <Target Name="PrepareForPublishing" AfterTargets="AfterBuild" Condition="'$(Configuration)' == 'Release' AND '$(PublishMod)' != 'false'">
-    <Message Text="Replace assembly version placeholder in Definition.json with version $(AssemblyVersion)" />
-    <Exec Command="powershell -Command &quot;(Get-Content '$(OutputPath)Definition.json') -replace '\$\(AssemblyVersion\)', '$(AssemblyVersion)' | Set-Content '$(OutputPath)Definition.json'&quot;" />
+    <Message Text="Replace assembly version placeholder in Info.json with version $(AssemblyVersion)" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OutputPath)Info.json') -replace '\$\(AssemblyVersion\)', '$(AssemblyVersion)' | Set-Content '$(OutputPath)Info.json'&quot;" />
 
     <PropertyGroup>
       <ModsDirectory>$(OutputPath)/Mods</ModsDirectory>

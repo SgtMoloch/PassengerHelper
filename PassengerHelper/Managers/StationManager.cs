@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Managers;
+namespace PassengerHelper.Managers;
 
 using System.Collections.Generic;
 using System.Linq;
@@ -949,8 +949,16 @@ public class StationManager
 
             if (directionOfTravel == DirectionOfTravel.WEST)
             {
-                logger.Information("Train is going west, using normal logic if before alarka jct");
-                return currentIndex_Pickup < pickUpPassengerStations.IndexOf(alarkajctIdentifier);
+                if (currentIndex_Pickup < pickUpPassengerStations.IndexOf(alarkajctIdentifier))
+                {
+                    logger.Information("Train is heading West, selecting all pickup stations");
+                    expectedSelectedDestinations.UnionWith(pickUpPassengerStations);
+
+                    return false;
+                }
+
+                logger.Information("Train is going west, using normal logic if at or after alarka jct");
+                return true;
             }
         }
 

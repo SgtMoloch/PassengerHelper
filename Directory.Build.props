@@ -16,6 +16,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Definition.json" CopyToOutputDirectory="Always" />
+    <Content Include="Info.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
 </Project>

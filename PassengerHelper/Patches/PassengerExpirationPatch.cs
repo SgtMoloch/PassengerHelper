@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Collections.Generic;
 using System.Linq;
@@ -25,7 +25,7 @@ public static class PassengerExpirationPatches
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return;

@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Reflection;
 using Game.Messages;
@@ -29,7 +29,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
     private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
 
         if (!plugin.IsEnabled)
         {
@@ -73,7 +73,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulatePanel")]
     private static void PopulatePanel(Window ____window)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
 
         if (!plugin.IsEnabled)
         {

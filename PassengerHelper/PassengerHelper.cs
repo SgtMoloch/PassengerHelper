@@ -1,4 +1,4 @@
-﻿namespace PassengerHelperPlugin;
+﻿namespace PassengerHelper.UMM;
 
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
@@ -9,13 +9,13 @@ using Railloader;
 using Serilog;
 using System.Collections.Generic;
 using System.Linq;
-using global::PassengerHelperPlugin.Managers;
+using Managers;
 using Model.Ops;
 using Game;
 
-public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
+public class PassengerHelper : SingletonPluginBase<PassengerHelper>
 {
-    static ILogger logger = Log.ForContext(typeof(PassengerHelperPlugin));
+    static ILogger logger = Log.ForContext(typeof(PassengerHelper));
 
     private readonly IModdingContext ctx;
     private readonly IModDefinition self;
@@ -31,7 +31,7 @@ public class PassengerHelperPlugin : SingletonPluginBase<PassengerHelperPlugin>
                 "almond", "nantahala", "topton", "rhodo", "andrews"
                 };
 
-    public PassengerHelperPlugin(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
+    public PassengerHelper(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
     {
         new Harmony(self.Id).PatchAll(GetType().Assembly);
         Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();

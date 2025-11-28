@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Collections.Generic;
 using System.Linq;
@@ -28,7 +28,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "Awake")]
     private static void Awake(PassengerStop __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return;
@@ -42,7 +42,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "LoadState")]
     private static void LoadState(PassengerStop __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return;
@@ -79,7 +79,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
     private static void ShouldWorkCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return;
@@ -126,7 +126,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
     private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return true;
@@ -159,7 +159,7 @@ public static class PassengerStopPatches
         return true;
     }
 
-    private static bool FindLocomotive(Car car, PassengerHelperPlugin plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
+    private static bool FindLocomotive(Car car, PassengerHelper plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
     {
         logger.Debug("Attempting to find locomotive for car {0}", car.DisplayName);
         List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();

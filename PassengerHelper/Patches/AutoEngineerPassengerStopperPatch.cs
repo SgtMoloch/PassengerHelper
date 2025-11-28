@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using HarmonyLib;
 using Model;
@@ -19,7 +19,7 @@ public static class AutoEngineerPassengerStopperPatches
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return true;
@@ -46,7 +46,7 @@ public static class AutoEngineerPassengerStopperPatches
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "_UpdateFor")]
     private static void _UpdateFor(AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelper plugin = PassengerHelper.Shared;
         if (!plugin.IsEnabled)
         {
             return;
