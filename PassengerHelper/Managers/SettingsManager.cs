@@ -11,7 +11,6 @@ using Support.GameObjects;
 using Model;
 using Model.Definition;
 using Model.Ops;
-using Railloader;
 using RollingStock;
 using Serilog;
 using Support;
@@ -27,14 +26,14 @@ public class SettingsManager
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
     internal IUIHelper uIHelper { get; }
-    private PassengerHelper plugin;
+    private PassengerHelperPlugin plugin;
     private UtilManager utilManager;
     private Dictionary<BaseLocomotive, bool> settingsWindowShowing = new();
 
     private Dictionary<PassengerLocomotive, PassengerLocomotiveSettings> plsMap = new();
     private Dictionary<PassengerLocomotive, IDisposable> plKeyObvDisposeMap = new();
 
-    public SettingsManager(PassengerHelper plugin, IUIHelper uIHelper, UtilManager utilManager)
+    public SettingsManager(PassengerHelperPlugin plugin, IUIHelper uIHelper, UtilManager utilManager)
     {
         this.plugin = plugin;
         this.uIHelper = uIHelper;
