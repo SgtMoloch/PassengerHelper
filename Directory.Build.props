@@ -18,4 +18,8 @@
   <ItemGroup>
     <Content Include="Info.json" CopyToOutputDirectory="Always" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="UnityModManager" Version="0.32.4" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
 </Project>

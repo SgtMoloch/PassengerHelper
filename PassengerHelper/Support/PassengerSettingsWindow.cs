@@ -24,11 +24,12 @@ using UnityEngine.UI;
 using Support.GameObjects;
 using Helpers;
 using Support;
+using PassengerHelper.Support.UIHelp;
 
 public class PassengerSettingsWindow
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
-    private IUIHelper uIHelper;
+    private UIHelper uIHelper;
     private List<PassengerStop> stationStops;
 
     internal class Interactable
@@ -131,7 +132,7 @@ public class PassengerSettingsWindow
     internal Dictionary<string, Interactable> interactableStationMap = new();
     internal SettingsManager settingsManager;
 
-    internal PassengerSettingsWindow(IUIHelper uIHelper, List<PassengerStop> stationStops, SettingsManager settingsManager)
+    internal PassengerSettingsWindow(UIHelper uIHelper, List<PassengerStop> stationStops, SettingsManager settingsManager)
     {
         this.uIHelper = uIHelper;
         this.stationStops = stationStops;
@@ -351,24 +352,27 @@ public class PassengerSettingsWindow
             logger.Debug("post interaction station settings for {0} are: {1}", stationId, stationSettings);
         }
 
-        StationSetting alarkJctSettings = allStationSettings["alarkajct"];
-        StationSetting alarkaSettings = allStationSettings["alarka"];
-
-        if (alarkJctSettings.TransferStation)
+        if (allStationSettings.ContainsKey("alarkajct") && allStationSettings.ContainsKey("alarka"))
         {
-            if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
+            StationSetting alarkJctSettings = allStationSettings["alarkajct"];
+            StationSetting alarkaSettings = allStationSettings.GetValueOrDefault("alarka");
+
+            if (alarkJctSettings.TransferStation)
             {
-                alarkaSettings.TransferStation = false;
-                // settings["alarka"] = Value.Dictionary(alarkaSettings);
-                interactableStationMap["alarka"].Transfer = false;
+                if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
+                {
+                    alarkaSettings.TransferStation = false;
+                    // settings["alarka"] = Value.Dictionary(alarkaSettings);
+                    interactableStationMap["alarka"].Transfer = false;
+                }
             }
-        }
 
-        if (alarkaSettings.TransferStation)
-        {
-            alarkJctSettings.TransferStation = false;
-            // settings["alarkajct"] = Value.Dictionary(alarkJctSettings);
-            interactableStationMap["alarkajct"].Transfer = false;
+            if (alarkaSettings.TransferStation)
+            {
+                alarkJctSettings.TransferStation = false;
+                // settings["alarkajct"] = Value.Dictionary(alarkJctSettings);
+                interactableStationMap["alarkajct"].Transfer = false;
+            }
         }
 
         List<string> terminusStations = allStationSettings.Where(kvp => stationStops.Select(ps => ps.identifier).Contains(kvp.Key) && kvp.Value.TerminusStation).Select(kvp => kvp.Key).ToList();

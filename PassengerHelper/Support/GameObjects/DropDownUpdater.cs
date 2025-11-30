@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Support.GameObjects;
+namespace PassengerHelper.Support.GameObjects;
 
 using System;
 using System.Collections;

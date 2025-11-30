@@ -7,16 +7,15 @@ using Model;
 using Model.AI;
 using Model.Definition;
 using Support;
-using RollingStock;
-using Serilog;
-using GameObjects;
 using Model.Ops;
 using System.Reflection;
 using Game;
 using Game.Messages;
-using static Model.Ops.PassengerStop;
 using KeyValue.Runtime;
 using System;
+using PassengerHelper.UMM;
+using PassengerHelper.Support.GameObjects;
+using Serilog;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
@@ -28,8 +27,8 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "Awake")]
     private static void Awake(PassengerStop __instance)
     {
-        PassengerHelper plugin = PassengerHelper.Shared;
-        if (!plugin.IsEnabled)
+        PassengerHelper plugin = Loader.passengerHelper;
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
@@ -42,8 +41,8 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "LoadState")]
     private static void LoadState(PassengerStop __instance)
     {
-        PassengerHelper plugin = PassengerHelper.Shared;
-        if (!plugin.IsEnabled)
+        PassengerHelper plugin = Loader.passengerHelper;
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
@@ -79,74 +78,75 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
     private static void ShouldWorkCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = PassengerHelper.Shared;
-        if (!plugin.IsEnabled)
+        PassengerHelper plugin = Loader.passengerHelper;
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
 
-        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
+        List<Car> engines = car.EnumerateCoupled().Where(car => car.IsLocomotive).ToList();
 
-        foreach (Car engine in engines)
+        if(engines.Count == 0)
         {
-            AutoEngineerPersistence persistence = new(engine.KeyValueObject);
-
-            if (persistence.Orders.Mode != AutoEngineerMode.Road)
-            {
-                // manual mode or yard mode
-                return;
-            }
-
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out PassengerLocomotive passengerLocomotive))
-            {
-                if (passengerLocomotive.Settings.Disable)
-                {
-                    // Passenger Helper disabled
-                    return;
-                }
-
-                if (passengerLocomotive.TrainStatus.Arrived && passengerLocomotive.CurrentStation == __instance)
-                {
-                    return;
-                }
-
-                if (!passengerLocomotive.TrainStatus.Arrived && !passengerLocomotive.TrainStatus.ReadyToDepart && !passengerLocomotive.TrainStatus.Departed)
-                {
-                    return;
-                }
-
-                logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", engine.DisplayName, __instance.DisplayName);
-                __result = false;
-                break;
-            }
+            return;
         }
+
+        PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engines[0]);
+        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);
+
+        AutoEngineerPersistence persistence = new(passengerLocomotive._locomotive.KeyValueObject);
+
+        if (persistence.Orders.Mode != AutoEngineerMode.Road)
+        {
+            // manual mode or yard mode
+            return;
+        }
+
+        if (settings.Disable)
+        {
+            // Passenger Helper disabled
+            return;
+        }
+
+        if (settings.TrainStatus.Arrived && passengerLocomotive.CurrentStation == __instance)
+        {
+            return;
+        }
+
+        if (!settings.TrainStatus.Arrived && !settings.TrainStatus.ReadyToDepart && !settings.TrainStatus.Departed)
+        {
+            return;
+        }
+
+        logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", passengerLocomotive._locomotive.DisplayName, __instance.DisplayName);
+        __result = false;
+
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
     private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = PassengerHelper.Shared;
-        if (!plugin.IsEnabled)
+        PassengerHelper plugin = Loader.passengerHelper;
+        if (!Loader.ModEntry.Enabled)
         {
             return true;
         }
 
         logger.Debug("Patched Load method");
-        if (!FindLocomotive(car, plugin, __instance, out PassengerLocomotive passengerLocomotive))
+        PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(car);
+
+        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);
+
+        if (settings.Disable)
         {
             return true;
         }
 
-        if (passengerLocomotive.Settings.Disable)
-        {
-            return true;
-        }
-
-        bool trainIsPaused = passengerLocomotive.Settings.TrainStatus.CurrentlyStopped;
-        bool preventPaxLoad = passengerLocomotive.Settings.PreventLoadWhenPausedAtStation;
-        bool trainAtTerminus = passengerLocomotive.Settings.TrainStatus.AtTerminusStationEast || passengerLocomotive.Settings.TrainStatus.AtTerminusStationWest;
-        bool waitForFullLoadAtTerminus = passengerLocomotive.Settings.WaitForFullPassengersTerminusStation;
+        bool trainIsPaused = settings.TrainStatus.CurrentlyStopped;
+        bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
+        bool trainAtTerminus = settings.TrainStatus.AtTerminusStationEast || settings.TrainStatus.AtTerminusStationWest;
+        bool waitForFullLoadAtTerminus = settings.WaitForFullPassengersTerminusStation;
 
         bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
 
@@ -157,24 +157,5 @@ public static class PassengerStopPatches
         }
 
         return true;
-    }
-
-    private static bool FindLocomotive(Car car, PassengerHelper plugin, PassengerStop CurrentStop, out PassengerLocomotive passengerLocomotive)
-    {
-        logger.Debug("Attempting to find locomotive for car {0}", car.DisplayName);
-        List<Car> engines = car.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.LocomotiveSteam || car.Archetype == CarArchetype.LocomotiveDiesel).ToList();
-        foreach (Car engine in engines)
-        {
-            logger.Debug("Checking {0}", engine.DisplayName);
-            if (plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engine, out passengerLocomotive))
-            {
-                return true;
-            }
-        }
-        logger.Error("Did not find locomotive for car {0}", car.DisplayName);
-
-        passengerLocomotive = null;
-
-        return false;
     }
 }

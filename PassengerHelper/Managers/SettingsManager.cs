@@ -21,21 +21,21 @@ using UI.Common;
 using UnityEngine;
 using UnityEngine.UI;
 using KeyValue.Runtime;
+using PassengerHelper.Support.UIHelp;
 
 public class SettingsManager
 {
     static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
-    internal IUIHelper uIHelper { get; }
-    private PassengerHelperPlugin plugin;
+    internal UIHelper uIHelper { get; }
+
     private UtilManager utilManager;
     private Dictionary<BaseLocomotive, bool> settingsWindowShowing = new();
 
     private Dictionary<PassengerLocomotive, PassengerLocomotiveSettings> plsMap = new();
     private Dictionary<PassengerLocomotive, IDisposable> plKeyObvDisposeMap = new();
 
-    public SettingsManager(PassengerHelperPlugin plugin, IUIHelper uIHelper, UtilManager utilManager)
+    public SettingsManager(UIHelper uIHelper, UtilManager utilManager)
     {
-        this.plugin = plugin;
         this.uIHelper = uIHelper;
         this.utilManager = utilManager;
 
@@ -61,8 +61,9 @@ public class SettingsManager
 
         IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
         {
-            logger.Information("updating settings map existing loco, new values: {0}", val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
+            logger.Information("updating settings map existing loco {0}, new values: {1}", pl._locomotive.DisplayName, val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
             PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+            logger.Information("new settings for {0}: " + pls.ToString(), pl._locomotive.DisplayName);
             plsMap[pl] = pls;
         }, callInitial: false);
 
@@ -83,8 +84,9 @@ public class SettingsManager
             logger.Information("adding observer");
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
             {
-                logger.Information("updating settings map existing loco, new values: {0}", val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
+                logger.Information("updating settings map existing loco {0}, new values: {1}", pl._locomotive.DisplayName, val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
                 PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, utilManager.orderedStations);
+                logger.Information("new settings for {0}: " + pls.ToString(), pl._locomotive.DisplayName);
                 plsMap[pl] = pls;
             }, callInitial: false);
 

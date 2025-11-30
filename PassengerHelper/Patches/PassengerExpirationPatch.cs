@@ -9,12 +9,12 @@ using Model.Definition;
 using Support;
 using RollingStock;
 using Serilog;
-using GameObjects;
 using Model.Ops;
 using System.Reflection;
 using Game;
 using Game.Messages;
 using Game.State;
+using PassengerHelper.UMM;
 
 [HarmonyPatch]
 public static class PassengerExpirationPatches
@@ -25,8 +25,8 @@ public static class PassengerExpirationPatches
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
     {
-        PassengerHelper plugin = PassengerHelper.Shared;
-        if (!plugin.IsEnabled)
+        PassengerHelper plugin = Loader.passengerHelper;
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }

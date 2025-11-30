@@ -33,7 +33,7 @@ public class TrainManager
         {
             logger.Information("Did not find existing PassengerLocomotive for {0}, looking for existing PassengerSettings and creating a new Passenger Locomotive", locomotive.DisplayName);
             passengerLocomotive = new PassengerLocomotive(locomotive, settingsManager);
-            // passengerLocomotive.LoadSettings();
+            passengerLocomotive.LoadSettings();
 
             logger.Debug("Adding new Passenger Locomotive to internal Dictionary");
 

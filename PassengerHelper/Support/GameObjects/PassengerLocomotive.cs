@@ -119,7 +119,7 @@ public class PassengerLocomotive
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
-            logger.Information("Orders changed. Orders are now: {0} and selfSentOrders is: {1}", orders, _selfSentOrders);
+            logger.Information("Orders changed for {0}. Orders are now: {1} and selfSentOrders is: {2}", _locomotive.DisplayName, orders, _selfSentOrders);
             if (!_selfSentOrders)
             {
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(this);

@@ -11,6 +11,5 @@
     <GameAssembly Include="Unity.TextMeshPro"/>
     <GameAssembly Include="UnityEngine.UI"/>
     <GameAssembly Include="UnityEngine.UIElementsModule"/>
-    <GameAssembly Include="UnityModManager"/>
   </ItemGroup>
 </Project>

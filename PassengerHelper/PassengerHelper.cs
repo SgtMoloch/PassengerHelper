@@ -5,25 +5,28 @@ using Game.Events;
 using HarmonyLib;
 using Model;
 using Support;
-using Railloader;
 using Serilog;
 using System.Collections.Generic;
 using System.Linq;
 using Managers;
 using Model.Ops;
 using Game;
+using global::PassengerHelper.Support.UIHelp;
+using UnityModManagerNet;
+using System.Reflection;
 
-public class PassengerHelper : SingletonPluginBase<PassengerHelper>
+public class PassengerHelper
 {
     static ILogger logger = Log.ForContext(typeof(PassengerHelper));
 
-    private readonly IModdingContext ctx;
-    private readonly IModDefinition self;
 
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
+    internal UtilManager utilManager { get; }
+    internal UIHelper UIHelper { get; }
     internal bool TestMode { get; } = true;
+    internal Harmony harmony { get; }
 
     internal readonly List<string> orderedStations = new List<string>()
                 {
@@ -31,25 +34,23 @@ public class PassengerHelper : SingletonPluginBase<PassengerHelper>
                 "almond", "nantahala", "topton", "rhodo", "andrews"
                 };
 
-    public PassengerHelper(IModdingContext ctx, IModDefinition self, IUIHelper uiHelper)
+    public PassengerHelper(string modId)
     {
-        new Harmony(self.Id).PatchAll(GetType().Assembly);
-        Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings = ctx.LoadSettingsData<Dictionary<string, PassengerLocomotiveSettings>>(self.Id) ?? new Dictionary<string, PassengerLocomotiveSettings>();
+        this.harmony = new Harmony(modId);
+        this.harmony.PatchAll(GetType().Assembly);
+        Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings = new Dictionary<string, PassengerLocomotiveSettings>();
 
-        this.self = self;
-        this.ctx = ctx;
-
-        SettingsManager settingsManager = new SettingsManager(this, passengerLocomotivesSettings, uiHelper);
+        UIHelper uIHelper = new UIHelper();
+        UtilManager utilManager = new UtilManager();
+        SettingsManager settingsManager = new SettingsManager(uIHelper, utilManager);
         TrainManager trainManager = new TrainManager(settingsManager);
         StationManager stationManager = new StationManager(settingsManager, trainManager, orderedStations);
 
+        this.UIHelper = uIHelper;
+        this.utilManager = utilManager;
         this.settingsManager = settingsManager;
         this.trainManager = trainManager;
         this.stationManager = stationManager;
     }
 
-    public void SaveSettings(Dictionary<string, PassengerLocomotiveSettings> settings)
-    {
-        ctx.SaveSettingsData(self.Id, settings);
-    }
 }

@@ -4,7 +4,7 @@
     "Author": "SgtMoloch",
     "Version": "$(AssemblyVersion)",
     "ManagerVersion": "0.31.0",
-    "AssemblyName": "$(AssemblyName)",
-    "EntryMethod": "$(AssemblyName).UUM.Loader.Load",
+    "AssemblyName": "$(AssemblyName).dll",
+    "EntryMethod": "$(AssemblyName).UMM.Loader.Load",
     "HomePage": "https://www.nexusmods.com/railroader/mods/257"
 }

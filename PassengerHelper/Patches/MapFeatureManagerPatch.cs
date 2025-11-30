@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Progression;
 using HarmonyLib;
 using Model.Ops;
+using PassengerHelper.UMM;
 using RollingStock;
 using Serilog;
 using Support;
@@ -18,9 +19,9 @@ public static class MapFeatureManagerPatches
     private static void HandleFeatureEnablesChanged()
     {
         logger.Debug("Progressions Changed. Checking Stations");
-        PassengerHelper shared = PassengerHelper.Shared;
+        PassengerHelper shared = Loader.passengerHelper;
 
-        if (!shared.IsEnabled)
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
@@ -30,17 +31,17 @@ public static class MapFeatureManagerPatches
             string name = ps.identifier;
             string formalName = ps.name;
 
-            shared.settingsManager.GetAllSettings()
-            .Select(p => p.Value)
-            .ToList()
-            .ForEach(setting =>
-            {
-                if (ps.ProgressionDisabled)
-                {
-                    logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
-                    setting.StationSettings[ps.identifier] = new StationSetting();
-                }
-            });
+            // shared.settingsManager.GetAllSettings()
+            // .Select(p => p.Value)
+            // .ToList()
+            // .ForEach(setting =>
+            // {
+            //     if (ps.ProgressionDisabled)
+            //     {
+            //         logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
+            //         setting.StationSettings[ps.identifier] = new StationSetting();
+            //     }
+            // });
         });
     }
 }

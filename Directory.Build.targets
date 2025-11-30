@@ -8,7 +8,7 @@
   <PropertyGroup Condition="'$(AssemblyVersion)' == '' OR '$(MajorVersion)' != '' OR '$(MinorVersion)' != ''">
     <MajorVersion Condition="'$(MajorVersion)' == ''">1</MajorVersion>
     <MinorVersion Condition="'$(MinorVersion)' == ''">3</MinorVersion>
-    <PatchVersion Condition="'$(PatchVersion)' == ''">0</PatchVersion>
+    <PatchVersion Condition="'$(PatchVersion)' == ''">5</PatchVersion>
     <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion)</AssemblyVersion>
     <FileVersion>$(AssemblyVersion)</FileVersion>
     <ProductVersion>$(AssemblyVersion)</ProductVersion>
@@ -27,14 +27,24 @@
     </Reference>
   </ItemGroup>
 
+  <Target Name="PrepareForDebug" AfterTargets="AfterBuild" Condition="'$(Configuration)' == 'Debug' AND '$(PublishMod)' != 'false'">
+    <Message Text="Replace assembly version placeholder in Info.json with version $(AssemblyVersion)" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OutDir)Info.json') -replace '\$\(AssemblyVersion\)', '$(AssemblyVersion)' | Set-Content '$(OutDir)Info.json'&quot;" />
+
+    <Message Text="Replace assembly version placeholder in Info.json with version $(AssemblyName)" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OutDir)Info.json') -replace '\$\(AssemblyName\)', '$(AssemblyName)' | Set-Content '$(OutDir)Info.json'&quot;" />
+  </Target>
 
   <Target Name="PrepareForPublishing" AfterTargets="AfterBuild" Condition="'$(Configuration)' == 'Release' AND '$(PublishMod)' != 'false'">
     <Message Text="Replace assembly version placeholder in Info.json with version $(AssemblyVersion)" />
     <Exec Command="powershell -Command &quot;(Get-Content '$(OutputPath)Info.json') -replace '\$\(AssemblyVersion\)', '$(AssemblyVersion)' | Set-Content '$(OutputPath)Info.json'&quot;" />
 
+    <Message Text="Replace assembly version placeholder in Info.json with version $(AssemblyName)" />
+    <Exec Command="powershell -Command &quot;(Get-Content '$(OutputPath)Info.json') -replace '\$\(AssemblyName\)', '$(AssemblyName)' | Set-Content '$(OutputPath)Info.json'&quot;" />
+
     <PropertyGroup>
-      <ModsDirectory>$(OutputPath)/Mods</ModsDirectory>
-      <ModDirectory>$(ModsDirectory)/$(AssemblyName)</ModDirectory>
+      <!-- <ModsDirectory>$(OutputPath)/Mods</ModsDirectory> -->
+      <ModDirectory>$(OutputPath)/$(AssemblyName)</ModDirectory>
 
       <!-- Folder we'll put the published zips into -->
       <PublishPath>../bin</PublishPath>
@@ -49,7 +59,7 @@
       <OldZips Include="$(PublishPath)/$(AssemblyName)_*.zip" />
     </ItemGroup>
     
-    <RemoveDir Directories="$(ModsDirectory)"  ContinueOnError="true" />
+    <RemoveDir Directories="$(ModDirectory)"  ContinueOnError="true" />
     <Delete Files="@(OldZips)" />
     
     <!-- Create the Mods directory again -->
@@ -63,6 +73,6 @@
     <Move SourceFiles="@(OutputFiles)" DestinationFolder="$(ModDirectory)" />
 
     <!-- Zip it up -->
-    <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ModsDirectory)' -Destination '$(ZipName)'&quot;" />
+    <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ModDirectory)' -Destination '$(ZipName)'&quot;" />
   </Target>
 </Project>
