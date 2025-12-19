@@ -45,7 +45,6 @@ public static class PassengerStopPatches
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponent<PassengerHelperPassengerStop>();
 
         IReadOnlyDictionary<string, Value> dictionaryValue = passengerHelperPassengerStop._keyValueObject["pass-helper-state"].DictionaryValue;
-        Loader.Log($"loaded state is: {dictionaryValue}");
 
         if (!dictionaryValue.Any())
         {
@@ -114,7 +113,7 @@ public static class PassengerStopPatches
             return;
         }
 
-        Loader.Log($"Train {passengerLocomotive._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
+        Loader.LogVerbose($"Train {passengerLocomotive._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
         __result = false;
 
     }
@@ -129,7 +128,6 @@ public static class PassengerStopPatches
             return true;
         }
 
-        Loader.LogDebug($"Patched Load method");
         PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(car);
 
         PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);

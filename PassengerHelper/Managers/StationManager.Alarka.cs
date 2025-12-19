@@ -44,8 +44,7 @@ public partial class StationManager
             Loader.Log($"Train has alarkajct as the east terminus station");
             if (alarkaIsWestTerminus)
             {
-                Loader.Log($"Train has alarka as the west terminus station");
-                Loader.Log($"Train is doing the alarka branch only");
+                Loader.Log($"Train has alarka as the west terminus station; Train is doing the alarka branch only");
 
                 if (directionOfTravel == DirectionOfTravel.EAST)
                 {
@@ -122,11 +121,9 @@ public partial class StationManager
             }
         }
 
-        Loader.Log($"Train is long distance train with no alarka branch.");
+        Loader.Log($"Train is long distance train with no alarka branch. Checking if alarka and cochran are pickup stations");
 
         bool addAlarkaAndCochran = true;
-
-        Loader.Log($"Checking if alarka and cochran are pickup stations");
         bool pickUpContainsAlarkaAndCochran = pickUpPassengerStations.Contains(alarkaIdentifier) && pickUpPassengerStations.Contains(cochranIdentifier);
         Loader.Log($"Alarka and cochran are pickup stations: {pickUpContainsAlarkaAndCochran}");
 

@@ -149,7 +149,7 @@ public partial class StationManager
                 expectedSelectedDestinations.Add(cochranIdentifier);
             }
 
-            Loader.Log($"Expected selected stations are: {expectedSelectedDestinations}");
+            Loader.Log($"Expected selected stations are: {Dump(expectedSelectedDestinations)}");
 
             // transfer station check
             List<string> orderedTransferStations = settings.StationSettings.Where(s => s.Value.TransferStation && s.Value.StopAtStation).Select(station => station.Key).OrderBy(id => GetOrder(orderIndex, id)).ToList();
@@ -161,7 +161,7 @@ public partial class StationManager
                 Loader.Log($"Transfer station selected, checking direction and modifying expected selected stations");
                 List<string> pickUpPassengerStations = settings.StationSettings.Where(s => s.Value.PickupPassengersForStation).Select(s => s.Key).OrderBy(id => GetOrder(orderIndex, id)).ToList();
 
-                Loader.Log($"The following stations are pickup stations: {pickUpPassengerStations}");
+                Loader.Log($"The following stations are pickup stations: {Dump(pickUpPassengerStations)}");
 
                 bool useNormalLogic = true;
 
@@ -181,7 +181,7 @@ public partial class StationManager
 
                         if (nextStopAtStationPickupIndex >= 0)
                         {
-                            Loader.Log($"Selecting pickup stations {pickUpPassengerStations.GetRange(nextStopAtStationPickupIndex, pickUpPassengerStations.Count - nextStopAtStationPickupIndex)} that are further west of the next StopAt station: {orderedStopAtStations[currentIndex + 1]}");
+                            Loader.Log($"Selecting pickup stations {Dump(pickUpPassengerStations.GetRange(nextStopAtStationPickupIndex, pickUpPassengerStations.Count - nextStopAtStationPickupIndex))} that are further west of the next StopAt station: {orderedStopAtStations[currentIndex + 1]}");
                             expectedSelectedDestinations.UnionWith(
                                 pickUpPassengerStations.GetRange(nextStopAtStationPickupIndex, pickUpPassengerStations.Count - nextStopAtStationPickupIndex));
                         }
@@ -198,7 +198,7 @@ public partial class StationManager
 
                         if (nextStopAtStationPickupIndex >= 0)
                         {
-                            Loader.Log($"Selecting pickup stations {pickUpPassengerStations.GetRange(0, nextStopAtStationPickupIndex + 1)} that are further east of the next StopAt station: {orderedStopAtStations[currentIndex - 1]}");
+                            Loader.Log($"Selecting pickup stations {Dump(pickUpPassengerStations.GetRange(0, nextStopAtStationPickupIndex + 1))} that are further east of the next StopAt station: {orderedStopAtStations[currentIndex - 1]}");
                             // select all to the east of the current station
                             expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, nextStopAtStationPickupIndex + 1));
                         }
@@ -271,8 +271,6 @@ public partial class StationManager
 
         return false;
     }
-
-
 
     private void NotAtASelectedStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings, PassengerStop CurrentStop, List<string> orderedSelectedStations, List<string> orderedTerminusStations)
     {

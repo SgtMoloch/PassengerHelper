@@ -12,6 +12,7 @@ public static class Loader
 {
     public static UnityModManager.ModEntry ModEntry { get; private set; }
     public static PassengerHelper PassengerHelper { get; private set; }
+    public static PassengerHelperSettings Settings { get; private set; }
 
     private static bool Load(UnityModManager.ModEntry modEntry)
     {
@@ -23,11 +24,14 @@ public static class Loader
         modEntry.Logger.Log($"Loading Passenger Helper assembly version {Assembly.GetExecutingAssembly().GetName().Version}");
 
         ModEntry = modEntry;
+        Settings = UnityModManager.ModSettings.Load<PassengerHelperSettings>(modEntry);
         PassengerHelper = new PassengerHelper(modEntry.Info.Id);
 
         Messenger.Default.Register<MapDidLoadEvent>(modEntry, OnMapDidLoad);
 
         ModEntry.OnUnload = Unload;
+        ModEntry.OnGUI = OnGUI;
+        ModEntry.OnSaveGUI = OnSaveGUI;
 
         return true;
     }
@@ -37,6 +41,16 @@ public static class Loader
         PassengerHelper.harmony.UnpatchAll(modEntry.Info.Id);
 
         return true;
+    }
+
+    private static void OnGUI(UnityModManager.ModEntry modEntry)
+    {
+        Settings.Draw(modEntry);
+    }
+
+    private static void OnSaveGUI(UnityModManager.ModEntry modEntry)
+    {
+        Settings.Save(modEntry);
     }
 
     private static void OnMapDidLoad(MapDidLoadEvent @event)
@@ -92,6 +106,12 @@ public static class Loader
     public static void LogError(string str)
     {
         ModEntry?.Logger.Error(str);
+    }
+
+    public static void LogVerbose(string str)
+    {
+        if (Settings.VerboseLogging)
+            ModEntry?.Logger.Log(str);
     }
 
 }

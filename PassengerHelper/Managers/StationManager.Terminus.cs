@@ -42,8 +42,7 @@ public partial class StationManager
 
             if (passengerLocomotive.PreviousStation == null)
             {
-                Loader.Log($"train was not previously at a station.");
-                Loader.Log($"Waiting for input from engineer about which direction to travel in");
+                Loader.Log($"train was not previously at a station. Waiting for input from engineer about which direction to travel in");
                 Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing until I receive Direction of Travel via PassengerSettings.\"");
                 passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
 
@@ -54,10 +53,9 @@ public partial class StationManager
             }
             else
             {
-                Loader.Log($"train was  previously at a station.");
                 string prevStopId = passengerLocomotive.PreviousStation.identifier;
 
-                Loader.Log($"Checking if previous stop {prevStopId} was inside terminus bounds");
+                Loader.Log($"train was  previously at a station. Checking if previous stop {prevStopId} was inside terminus bounds");
                 if (orderedStopAtStations.Contains(prevStopId))
                 {
                     Loader.Log($"Previous stop was inside terminus bounds, therefore proceed with normal loop/point to point logic");
@@ -107,7 +105,7 @@ public partial class StationManager
                 return true;
             }
 
-            Loader.Log($"The following stations are pickup stations: {pickUpPassengerStations}");
+            Loader.Log($"The following stations are pickup stations: {Dump(pickUpPassengerStations)}");
             bool useNormalLogic = true;
 
             if (orderedTransferStations.Contains(alarkajctIdentifier))
@@ -122,7 +120,7 @@ public partial class StationManager
                 {
                     if (orderedTransferStations.Contains(orderedTerminusStations[1]))
                     {
-                        Loader.Log($"Selecting pickup stations {pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup)} that are further west of the west terminus station: {orderedTerminusStations[1]}");
+                        Loader.Log($"Selecting pickup stations {Dump(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup))} that are further west of the west terminus station: {orderedTerminusStations[1]}");
                         // select all to the west of the west terminus station
                         expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(westTerminusIndex_Pickup, pickUpPassengerStations.Count - westTerminusIndex_Pickup));
                     }
@@ -132,7 +130,7 @@ public partial class StationManager
                 {
                     if (orderedTransferStations.Contains(orderedTerminusStations[0]))
                     {
-                        Loader.Log($"Selecting pickup stations {pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1)} that are further east of the east terminus station: {orderedTerminusStations[0]}");
+                        Loader.Log($"Selecting pickup stations {Dump(pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1))} that are further east of the east terminus station: {orderedTerminusStations[0]}");
                         // select all to the east of the east terminus station
                         expectedSelectedDestinations.UnionWith(pickUpPassengerStations.GetRange(0, eastTerminusIndex_Pickup + 1));
                     }
@@ -140,13 +138,13 @@ public partial class StationManager
             }
         }
 
-        Loader.Log($"Setting the following stations: {expectedSelectedDestinations}");
+        Loader.Log($"Setting the following stations: {Dump(expectedSelectedDestinations)}");
         var expectedList = expectedSelectedDestinations.ToList();
         foreach (Car coach in coaches)
         {
             foreach (string identifier in expectedSelectedDestinations)
             {
-                Loader.Log(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
+                Loader.LogVerbose(string.Format("Applying {0} to car {1}", identifier, coach.DisplayName));
             }
 
             StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedList));

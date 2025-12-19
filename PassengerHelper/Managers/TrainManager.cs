@@ -27,7 +27,7 @@ public class TrainManager
 
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
     {
-        Loader.LogDebug($"Getting PassengerLocomotive for {locomotive.DisplayName}");
+        Loader.LogVerbose($"Getting PassengerLocomotive for {locomotive.DisplayName}");
         if (!this.passengerLocomotives.TryGetValue(locomotive, out PassengerLocomotive passengerLocomotive))
         {
             Loader.Log($"Did not find existing PassengerLocomotive for {locomotive.DisplayName}, looking for existing PassengerSettings and creating a new Passenger Locomotive");
@@ -44,7 +44,7 @@ public class TrainManager
 
     public PassengerLocomotive GetPassengerLocomotive(Car car)
     {
-        Loader.LogDebug($"Getting PassengerLocomotive coupled to {car.DisplayName}");
+        Loader.LogVerbose($"Getting PassengerLocomotive coupled to {car.DisplayName}");
 
         // find all cars coupled to car
         // filter to only locomotives

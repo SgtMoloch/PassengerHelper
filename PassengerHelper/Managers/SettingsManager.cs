@@ -60,9 +60,9 @@ public class SettingsManager
 
         IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
         {
-            Loader.Log($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
+            Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
             PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
-            Loader.Log($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
+            Loader.LogVerbose($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
             plsMap[pl] = pls;
         }, callInitial: false);
 
@@ -78,14 +78,13 @@ public class SettingsManager
         Loader.Log($"loaded settings for {pl._locomotive.DisplayName}");
         if (!plsMap.ContainsKey(pl))
         {
-            Loader.Log($"pass loco not in settings map, adding");
+            Loader.Log($"pass loco not in settings map, adding observer");
             plsMap.Add(pl, pls);
-            Loader.Log($"adding observer");
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
             {
-                Loader.Log($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
+                Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
                 PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, utilManager.orderedStations);
-                Loader.Log($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
+                Loader.LogVerbose($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
                 plsMap[pl] = pls;
             }, callInitial: false);
 

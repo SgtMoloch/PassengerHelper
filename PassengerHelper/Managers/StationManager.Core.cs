@@ -38,9 +38,10 @@ public partial class StationManager
         {
             Loader.Log($"Train " + locomotive.DisplayName + " has arrived at station " + currentStop.DisplayName);
             passengerLocomotive.CurrentStation = currentStop;
-            settings.TrainStatus.Arrived = true;
             passengerLocomotive.ResetSettingsHash();
             passengerLocomotive.ResetStatusFlags();
+            settings.TrainStatus.Arrived = true;
+            settingsManager.SaveSettings(passengerLocomotive, settings);
             settings = settingsManager.GetSettings(passengerLocomotive);
 
         }
@@ -150,7 +151,7 @@ public partial class StationManager
             .OrderBy(id => GetOrder(orderIndex, id))
             .ToList();
 
-        Loader.Log($"Running station procedure for Train {LocomotiveName} at {CurrentStopName} with {coaches.Count()} coaches, the following selected stations: {orderedSelectedStations}, and the following terminus stations: {orderedTerminusStations}, in the following direction: {settings.DirectionOfTravel.ToString()}");
+        Loader.Log($"Running station procedure for Train {LocomotiveName} at {CurrentStopName} with {coaches.Count()} coaches, the following selected stations: {Dump(orderedSelectedStations)}, and the following terminus stations: {Dump(orderedTerminusStations)}, in the following direction: {settings.DirectionOfTravel.ToString()}");
 
         if (orderedSelectedStations.Count < 2)
         {
