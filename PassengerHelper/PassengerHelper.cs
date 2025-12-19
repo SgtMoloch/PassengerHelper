@@ -42,7 +42,7 @@ public class PassengerHelper
         PassengerStopOrderManager passengerStopOrderManager = new PassengerStopOrderManager();
         SettingsManager settingsManager = new SettingsManager(uIHelper, utilManager);
         TrainManager trainManager = new TrainManager(settingsManager);
-        StationManager stationManager = new StationManager(settingsManager, trainManager, orderedStations);
+        StationManager stationManager = new StationManager(settingsManager, trainManager, () => passengerStopOrderManager.OrderedAllStopIds);
 
         this.UIHelper = uIHelper;
         this.passengerStopOrderManager = passengerStopOrderManager;

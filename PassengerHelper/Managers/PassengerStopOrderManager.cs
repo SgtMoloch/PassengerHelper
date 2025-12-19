@@ -14,6 +14,8 @@ public sealed class PassengerStopOrderManager
     public IReadOnlyList<PassengerStop> OrderedAll => _orderedAll;
     public IReadOnlyList<PassengerStop> OrderedUnlocked => _orderedUnlocked;
 
+    public List<string> OrderedAllStopIds { get; private set; } = new();
+
     /// <summary>
     /// Call on game load, and occasionally later. Rebuilds the expensive ordering only
     /// if the station graph changed (mods, scenario reload, etc).
@@ -30,6 +32,11 @@ public sealed class PassengerStopOrderManager
 
         // Expensive rebuild (provided by you in Piece 2)
         _orderedAll = rebuildOrdering();
+
+        OrderedAllStopIds = _orderedAll
+            .Where(s => s != null && !string.IsNullOrEmpty(s.identifier))
+            .Select(s => s.identifier)
+            .ToList();
     }
 
     /// <summary>
