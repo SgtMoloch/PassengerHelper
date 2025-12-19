@@ -25,7 +25,7 @@ public static class PassengerExpirationPatches
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;

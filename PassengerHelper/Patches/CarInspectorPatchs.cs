@@ -31,7 +31,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
     private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {
@@ -95,7 +95,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulatePanel")]
     private static void PopulatePanel(Window ____window)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {

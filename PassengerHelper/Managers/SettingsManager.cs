@@ -22,6 +22,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using KeyValue.Runtime;
 using PassengerHelper.Support.UIHelp;
+using PassengerHelper.UMM;
 
 public class SettingsManager
 {
@@ -61,9 +62,9 @@ public class SettingsManager
 
         IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
         {
-            logger.Information("updating settings map existing loco {0}, new values: {1}", pl._locomotive.DisplayName, val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
+            Loader.Log($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
             PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
-            logger.Information("new settings for {0}: " + pls.ToString(), pl._locomotive.DisplayName);
+            Loader.Log($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
             plsMap[pl] = pls;
         }, callInitial: false);
 
@@ -76,17 +77,17 @@ public class SettingsManager
     {
         PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier], this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
 
-        logger.Information("loaded settings for {0}", pl._locomotive.DisplayName);
+        Loader.Log($"loaded settings for {pl._locomotive.DisplayName}");
         if (!plsMap.ContainsKey(pl))
         {
-            logger.Information("pass loco not in settings map, adding");
+            Loader.Log($"pass loco not in settings map, adding");
             plsMap.Add(pl, pls);
-            logger.Information("adding observer");
+            Loader.Log($"adding observer");
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
             {
-                logger.Information("updating settings map existing loco {0}, new values: {1}", pl._locomotive.DisplayName, val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString()));
+                Loader.Log($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
                 PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, utilManager.orderedStations);
-                logger.Information("new settings for {0}: " + pls.ToString(), pl._locomotive.DisplayName);
+                Loader.Log($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
                 plsMap[pl] = pls;
             }, callInitial: false);
 

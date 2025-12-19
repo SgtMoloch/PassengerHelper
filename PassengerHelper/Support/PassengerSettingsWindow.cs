@@ -25,6 +25,7 @@ using Support.GameObjects;
 using Helpers;
 using Support;
 using PassengerHelper.Support.UIHelp;
+using PassengerHelper.UMM;
 
 public class PassengerSettingsWindow
 {
@@ -143,7 +144,7 @@ public class PassengerSettingsWindow
     {
         uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
         {
-            logger.Information("Populating passenger helper settings for {0}", passengerLocomotive._locomotive.DisplayName);
+            Loader.Log($"Populating passenger helper settings for {passengerLocomotive._locomotive.DisplayName}");
 
             builder.VStack(delegate (UIPanelBuilder builder)
             {
@@ -167,7 +168,7 @@ public class PassengerSettingsWindow
     {
         builder.AddSection("Station Settings:");
 
-        logger.Debug("Filtering stations to only unlocked ones");
+        Loader.LogDebug($"Filtering stations to only unlocked ones");
 
         List<Car> coaches = pl._locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
 
@@ -198,13 +199,13 @@ public class PassengerSettingsWindow
             {
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-                logger.Information("Pls is: {0}", pls.ToString());
+                Loader.Log($"Pls is: {pls.ToString()}");
 
                 ClearSelections(pls, stationStops);
                 SelectAllStopAt(pls, stationStops);
                 SetInteractions(pls, stationStops);
 
-                logger.Information("Pls is now: {0}", pls.ToString());
+                Loader.Log($"Pls is now: {pls.ToString()}");
 
                 settingsManager.SaveSettings(pl, pls);
 
@@ -318,7 +319,7 @@ public class PassengerSettingsWindow
             bool isAndrews = stationId == "andrews";
             StationSetting stationSettings = allStationSettings[stationId];
 
-            logger.Debug("pre interaction station settings for {0} are: {1}", stationId, stationSettings);
+            Loader.LogDebug($"pre interaction station settings for {stationId} are: {stationSettings}");
 
             bool stopAtSelected = stationSettings.StopAtStation;
 
@@ -349,7 +350,7 @@ public class PassengerSettingsWindow
                 interactableStationMap[stationId].Pause = stopAtSelected;
             }
 
-            logger.Debug("post interaction station settings for {0} are: {1}", stationId, stationSettings);
+            Loader.LogDebug($"post interaction station settings for {stationId} are: {stationSettings}");
         }
 
         if (allStationSettings.ContainsKey("alarkajct") && allStationSettings.ContainsKey("alarka"))
@@ -529,7 +530,7 @@ public class PassengerSettingsWindow
 
             hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).StopAtStation, delegate (bool on)
             {
-                logger.Debug("StopAt for {0} set to {1}", stationId, on);
+                Loader.LogDebug($"StopAt for {stationId} set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.StationSettings[stationId].StopAtStation = on;
 
@@ -554,14 +555,14 @@ public class PassengerSettingsWindow
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 int numTerminusStations = pls.StationSettings.Where(s => s.Value.TerminusStation).Count();
 
-                logger.Debug("There are currently {0} terminus stations set", numTerminusStations);
+                Loader.LogDebug($"There are currently {numTerminusStations} terminus stations set");
                 if (numTerminusStations >= 2 && on == true)
                 {
-                    logger.Debug("You can only select 2 terminus stations. Please unselect one before selecting another");
+                    Loader.LogDebug($"You can only select 2 terminus stations. Please unselect one before selecting another");
                 }
                 else
                 {
-                    logger.Debug("IsTerminusStation for {0} set to {1}", stationId, on);
+                    Loader.LogDebug($"IsTerminusStation for {stationId} set to {on}");
                     pls.StationSettings[stationId].TerminusStation = on;
 
                     if (interactableStationMap[stationId] != null)
@@ -577,7 +578,7 @@ public class PassengerSettingsWindow
 
             hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).PickupPassengersForStation, delegate (bool on)
             {
-                logger.Debug("Pickup Passengers for {0} set to {1}", stationId, on);
+                Loader.LogDebug($"Pickup Passengers for {stationId} set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                 pls.StationSettings[stationId].PickupPassengersForStation = on;
@@ -600,7 +601,7 @@ public class PassengerSettingsWindow
 
             RectTransform pauseAtStationToggle = hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).PauseAtStation, delegate (bool on)
             {
-                logger.Debug("Pause for {0} set to {1}", stationId, on);
+                Loader.LogDebug($"Pause for {stationId} set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.StationSettings[stationId].PauseAtStation = on;
                 settingsManager.SaveSettings(pl, pls);
@@ -611,7 +612,7 @@ public class PassengerSettingsWindow
 
             RectTransform transferStationToggle = hBuilder.AddToggle(() => settingsManager.GetStationSetting(pl, stationId).TransferStation, delegate (bool on)
             {
-                logger.Debug("Transfer for {0} set to {1}", stationId, on);
+                Loader.LogDebug($"Transfer for {stationId} set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.StationSettings[stationId].TransferStation = on;
 
@@ -628,7 +629,7 @@ public class PassengerSettingsWindow
 
             RectTransform passengerModeDropDown = hBuilder.AddDropdown(passengerModList, (int)settingsManager.GetStationSetting(pl, stationId).PassengerMode, delegate (int index)
             {
-                logger.Debug("Passenger Mode for {0} set to {1}", stationId, passengerModes[index].ToString());
+                Loader.LogDebug($"Passenger Mode for {stationId} set to {passengerModes[index].ToString()}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.StationSettings[stationId].PassengerMode = (PassengerMode)index;
                 settingsManager.SaveSettings(pl, pls);
@@ -670,7 +671,7 @@ public class PassengerSettingsWindow
                 .Select(stp => stp.Key)
                 .ToList();
 
-        logger.Information("Applying selected stations {0} to all coupled coaches", passengerStopsToSelect);
+        Loader.Log($"Applying selected stations {passengerStopsToSelect} to all coupled coaches");
 
         foreach (Car coach in coaches)
         {
@@ -685,7 +686,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).Disable, delegate (bool on)
             {
-                logger.Information("Disable set to {0}", on);
+                Loader.Log($"Disable set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.Disable = on;
 
@@ -698,7 +699,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForDiesel, delegate (bool on)
             {
-                logger.Debug("Pause for Diesel set to {0}", on);
+                Loader.LogDebug($"Pause for Diesel set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.PauseForDiesel = on;
 
@@ -715,11 +716,11 @@ public class PassengerSettingsWindow
                 {
                     if (value < 0 || value > 100)
                     {
-                        logger.Debug("Entered a Diesel Level greater than 100 or lower than 0");
+                        Loader.LogDebug($"Entered a Diesel Level greater than 100 or lower than 0");
                         return;
                     }
 
-                    logger.Debug("Entered a Diesel Level: {0}%", value);
+                    Loader.LogDebug($"Entered a Diesel Level: {value}%");
                     PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                     pls.DieselLevel = value / 100;
@@ -736,7 +737,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForCoal, delegate (bool on)
             {
-                logger.Debug("Pause for Coal set to {0}", on);
+                Loader.LogDebug($"Pause for Coal set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.PauseForCoal = on;
 
@@ -753,11 +754,11 @@ public class PassengerSettingsWindow
                 {
                     if (value < 0 || value > 100)
                     {
-                        logger.Debug("Entered a Coal Level greater than 100 or lower than 0");
+                        Loader.LogDebug($"Entered a Coal Level greater than 100 or lower than 0");
                         return;
                     }
 
-                    logger.Debug("Entered a Coal Level: {0}%", value);
+                    Loader.LogDebug($"Entered a Coal Level: {value}%");
                     PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                     pls.CoalLevel = value / 100;
@@ -774,7 +775,7 @@ public class PassengerSettingsWindow
             {
                 hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseForWater, delegate (bool on)
                 {
-                    logger.Debug("Pause for Water set to {0}", on);
+                    Loader.LogDebug($"Pause for Water set to {on}");
                     PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                     pls.PauseForWater = on;
 
@@ -795,11 +796,11 @@ public class PassengerSettingsWindow
                     {
                         if (value < 0 || value > 100)
                         {
-                            logger.Debug("Entered a Water Level greater than 100 or lower than 0");
+                            Loader.LogDebug($"Entered a Water Level greater than 100 or lower than 0");
                             return;
                         }
 
-                        logger.Debug("Entered a Water Level: {0}%", value);
+                        Loader.LogDebug($"Entered a Water Level: {value}%");
                         PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                         pls.WaterLevel = value / 100;
@@ -816,7 +817,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseAtNextStation, delegate (bool on)
             {
-                logger.Debug("Pause at next station set to {0}", on);
+                Loader.LogDebug($"Pause at next station set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                 pls.PauseAtNextStation = on;
@@ -830,7 +831,7 @@ public class PassengerSettingsWindow
             {
                 hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PauseAtTerminusStation, delegate (bool on)
                 {
-                    logger.Debug("Pause at terminus station set to {0}", on);
+                    Loader.LogDebug($"Pause at terminus station set to {on}");
                     PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                     pls.PauseAtTerminusStation = on;
@@ -844,7 +845,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).PreventLoadWhenPausedAtStation, delegate (bool on)
             {
-                logger.Debug("Prevent loading when paused at station set to {0}", on);
+                Loader.LogDebug($"Prevent loading when paused at station set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                 pls.PreventLoadWhenPausedAtStation = on;
@@ -858,7 +859,7 @@ public class PassengerSettingsWindow
         {
             hBuilder.AddToggle(() => settingsManager.GetSettings(pl).WaitForFullPassengersTerminusStation, delegate (bool on)
             {
-                logger.Debug("Wait for full passengers at terminus station set to {0}", on);
+                Loader.LogDebug($"Wait for full passengers at terminus station set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
                 pls.WaitForFullPassengersTerminusStation = on;
@@ -884,7 +885,7 @@ public class PassengerSettingsWindow
                             int newValue = (int)value;
 
                             DirectionOfTravel newDirectionOfTravel = (DirectionOfTravel)newValue;
-                            logger.Information("Set direction of travel to: {0}", newDirectionOfTravel.ToString());
+                            Loader.Log($"Set direction of travel to: {newDirectionOfTravel.ToString()}");
                             PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
 

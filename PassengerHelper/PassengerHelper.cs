@@ -19,11 +19,11 @@ public class PassengerHelper
 {
     static ILogger logger = Log.ForContext(typeof(PassengerHelper));
 
-
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
     internal UtilManager utilManager { get; }
+    internal PassengerStopOrderManager passengerStopOrderManager { get; }
     internal UIHelper UIHelper { get; }
     internal bool TestMode { get; } = true;
     internal Harmony harmony { get; }
@@ -42,11 +42,13 @@ public class PassengerHelper
 
         UIHelper uIHelper = new UIHelper();
         UtilManager utilManager = new UtilManager();
+        PassengerStopOrderManager passengerStopOrderManager = new PassengerStopOrderManager();
         SettingsManager settingsManager = new SettingsManager(uIHelper, utilManager);
         TrainManager trainManager = new TrainManager(settingsManager);
         StationManager stationManager = new StationManager(settingsManager, trainManager, orderedStations);
 
         this.UIHelper = uIHelper;
+        this.passengerStopOrderManager = passengerStopOrderManager;
         this.utilManager = utilManager;
         this.settingsManager = settingsManager;
         this.trainManager = trainManager;

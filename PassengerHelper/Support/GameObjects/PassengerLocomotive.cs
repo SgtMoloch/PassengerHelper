@@ -20,6 +20,7 @@ using Serilog;
 using UI.EngineControls;
 using static Model.Car;
 using System.Reflection;
+using PassengerHelper.UMM;
 
 public class PassengerLocomotive
 {
@@ -119,7 +120,7 @@ public class PassengerLocomotive
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
-            logger.Information("Orders changed for {0}. Orders are now: {1} and selfSentOrders is: {2}", _locomotive.DisplayName, orders, _selfSentOrders);
+            Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentOrders is: {_selfSentOrders}");
             if (!_selfSentOrders)
             {
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(this);
@@ -152,12 +153,12 @@ public class PassengerLocomotive
         PassengerLocomotiveSettings pls;
         if (dictionaryValue.IsNull || !_keyValueObject.Keys.Contains(KeyValueIdentifier))
         {
-            logger.Information("Creating new settings for {0}", _locomotive.DisplayName);
+            Loader.Log($"Creating new settings for {_locomotive.DisplayName}");
             pls = settingsManager.CreateNewSettings(this);
         }
         else
         {
-            logger.Information("Loading existing settings for {0}", _locomotive.DisplayName);
+            Loader.Log($"Loading existing settings for {_locomotive.DisplayName}");
             pls = settingsManager.LoadSettings(this);
         }
 
@@ -175,7 +176,7 @@ public class PassengerLocomotive
 
         if ((pls.TrainStatus.Arrived || pls.TrainStatus.ReadyToDepart) && this.CurrentStation != null)
         {
-            logger.Information("Train did not depart yet, selecting current station on passenger cars");
+            Loader.Log($"Train did not depart yet, selecting current station on passenger cars");
             _locomotive.velocity = 0;
 
             foreach (Car coach in GetCoaches())
@@ -191,7 +192,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.Departed && this.CurrentStation == null && this.PreviousStation != null)
         {
-            logger.Information("Train is not at a station, but is in route, re-selecting stations to be safe");
+            Loader.Log($"Train is not at a station, but is in route, re-selecting stations to be safe");
 
             foreach (Car coach in GetCoaches())
             {
@@ -235,7 +236,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_dieselFuelSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveDiesel)
         {
-            logger.Information("{0} has {1}gal of diesel fuel", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of diesel fuel");
             level = loadInfo.Value.Quantity;
         }
 
@@ -249,13 +250,13 @@ public class PassengerLocomotive
 
         float minLevel = pls.DieselLevel;
         float actualLevel = level / _dieselSlotMax;
-        logger.Information("diesel: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _dieselSlotMax);
+        Loader.Log($"diesel: min level is: {minLevel}, actual level is: {actualLevel}, max quantity is: {_dieselSlotMax}");
 
         pls.TrainStatus.StoppedForDiesel = _locomotive.Archetype == CarArchetype.LocomotiveDiesel && actualLevel < minLevel;
 
         if (pls.TrainStatus.StoppedForDiesel)
         {
-            logger.Information("{0} is low on diesel", _locomotive.DisplayName);
+            Loader.Log($"{_locomotive.DisplayName} is low on diesel");
             pls.TrainStatus.CurrentReasonForStop = "stopped for low diesel";
             pls.TrainStatus.CurrentlyStopped = true;
         }
@@ -270,7 +271,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_coalSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity / 2000);
+            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity / 2000}T of coal");
             level = loadInfo.Value.Quantity;
         }
 
@@ -284,13 +285,13 @@ public class PassengerLocomotive
 
         float minLevel = pls.CoalLevel;
         float actualLevel = level / _coalSlotMax;
-        logger.Information("coal: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _coalSlotMax);
+        Loader.Log($"coal: min level is: {minLevel}, actual level is: {actualLevel}, max quantity is: {_coalSlotMax}");
 
         pls.TrainStatus.StoppedForCoal = hasTender && actualLevel < minLevel;
 
         if (pls.TrainStatus.StoppedForCoal)
         {
-            logger.Information("{0} is low on coal", _locomotive.DisplayName);
+            Loader.Log($"{_locomotive.DisplayName} is low on coal");
             pls.TrainStatus.CurrentReasonForStop = "stopped for low coal";
             pls.TrainStatus.CurrentlyStopped = true;
         }
@@ -305,7 +306,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_waterSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}gal of water", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of water");
             level = loadInfo.Value.Quantity;
         }
 
@@ -319,13 +320,13 @@ public class PassengerLocomotive
 
         float minLevel = pls.WaterLevel;
         float actualLevel = level / _waterSlotMax;
-        logger.Information("water: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _waterSlotMax);
+        Loader.Log($"water: min level is: {minLevel}, actual level is: {actualLevel}, max quantity is: {_waterSlotMax}");
 
         pls.TrainStatus.StoppedForWater = hasTender && actualLevel < minLevel;
 
         if (pls.TrainStatus.StoppedForWater)
         {
-            logger.Information("{0} is low on water", _locomotive.DisplayName);
+            Loader.Log($"{_locomotive.DisplayName} is low on water");
             pls.TrainStatus.CurrentReasonForStop = "stopped for low water";
             pls.TrainStatus.CurrentlyStopped = true;
         }
@@ -337,7 +338,7 @@ public class PassengerLocomotive
 
     public void ResetStoppedFlags()
     {
-        logger.Information("resetting Stop flags for {0}", _locomotive.DisplayName);
+        Loader.Log($"resetting Stop flags for {_locomotive.DisplayName}");
         PassengerLocomotiveSettings pls = settingsManager.GetSettings(this);
         pls.TrainStatus.ResetStoppedFlags();
 
@@ -346,7 +347,7 @@ public class PassengerLocomotive
 
     public void ResetStatusFlags()
     {
-        logger.Information("resetting Status flags for {0}", _locomotive.DisplayName);
+        Loader.Log($"resetting Status flags for {_locomotive.DisplayName}");
         PassengerLocomotiveSettings pls = settingsManager.GetSettings(this);
 
         pls.TrainStatus.ResetStatusFlags();
@@ -356,14 +357,14 @@ public class PassengerLocomotive
 
     public bool ShouldStayStopped()
     {
-        logger.Information("checking if {0} should stay Stopped at current station", _locomotive.DisplayName);
+        Loader.Log($"checking if {_locomotive.DisplayName} should stay Stopped at current station");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         PassengerLocomotiveSettings pls = settingsManager.GetSettings(this);
 
         if (pls.TrainStatus.Continue)
         {
-            logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
+            Loader.Log($"Continue button clicked {_locomotive.DisplayName}. Continuing");
             ResetStoppedFlags();
 
             return false;
@@ -373,7 +374,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.StoppedInsufficientStopAtStations && pls.StationSettings.Values.Where(s => s.StopAtStation).Count() < 2)
         {
-            logger.Information("Still do not have at least 2 stop at stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            Loader.Log($"Still do not have at least 2 stop at stations selected. {_locomotive.DisplayName} is remaining stopped.");
         }
         else
         {
@@ -382,7 +383,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.StoppedInsufficientTerminusStations && pls.StationSettings.Values.Where(s => s.TerminusStation).Count() != 2)
         {
-            logger.Information("Still do not have 2 terminus stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            Loader.Log($"Still do not have 2 terminus stations selected. {_locomotive.DisplayName} is remaining stopped.");
         }
         else
         {
@@ -391,7 +392,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.StoppedUnknownDirection && pls.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
         {
-            logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
+            Loader.Log($"Direction of Travel is still unknown. {_locomotive.DisplayName} is remaining stopped.");
         }
         else
         {
@@ -400,7 +401,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.StoppedNextStation && pls.PauseAtNextStation)
         {
-            logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            Loader.Log($"StopAtNextStation is selected. {_locomotive.DisplayName} is remaining stopped.");
         }
         else
         {
@@ -409,7 +410,7 @@ public class PassengerLocomotive
 
         if (pls.TrainStatus.StoppedTerminusStation && pls.PauseAtTerminusStation && pls.StationSettings[CurrentStation.identifier].TerminusStation)
         {
-            logger.Information("StopAtTerminusStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
+            Loader.Log($"StopAtTerminusStation is selected. {_locomotive.DisplayName} is remaining stopped.");
         }
         else
         {
@@ -420,7 +421,7 @@ public class PassengerLocomotive
         {
             if (pls.TrainStatus.StoppedStationPause && pls.StationSettings[CurrentStation.identifier].PauseAtStation)
             {
-                logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
+                Loader.Log($"Requested Pause at this station. {_locomotive.DisplayName} is remaining stopped.");
             }
             else
             {
@@ -436,7 +437,7 @@ public class PassengerLocomotive
                     PassengerMarker? marker = coach.GetPassengerMarker();
                     if (marker == null)
                     {
-                        logger.Information("Passenger car not full, remaining stopped");
+                        Loader.Log($"Passenger car not full, remaining stopped");
                         notFull = true;
                         break;
                     }
@@ -447,7 +448,7 @@ public class PassengerLocomotive
                     bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
                     if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
                     {
-                        logger.Information("Passenger car not full, remaining stopped");
+                        Loader.Log($"Passenger car not full, remaining stopped");
                         notFull = true;
                         break;
                     }
@@ -461,19 +462,19 @@ public class PassengerLocomotive
         // train is stopped because of low diesel, coal or water
         if (pls.TrainStatus.StoppedForDiesel || pls.TrainStatus.StoppedForCoal || pls.TrainStatus.StoppedForWater)
         {
-            logger.Information("Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
+            Loader.Log($"Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
             // first check if the setting has been set to false
             if (pls.TrainStatus.StoppedForDiesel)
             {
                 if (!pls.PauseForDiesel)
                 {
-                    logger.Information("StopForDiesel no longer selected, resetting flag.");
+                    Loader.Log($"StopForDiesel no longer selected, resetting flag.");
                     pls.TrainStatus.StoppedForDiesel = false;
                 }
                 else
                 {
                     CheckDieselFuelLevel(out float level);
-                    logger.Information("StoppedForDiesel is now: {0}", pls.TrainStatus.StoppedForDiesel);
+                    Loader.Log($"StoppedForDiesel is now: {pls.TrainStatus.StoppedForDiesel}");
                 }
             }
 
@@ -481,13 +482,13 @@ public class PassengerLocomotive
             {
                 if (!pls.PauseForCoal)
                 {
-                    logger.Information("StopForCoal no longer selected, resetting flag.");
+                    Loader.Log($"StopForCoal no longer selected, resetting flag.");
                     pls.TrainStatus.StoppedForCoal = false;
                 }
                 else
                 {
                     CheckCoalLevel(out float level);
-                    logger.Information("StoppedForCoal is now: {0}", pls.TrainStatus.StoppedForCoal);
+                    Loader.Log($"StoppedForCoal is now: {pls.TrainStatus.StoppedForCoal}");
                 }
 
             }
@@ -496,13 +497,13 @@ public class PassengerLocomotive
             {
                 if (!pls.PauseForWater)
                 {
-                    logger.Information("StopForWater no longer selected, resetting flag.");
+                    Loader.Log($"StopForWater no longer selected, resetting flag.");
                     pls.TrainStatus.StoppedForWater = false;
                 }
                 else
                 {
                     CheckWaterLevel(out float level);
-                    logger.Information("StoppedForWater is now: {0}", pls.TrainStatus.StoppedForWater);
+                    Loader.Log($"StoppedForWater is now: {pls.TrainStatus.StoppedForWater}");
                 }
 
             }
@@ -526,23 +527,23 @@ public class PassengerLocomotive
 
     public void ReverseLocoDirection()
     {
-        logger.Information("reversing loco direction");
+        Loader.Log($"reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
         _selfSentOrders = true;
-        logger.Information("Current direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
+        Loader.Log($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
-        logger.Information("new direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
+        Loader.Log($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
 
         if (mode == AutoEngineerMode.Off)
         {
             float direction = _keyValueObject[PropertyChange.KeyForControl(PropertyChange.Control.Reverser)].FloatValue;
-            logger.Information("Current direction is {0}", direction == 1 ? "forward" : "backward");
+            Loader.Log($"Current direction is {(direction == 1 ? "forward" : "backward")}");
             float newDirection = direction *= -1f;
             _locomotive.SendPropertyChange(PropertyChange.Control.Reverser, newDirection);
-            logger.Information("new direction is {0}", newDirection == 1 ? "forward" : "backward");
+            Loader.Log($"new direction is {(newDirection == 1 ? "forward" : "backward")}");
             return;
         }
     }

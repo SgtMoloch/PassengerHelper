@@ -1,9 +1,11 @@
 namespace PassengerHelper.Patches;
 
+using System.Collections.Generic;
 using System.Linq;
 using Game.Progression;
 using HarmonyLib;
 using Model.Ops;
+using PassengerHelper.Managers;
 using PassengerHelper.UMM;
 using RollingStock;
 using Serilog;
@@ -18,30 +20,39 @@ public static class MapFeatureManagerPatches
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]
     private static void HandleFeatureEnablesChanged()
     {
-        logger.Debug("Progressions Changed. Checking Stations");
-        PassengerHelper shared = Loader.passengerHelper;
+        Loader.LogDebug($"Progressions Changed. Checking Stations");
+        PassengerHelper shared = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {
             return;
         }
 
-        PassengerStop.FindAll().ToList().ForEach(ps =>
-        {
-            string name = ps.identifier;
-            string formalName = ps.name;
+        PassengerStopOrderManager passengerStopOrderManager = shared.passengerStopOrderManager;
 
-            // shared.settingsManager.GetAllSettings()
-            // .Select(p => p.Value)
-            // .ToList()
-            // .ForEach(setting =>
-            // {
-            //     if (ps.ProgressionDisabled)
-            //     {
-            //         logger.Debug($"Station {formalName} is disabled, disabling Station stop At, Terminus station, Passenger Pickup, Transfer Station, and Pause");
-            //         setting.StationSettings[ps.identifier] = new StationSetting();
-            //     }
-            // });
-        });
+        // catch if this runs before
+        if (passengerStopOrderManager.OrderedAll.Count == 0)
+        {
+            passengerStopOrderManager.EnsureTopologyUpToDate(() =>
+            {
+                if (StopOrder.TryComputeOrderedStopsAnchored(out var ordered, out var warn))
+                {
+                    if (!string.IsNullOrEmpty(warn))
+                        Loader.Log(warn);
+                    return ordered;
+                }
+
+                Loader.Log("Stop ordering failed; using empty list.");
+                return new List<PassengerStop>();
+            });
+        }
+
+        passengerStopOrderManager.RefreshUnlocked(stop => !stop.ProgressionDisabled);
+
+        // 🔍 TEMP sanity log — after RefreshUnlocked
+        var all = passengerStopOrderManager.OrderedAll;
+        var unlocked = passengerStopOrderManager.OrderedUnlocked;
+
+        Loader.Log($"StopOrder: all={all.Count}, unlocked={unlocked.Count}");
     }
 }

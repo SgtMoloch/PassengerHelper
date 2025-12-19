@@ -11,6 +11,7 @@ using Model.Definition;
 using Game.Messages;
 using static Model.Car;
 using Support.GameObjects;
+using PassengerHelper.UMM;
 
 public class TrainManager
 {
@@ -28,14 +29,14 @@ public class TrainManager
 
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
     {
-        logger.Debug("Getting PassengerLocomotive for {0}", locomotive.DisplayName);
+        Loader.LogDebug($"Getting PassengerLocomotive for {locomotive.DisplayName}");
         if (!this.passengerLocomotives.TryGetValue(locomotive, out PassengerLocomotive passengerLocomotive))
         {
-            logger.Information("Did not find existing PassengerLocomotive for {0}, looking for existing PassengerSettings and creating a new Passenger Locomotive", locomotive.DisplayName);
+            Loader.Log($"Did not find existing PassengerLocomotive for {locomotive.DisplayName}, looking for existing PassengerSettings and creating a new Passenger Locomotive");
             passengerLocomotive = new PassengerLocomotive(locomotive, settingsManager);
             passengerLocomotive.LoadSettings();
 
-            logger.Debug("Adding new Passenger Locomotive to internal Dictionary");
+            Loader.LogDebug($"Adding new Passenger Locomotive to internal Dictionary");
 
             this.passengerLocomotives.Add(locomotive, passengerLocomotive);
         }
@@ -45,7 +46,7 @@ public class TrainManager
 
     public PassengerLocomotive GetPassengerLocomotive(Car car)
     {
-        logger.Debug("Getting PassengerLocomotive coupled to {0}", car.DisplayName);
+        Loader.LogDebug($"Getting PassengerLocomotive coupled to {car.DisplayName}");
 
         // find all cars coupled to car
         // filter to only locomotives

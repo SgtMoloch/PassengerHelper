@@ -22,7 +22,7 @@ public static class AutoEngineerPassengerStopperPatches
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return true;
@@ -49,7 +49,7 @@ public static class AutoEngineerPassengerStopperPatches
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "_UpdateFor")]
     private static void _UpdateFor(AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -69,7 +69,7 @@ public static class AutoEngineerPassengerStopperPatches
 
             if (pls.TrainStatus.ReadyToDepart && pl.CurrentStation != null)
             {
-                logger.Information("Train {0} has departed {1} at {2}.", pl._locomotive.DisplayName, pl.CurrentStation.DisplayName, TimeWeather.Now);
+                Loader.Log($"Train {pl._locomotive.DisplayName} has departed {pl.CurrentStation.DisplayName} at {TimeWeather.Now}.");
                 pls.TrainStatus.Arrived = false;
                 pls.TrainStatus.ReadyToDepart = false;
                 pls.TrainStatus.Departed = true;

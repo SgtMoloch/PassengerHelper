@@ -9,7 +9,6 @@ using UI.Builder;
 using UI.Common;
 using UnityEngine;
 
-
 internal class WindowMethods
 {
     private static ProgrammaticWindowCreator _programmaticWindowCreator;
@@ -65,13 +64,6 @@ internal class WindowMethods
         }
         throw new NotSupportedException("Cannot find fitting CreateWindow method");
     }
-
-
-
-
-
-
-
 
     internal static Window CreateWindowLegacy(ProgrammaticWindowCreator __instance, string identifier, int width, int height, Window.Position position, object sizing)
     {

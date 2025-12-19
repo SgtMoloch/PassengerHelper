@@ -8,6 +8,8 @@
     <GameAssembly Include="Core"/>
     <GameAssembly Include="KeyValue.Runtime"/>
     <GameAssembly Include="mscorlib"/>
+    <GameAssembly Include="System"/>
+    <GameAssembly Include="System.Core"/>
     <GameAssembly Include="Unity.TextMeshPro"/>
     <GameAssembly Include="UnityEngine.UI"/>
     <GameAssembly Include="UnityEngine.UIElementsModule"/>

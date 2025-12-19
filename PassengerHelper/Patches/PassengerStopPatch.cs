@@ -27,7 +27,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "Awake")]
     private static void Awake(PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -41,7 +41,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "LoadState")]
     private static void LoadState(PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -49,7 +49,7 @@ public static class PassengerStopPatches
         PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponent<PassengerHelperPassengerStop>();
 
         IReadOnlyDictionary<string, Value> dictionaryValue = passengerHelperPassengerStop._keyValueObject["pass-helper-state"].DictionaryValue;
-        logger.Information("loaded state is: {0}", dictionaryValue);
+        Loader.Log($"loaded state is: {dictionaryValue}");
 
         if (!dictionaryValue.Any())
         {
@@ -78,7 +78,7 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
     private static void ShouldWorkCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -86,7 +86,7 @@ public static class PassengerStopPatches
 
         List<Car> engines = car.EnumerateCoupled().Where(car => car.IsLocomotive).ToList();
 
-        if(engines.Count == 0)
+        if (engines.Count == 0)
         {
             return;
         }
@@ -118,7 +118,7 @@ public static class PassengerStopPatches
             return;
         }
 
-        logger.Information("Train {0} has not arrived at {1} yet, waiting to unload/load cars until it arrives", passengerLocomotive._locomotive.DisplayName, __instance.DisplayName);
+        Loader.Log($"Train {passengerLocomotive._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
         __result = false;
 
     }
@@ -127,13 +127,13 @@ public static class PassengerStopPatches
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
     private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.passengerHelper;
+        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return true;
         }
 
-        logger.Debug("Patched Load method");
+        Loader.LogDebug($"Patched Load method");
         PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(car);
 
         PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);
