@@ -16,7 +16,6 @@ using Model.Definition.Data;
 using Model.Ops;
 using Managers;
 using RollingStock;
-using Serilog;
 using UI.EngineControls;
 using static Model.Car;
 using System.Reflection;
@@ -24,8 +23,6 @@ using PassengerHelper.UMM;
 
 public class PassengerLocomotive
 {
-    readonly ILogger logger = Log.ForContext(typeof(PassengerLocomotive));
-
     internal BaseLocomotive _locomotive;
 
     private PassengerStop? _currentStop = null;

@@ -3,7 +3,6 @@ namespace PassengerHelper.Patches;
 using HarmonyLib;
 using Model;
 using Model.AI;
-using Serilog;
 using System.Reflection;
 using Game;
 using RollingStock;
@@ -16,8 +15,6 @@ using global::PassengerHelper.Managers;
 [HarmonyPatch]
 public static class AutoEngineerPassengerStopperPatches
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
-
     [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
     private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)

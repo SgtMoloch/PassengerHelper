@@ -12,7 +12,6 @@ using Model;
 using Model.Definition;
 using Model.Ops;
 using RollingStock;
-using Serilog;
 using Support;
 using TMPro;
 using UI;
@@ -26,7 +25,6 @@ using PassengerHelper.UMM;
 
 public class SettingsManager
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(SettingsManager));
     internal UIHelper uIHelper { get; }
 
     private UtilManager utilManager;

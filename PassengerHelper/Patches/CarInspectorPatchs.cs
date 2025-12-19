@@ -6,7 +6,6 @@ using Support;
 using HarmonyLib;
 using Model;
 using Model.AI;
-using Serilog;
 using UI.Builder;
 using UI.CarInspector;
 using UI.EngineControls;
@@ -25,8 +24,6 @@ using PassengerHelper.UMM;
 [HarmonyPatch]
 public static class CarInspectorPatches
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(CarInspectorPatches));
-
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
     private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)

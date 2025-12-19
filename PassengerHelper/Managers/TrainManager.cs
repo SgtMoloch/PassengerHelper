@@ -2,7 +2,6 @@ namespace PassengerHelper.Managers;
 
 using System.Collections.Generic;
 using Support;
-using Serilog;
 using Model;
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
@@ -15,7 +14,6 @@ using PassengerHelper.UMM;
 
 public class TrainManager
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(TrainManager));
     private Dictionary<BaseLocomotive, PassengerLocomotive> passengerLocomotives = new();
 
     private SettingsManager settingsManager;

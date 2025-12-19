@@ -14,7 +14,6 @@ using Model;
 using Model.Definition;
 using Model.Ops;
 using RollingStock;
-using Serilog;
 using TMPro;
 using UI;
 using UI.Builder;
@@ -29,7 +28,6 @@ using PassengerHelper.UMM;
 
 public class PassengerSettingsWindow
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerSettingsWindow));
     private UIHelper uIHelper;
     private List<PassengerStop> stationStops;
 

@@ -15,14 +15,10 @@ using KeyValue.Runtime;
 using System;
 using PassengerHelper.UMM;
 using PassengerHelper.Support.GameObjects;
-using Serilog;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
 {
-
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerStopPatches));
-
     [HarmonyPostfix]
     [HarmonyPatch(typeof(PassengerStop), "Awake")]
     private static void Awake(PassengerStop __instance)
@@ -69,7 +65,7 @@ public static class PassengerStopPatches
         }
         catch (Exception exception)
         {
-            Log.Error(exception, "Exception in LoadState {identifier}", __instance.identifier);
+            Loader.LogError(exception + " Exception in LoadState {__instance.identifier}" );
         }
     }
 

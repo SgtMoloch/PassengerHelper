@@ -5,7 +5,6 @@ using Game.Events;
 using HarmonyLib;
 using Model;
 using Support;
-using Serilog;
 using System.Collections.Generic;
 using System.Linq;
 using Managers;
@@ -17,8 +16,6 @@ using System.Reflection;
 
 public class PassengerHelper
 {
-    static ILogger logger = Log.ForContext(typeof(PassengerHelper));
-
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }

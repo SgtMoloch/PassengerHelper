@@ -3,7 +3,6 @@
     <GameAssembly Include="Assembly-CSharp" />
     <GameAssembly Include="UnityEngine.CoreModule" />
     <GameAssembly Include="0Harmony" />
-    <GameAssembly Include="Serilog" />
     <GameAssembly Include="Definition" />
     <GameAssembly Include="Core"/>
     <GameAssembly Include="KeyValue.Runtime"/>

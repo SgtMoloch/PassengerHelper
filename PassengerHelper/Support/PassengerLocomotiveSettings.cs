@@ -6,7 +6,6 @@ using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
 using Model;
 using KeyValue.Runtime;
-using Serilog;
 using UI.Builder;
 using Game.Messages;
 using System.Reflection;

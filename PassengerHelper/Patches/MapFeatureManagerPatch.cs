@@ -8,14 +8,11 @@ using Model.Ops;
 using PassengerHelper.Managers;
 using PassengerHelper.UMM;
 using RollingStock;
-using Serilog;
 using Support;
 
 [HarmonyPatch]
 public static class MapFeatureManagerPatches
 {
-    static ILogger logger = Log.ForContext(typeof(MapFeatureManagerPatches));
-
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]
     private static void HandleFeatureEnablesChanged()

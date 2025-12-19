@@ -8,7 +8,6 @@ using Model.AI;
 using Model.Definition;
 using Support;
 using RollingStock;
-using Serilog;
 using Model.Ops;
 using System.Reflection;
 using Game;
@@ -19,8 +18,6 @@ using PassengerHelper.UMM;
 [HarmonyPatch]
 public static class PassengerExpirationPatches
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerExpirationPatches));
-
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
@@ -86,7 +83,7 @@ public static class PassengerExpirationPatches
 
             if (num > 0)
             {
-                Log.Information("Expired {count} passengers since {exp}.", num, gameDateTime);
+                Loader.Log("Expired {num} passengers since {gameDateTime}.");
             }
         }
     }

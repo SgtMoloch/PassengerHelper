@@ -10,14 +10,11 @@ using Model.Definition;
 using Model.Definition.Data;
 using Model.Ops;
 using Network;
-using Serilog;
 using PassengerHelper.Support.GameObjects;
 using PassengerHelper.UMM;
 
 public class StationManager
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(StationManager));
-
     internal readonly List<string> orderedStations;
 
     internal TrainManager trainManager;
