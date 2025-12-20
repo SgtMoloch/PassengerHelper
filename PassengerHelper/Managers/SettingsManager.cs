@@ -43,14 +43,13 @@ public class SettingsManager
 
     public void SaveSettings(PassengerLocomotive pl, PassengerLocomotiveSettings pls)
     {
-        StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier, PropertyValueConverter.RuntimeToSnapshot(pls.PropertyValue())));
-    }
+        StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(pls.PropertyValue())));
 
-    public void SaveSettings(PassengerLocomotive pl)
-    {
-        SaveSettings(pl, plsMap[pl]);
-    }
+        pl.settingsHash = pls.getSettingsHash();
 
+        plsMap[pl] = pls;
+    }
+    
     public PassengerLocomotiveSettings CreateNewSettings(PassengerLocomotive pl)
     {
         PassengerLocomotiveSettings pls = new(this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
@@ -58,7 +57,7 @@ public class SettingsManager
 
         SaveSettings(pl, pls);
 
-        IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
+        IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
         {
             Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
             PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
@@ -73,14 +72,14 @@ public class SettingsManager
 
     public PassengerLocomotiveSettings LoadSettings(PassengerLocomotive pl)
     {
-        PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier], this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+        PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier_Settings], this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
 
         Loader.Log($"loaded settings for {pl._locomotive.DisplayName}");
         if (!plsMap.ContainsKey(pl))
         {
             Loader.Log($"pass loco not in settings map, adding observer");
             plsMap.Add(pl, pls);
-            IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier, delegate (Value val)
+            IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
             {
                 Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
                 PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, utilManager.orderedStations);
@@ -119,16 +118,6 @@ public class SettingsManager
         }
 
         return plsMap[pl].StationSettings[stationId];
-    }
-
-    public TrainStatus GetTrainStatus(PassengerLocomotive pl)
-    {
-        if (!plsMap.ContainsKey(pl))
-        {
-            throw new Exception("passneger locomotive has not been added to internal settings map");
-        }
-
-        return plsMap[pl].TrainStatus;
     }
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)
