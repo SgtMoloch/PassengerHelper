@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using GalaSoft.MvvmLight.Messaging;
+using Game.Events;
 using Game.Messages;
 using Game.State;
 using Model;
@@ -29,8 +31,7 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
     public bool IsRunning => _loop != null;
 
-    private MethodInfo FindCars = typeof(PassengerStop).GetMethod("FindCars", BindingFlags.NonPublic | BindingFlags.Instance);
-
+    
     public void Init(
         StationManager stationManager,
         TrainManager trainManager,
@@ -48,6 +49,18 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
         {
             Loader.Log("[PassengerHelperTicker] starting loop (Init)");
             _loop = StartCoroutine(Loop());
+        }
+
+        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
+    }
+
+    private void OnMapDidUnload(MapDidUnloadEvent @event)
+    {
+        if (_loop != null)
+        {
+            Loader.Log($"[PassengerHelperTicker] stopping loop");
+            StopCoroutine(_loop);
+            _loop = null;
         }
     }
 
@@ -72,6 +85,8 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
     private IEnumerator Loop()
     {
+        int tick = 0;
+        int stationTicks = (int)_intervalSeconds;
         while (true)
         {
             if (!Loader.ModEntry.Enabled)
@@ -81,110 +96,31 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
             try
             {
-                TickOnce();
-                _stationManager.TickDepartureChecks();
+                Tick(tick, stationTicks);
+                
+                if (tick == stationTicks)
+                {
+                    tick = 0;
+                }
+                tick++;
             }
             catch (System.Exception ex)
             {
-                // log once or throttle logs
                 Loader.LogError($"PassengerHelperTicker exception: {ex}");
             }
 
-            yield return new WaitForSeconds(_intervalSeconds);
+            yield return new WaitForSeconds(1.0f);
         }
     }
 
-    private void TickOnce()
+    private void Tick(int ticks, int stationTicks)
     {
-        List<PassengerStop> passStops = _passengerStopOrderManager.OrderedUnlockedAll.ToList();
-
-        foreach (PassengerStop ps in passStops)
+        if (ticks % stationTicks == 0)
         {
-            HashSet<string> visitedCarIds = new HashSet<string>(StringComparer.Ordinal);
-            HashSet<string> processedLocoIds = new HashSet<string>(StringComparer.Ordinal);
-            IEnumerable<Car> carsAtStation = (IEnumerable<Car>)FindCars.Invoke(ps, new object[] { TrainController.Shared });
-
-            foreach (Car car in carsAtStation)
-            {
-                if (car == null) continue;
-
-                if (!visitedCarIds.Add(car.id)) continue;
-
-                if (!TryGetPassengerLocomotive(car, visitedCarIds, out BaseLocomotive lm, out string failReason))
-                {
-                    Loader.LogError($"PassenegerHelperTick: skipping {car.DisplayName} because: {failReason}");
-                    continue;
-                }
-
-                if (!processedLocoIds.Add(lm.id)) continue;
-
-                _stationManager.HandleTrainAtStation(lm, ps);
-            }
+            _stationManager.TickStations();
         }
-        // 1) Use your station-span scan here to find passenger cars “being worked”
-        // 2) For each passenger car: resolve pl = _trainManager.GetPassengerLocomotive(car)
-        // 3) Decide if it’s “at station” (or “departed”) and call station manager logic
+
+        _stationManager.TickDeparture();
     }
-
-    private bool TryGetPassengerLocomotive(Car car, HashSet<string> visitedCarIds, out BaseLocomotive lm, out string failReason)
-    {
-        lm = null;
-        failReason = "";
-
-        string localFail = null;
-
-        BaseLocomotive found = null;
-
-        foreach (Car c in car.EnumerateCoupled())
-        {
-            if (localFail != null) break;
-            Check(c);
-        }
-        foreach (Car c in car.EnumerateCoupled(Car.LogicalEnd.B))
-        {
-            if (localFail != null) break;
-            Check(c);
-        }
-
-        void Check(Car c)
-        {
-            if (c == null) return;
-
-            if (string.IsNullOrEmpty(c.id)) return;
-
-            if (!visitedCarIds.Add(c.id)) return;
-
-            if (c is not BaseLocomotive loco) return;
-
-            bool isMu = c.ControlProperties[PropertyChange.Control.Mu];
-
-            if (!isMu)
-            {
-                if (found == null)
-                {
-                    found = loco;
-                }
-                else if (found.id != loco.id)
-                {
-                    localFail = $"More than 1 engine is coupled to car: {car.DisplayName} and those additional engines are NOT mu, therefore unable to determine which engine is the actual passenger locomotive";
-                    return;
-                }
-            }
-        }
-
-        if (localFail != null)
-        {
-            failReason = localFail;
-            return false;
-        }
-
-        if (found == null)
-        {
-            failReason = $"No non-MU locomotive coupled to {car.DisplayName}";
-            return false;
-        }
-
-        lm = found;
-        return true;
-    }
+    
 }

@@ -38,7 +38,7 @@ public class PassengerHelperPlugin
         TrainStateManager trainStateManager = new TrainStateManager();
         SettingsManager settingsManager = new SettingsManager(uIHelper, () => (List<PassengerStop>)passengerStopOrderManager.OrderedMainline);
         TrainManager trainManager = new TrainManager(settingsManager, trainStateManager);
-        StationManager stationManager = new StationManager(settingsManager, trainManager, trainStateManager, () => passengerStopOrderManager.OrderedMainlineStopIds);
+        StationManager stationManager = new StationManager(settingsManager, trainManager, trainStateManager, passengerStopOrderManager);
 
         this.UIHelper = uIHelper;
         this.passengerStopOrderManager = passengerStopOrderManager;

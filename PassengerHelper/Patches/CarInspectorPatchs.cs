@@ -42,41 +42,41 @@ public static class CarInspectorPatches
 
             AutoEngineerPersistence persistence = new AutoEngineerPersistence(_locomotive.KeyValueObject);
             AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_locomotive as BaseLocomotive, persistence);
-            AutoEngineerMode mode2 = helper.Mode;
+            AutoEngineerMode mode = helper.Mode;
 
-            bool AEMode = mode2 == AutoEngineerMode.Road || mode2 == AutoEngineerMode.Waypoint;
+            bool AEMode = mode == AutoEngineerMode.Road || mode == AutoEngineerMode.Waypoint;
 
             PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
             TrainState state = plugin.trainStateManager.GetState(pl);
 
-            if (_locomotive.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+            if (pl.GetCoaches().Any())
             {
                 builder.Spacer(5f);
-                builder.HStack(delegate (UIPanelBuilder builder)
+                builder.HStack(delegate (UIPanelBuilder hBuilder)
                 {
-                    builder.AddButton("PassengerSettings", delegate
+                    hBuilder.AddButton("PassengerSettings", delegate
                     {
                         plugin.settingsManager.ShowSettingsWindow(pl);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
                     if (AEMode && state.isStoppedOverrideable())
                     {
-                        builder.AddButton("Continue", delegate
+                        hBuilder.AddButton("Continue", delegate
                         {
                             Loader.Log($"CONTINUE CLICK: loco={_locomotive.DisplayName} id={_locomotive.id} setting Continue=true");
 
                             pl.SetStopOverrideActive();
-                            builder.Rebuild();
+                            hBuilder.Rebuild();
                         }).Tooltip("Resume travel", "Resume travel");
                     }
 
-                    builder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
+                    hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
                     {
                         TrainState state = plugin.trainStateManager.GetState(pl);
 
-                        if(state.isStoppedOverrideable())
+                        if (state.isStoppedOverrideable() || !state.CurrentlyStopped)
                         {
-                            builder.Rebuild();
+                            hBuilder.Rebuild();
                         }
 
                     }, callInitial: false));

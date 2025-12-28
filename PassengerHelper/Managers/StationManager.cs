@@ -11,6 +11,7 @@ public partial class StationManager
     internal TrainManager trainManager;
     internal SettingsManager settingsManager;
     internal TrainStateManager trainStateManager;
+    internal PassengerStopOrderManager passengerStopOrderManager;
 
     private readonly HashSet<string> _armedDepartures = new();
 
@@ -19,12 +20,13 @@ public partial class StationManager
     private const string almondIdentifier = "almond";
     private const string alarkajctIdentifier = "alarkajct";
 
-    public StationManager(SettingsManager settingsManager, TrainManager trainManager, TrainStateManager trainStateManager, Func<List<string>> getOrderedStations)
+    public StationManager(SettingsManager settingsManager, TrainManager trainManager, TrainStateManager trainStateManager, PassengerStopOrderManager passengerStopOrderManager)
     {
-        this.getOrderedStations = getOrderedStations;
         this.trainManager = trainManager;
         this.settingsManager = settingsManager;
         this.trainStateManager = trainStateManager;
+        this.passengerStopOrderManager = passengerStopOrderManager;
+        this.getOrderedStations = () => passengerStopOrderManager.OrderedMainlineStopIds;
     }
 
 }

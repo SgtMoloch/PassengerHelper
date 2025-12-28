@@ -19,59 +19,6 @@ using PassengerHelper.Support.GameObjects;
 [HarmonyPatch]
 public static class PassengerStopPatches
 {
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
-    private static void ShouldWorkCar(ref bool __result, Car car, PassengerStop __instance)
-    {
-        PassengerHelperPlugin plugin = Loader.PassengerHelper;
-        if (!Loader.ModEntry.Enabled)
-        {
-            return;
-        }
-
-        List<Car> engines = car.EnumerateCoupled().Where(car => car.IsLocomotive).ToList();
-
-        if (engines.Count == 0)
-        {
-            return;
-        }
-
-        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engines[0]);
-        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
-
-        if (settings.Disable)
-        {
-            // Passenger Helper disabled
-            return;
-        }
-
-        AutoEngineerPersistence persistence = new(pl._locomotive.KeyValueObject);
-
-        if (persistence.Orders.Mode == AutoEngineerMode.Off)
-        {
-            // manual mode
-            return;
-        }
-
-        if (persistence.Orders.Mode == AutoEngineerMode.Yard)
-        {
-            // yard mode
-            return;
-        }
-
-        TrainState state = plugin.trainStateManager.GetState(pl);
-
-        // train has arrived and ran station procedure, so work car
-        if (state.Arrived && state.CurrentStationId == __instance.identifier)
-        {
-            return;
-        }
-
-        Loader.LogVerbose($"Train {pl._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
-        __result = false;
-
-    }
-
     /* 
     prevents loading of car based on settings. because wait for full load at terminus is considered paused, has specific check for this case.
      */

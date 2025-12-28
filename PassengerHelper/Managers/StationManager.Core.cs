@@ -35,44 +35,6 @@ public partial class StationManager
         internal PassengerStop CurrentStation;
     }
 
-    public void TickDepartureChecks()
-    {
-        foreach (string locoId in _armedDepartures.ToArray())
-        {
-            PassengerLocomotive pl = trainManager.GetPassengerLocomotive(locoId);
-            if (pl == null)
-            {
-                _armedDepartures.Remove(locoId);
-                continue;
-            }
-
-            TrainState state = trainStateManager.GetState(pl);
-
-            if (!state.ReadyToDepart || state.Departed || state.CurrentStation == null)
-            {
-                _armedDepartures.Remove(locoId);
-                continue;
-            }
-
-            float speed = Math.Abs(pl._locomotive.velocity);
-
-            if (!pl._locomotive.IsStopped(10f) && speed > 0.05f)
-            {
-                Loader.Log($"Train {pl._locomotive.DisplayName} has departed {state.CurrentStation.DisplayName} at {TimeWeather.Now}.");
-
-                state.Arrived = false;
-                state.ReadyToDepart = false;
-                state.Departed = true;
-                state.StopOverrideActive = false;
-                state.StopOverrideStationId = null;
-                state.PreviousStation = state.CurrentStation;
-                state.CurrentStation = null;
-
-                trainStateManager.SaveState(pl, state);
-            }
-        }
-    }
-
     /* 
         returns true if the train should stay stopped at the station
         returns false if there is no reason for the train to stay stopped and defer to base game logic for departure
@@ -185,6 +147,7 @@ public partial class StationManager
             state.StopOverrideStationId = null;
             DisarmDepartureCheck(pl);
             trainStateManager.SaveState(pl, state);
+            pl.StopAE();
         }
 
         /* 
@@ -205,6 +168,9 @@ public partial class StationManager
         Loader.Log($"{locomotive.DisplayName} cached settings hash: {pl.settingsHash}, actual setting hash: {pls.getSettingsHash()}");
         if (state.ReadyToDepart && pl.settingsHash == pls.getSettingsHash())
         {
+            // this is for if the game loads when train is at station, the arm isn't saved, so rearm
+            ArmDepartureCheck(pl);
+            pl.StartAE();
             return;
         }
 
@@ -212,6 +178,7 @@ public partial class StationManager
             7. Build station procedure context and disarm departure
          */
         DisarmDepartureCheck(pl);
+        pl.StopAE();
 
         ctx.StopAtIndex = BuildOrderIndex(orderedStopAtStations);
         ctx.TerminusIndex = BuildOrderIndex(orderedTerminusStations);
@@ -284,11 +251,13 @@ public partial class StationManager
             Loader.Log($"Train {locomotive.DisplayName} is ready to depart station {currentStop.DisplayName}");
             state.ReadyToDepart = true;
             ArmDepartureCheck(pl);
+            pl.StartAE();
         }
 
         /*
             13. save state and return 
          */
         trainStateManager.SaveState(pl, state);
+        
     }
 }

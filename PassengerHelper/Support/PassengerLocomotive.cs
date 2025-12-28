@@ -58,7 +58,9 @@ public class PassengerLocomotive
     }
     internal int stateHash = 0;
 
-    private bool _selfSentOrders = false;
+    private bool _selfSentStartOrders = false;
+    private bool _selfSentStopOrders = false;
+    private bool _selfSentRevOrders = false;
 
     internal KeyValueObject _keyValueObject;
 
@@ -68,7 +70,9 @@ public class PassengerLocomotive
     internal TrainStateManager trainStateManager;
     internal SettingsManager settingsManager;
 
-    internal int maxAESpeed;
+    internal int maxAESpeed = 45;
+
+    internal bool _gameLoadFlag = true;
 
     public PassengerLocomotive(BaseLocomotive _locomotive, TrainStateManager trainStateManager, SettingsManager settingsManager)
     {
@@ -92,24 +96,27 @@ public class PassengerLocomotive
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
-            Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentOrders is: {_selfSentOrders}");
+            Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentStartOrders is: {_selfSentStartOrders} and selfSentStopOrders is: {_selfSentStopOrders} and selfSentRevOrders is: {_selfSentRevOrders}");
             TrainState state = trainStateManager.GetState(this);
-            if (state.gameLoadFlag)
+            if (_selfSentStartOrders)
             {
-                state.gameLoadFlag = false;
-                trainStateManager.SaveState(this, state);
+                _selfSentStartOrders = false;
                 return;
             }
-            if (!_selfSentOrders)
+            if (_selfSentStopOrders)
             {
-
-                // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
-
-                state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
-                trainStateManager.SaveState(this, state);
+                _selfSentStopOrders = false;
+                return;
             }
-            _selfSentOrders = false;
-        });
+            if (_selfSentRevOrders)
+            {
+                _selfSentRevOrders = false;
+                return;
+            }
+
+            state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
+            trainStateManager.SaveState(this, state);
+        }, callInitial: false);
     }
 
     public void LoadSettings()
@@ -176,14 +183,6 @@ public class PassengerLocomotive
         stateHash = state.GetHashCode();
     }
 
-    public AutoEngineerMode GetMode()
-    {
-        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-
-        return helper.Mode;
-    }
-
     public List<Car> GetCoaches()
     {
         return _locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).ToList();
@@ -230,27 +229,39 @@ public class PassengerLocomotive
 
     public void StopAE()
     {
+        if (_selfSentStopOrders) return;
         Loader.Log($"PH established locomotive should be stopped, setting AE speed to 0.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
         if (mode == AutoEngineerMode.Off) return;
+        if (helper.Orders.MaxSpeedMph == 0) return;
         this.maxAESpeed = helper.Orders.MaxSpeedMph;
-        this._selfSentOrders = true;
+        this._selfSentStopOrders = true;
 
         helper.SetOrdersValue(null, null, 0);
     }
 
     public void StartAE()
     {
+        if (_selfSentStartOrders) return;
         Loader.Log($"PH established locomotive should no longer be stopped, setting AE speed to previous speed.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
         if (mode == AutoEngineerMode.Off) return;
-        this._selfSentOrders = true;
+        if (helper.Orders.MaxSpeedMph > 0)
+        {
+            if (helper.Orders.MaxSpeedMph < 35)
+            {
+                this._selfSentStartOrders = true;
+                helper.SetOrdersValue(null, null, 45);
+            }
+            return;
+        }
+        this._selfSentStartOrders = true;
         helper.SetOrdersValue(null, null, this.maxAESpeed);
         this.maxAESpeed = 0;
     }
@@ -262,7 +273,7 @@ public class PassengerLocomotive
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
-        _selfSentOrders = true;
+        _selfSentRevOrders = true;
         Loader.Log($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
         Loader.Log($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
@@ -276,6 +287,7 @@ public class PassengerLocomotive
         state.ResetStoppedFlags();
         state.ReadyToDepart = true;
         trainStateManager.SaveState(this, state);
+        StartAE();
 
         PostNotice("ai-stop", "PassengerHelper: Continue requested");
     }

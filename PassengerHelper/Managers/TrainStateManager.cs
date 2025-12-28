@@ -88,6 +88,11 @@ public class TrainStateManager
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)
     {
+        foreach (PassengerLocomotive pl in plKeyObvDisposeMap.Keys)
+        {
+            plKeyObvDisposeMap[pl].Dispose();
+        }
+
         foreach (KeyValuePair<PassengerLocomotive, TrainState> kvp in stateMap)
         {
             TrainState state = kvp.Value;
@@ -96,11 +101,6 @@ public class TrainStateManager
             SaveState(kvp.Key, state);
         }
         stateMap.Clear();
-
-        foreach (PassengerLocomotive pl in plKeyObvDisposeMap.Keys)
-        {
-            plKeyObvDisposeMap[pl].Dispose();
-        }
 
         plKeyObvDisposeMap.Clear();
     }

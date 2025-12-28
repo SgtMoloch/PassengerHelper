@@ -127,6 +127,13 @@ public class SettingsManager
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)
     {
+        foreach (PassengerLocomotive pl in plKeyObvDisposeMap.Keys)
+        {
+            plKeyObvDisposeMap[pl].Dispose();
+        }
+
+        plKeyObvDisposeMap.Clear();
+
         foreach (KeyValuePair<PassengerLocomotive, PassengerLocomotiveSettings> kvp in plsMap)
         {
             PassengerLocomotiveSettings pls = kvp.Value;
@@ -134,13 +141,6 @@ public class SettingsManager
             SaveSettings(kvp.Key, pls);
         }
         plsMap.Clear();
-
-        foreach (PassengerLocomotive pl in plKeyObvDisposeMap.Keys)
-        {
-            plKeyObvDisposeMap[pl].Dispose();
-        }
-
-        plKeyObvDisposeMap.Clear();
     }
 
     private Window CreateSettingsWindow(string locomotiveDisplayName)

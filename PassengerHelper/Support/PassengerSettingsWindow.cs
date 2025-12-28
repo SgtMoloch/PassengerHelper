@@ -901,7 +901,7 @@ public class PassengerSettingsWindow
                 return effectiveDOT;
             }
 
-            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (int)ValueClosure().Value, () => ValueClosure().Source.ToString(), delegate (float value)
+            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (int)ValueClosure().Value, () => ValueClosure().Value.ToString(), delegate (float value)
                         {
                             int newValue = (int)value;
 
