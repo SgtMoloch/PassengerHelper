@@ -167,6 +167,7 @@ public partial class StationManager
 
         if (!validSettings)
         {
+            pl.StopAE();
             return;
         }
 

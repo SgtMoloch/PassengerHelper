@@ -16,11 +16,13 @@ public partial class StationManager
     public void ArmDepartureCheck(PassengerLocomotive pl)
     {
         _armedDepartures.Add(pl._locomotive.id);
+        pl.StartAE();
     }
 
     public void DisarmDepartureCheck(PassengerLocomotive pl)
     {
         _armedDepartures.Remove(pl._locomotive.id);
+        pl.StopAE();
     }
 
     private MethodInfo carCapacity = typeof(PassengerStop).GetMethod("PassengerCapacity", BindingFlags.NonPublic | BindingFlags.Instance);

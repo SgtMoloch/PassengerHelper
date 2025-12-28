@@ -68,6 +68,8 @@ public class PassengerLocomotive
     internal TrainStateManager trainStateManager;
     internal SettingsManager settingsManager;
 
+    internal int maxAESpeed;
+
     public PassengerLocomotive(BaseLocomotive _locomotive, TrainStateManager trainStateManager, SettingsManager settingsManager)
     {
         this._locomotive = _locomotive;
@@ -175,30 +177,6 @@ public class PassengerLocomotive
         return helper.Mode;
     }
 
-    public void StopAE()
-    {
-        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-
-        if (helper.Mode == AutoEngineerMode.Off) return;
-
-        _selfSentOrders = true;
-        Loader.Log($"Train is in AE mode and should be stopped, stopping {_locomotive.DisplayName}");
-        helper.SetOrdersValue(null, null, 0);
-    }
-
-    public void StartAE()
-    {
-        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-
-        if (helper.Mode == AutoEngineerMode.Off) return;
-
-        _selfSentOrders = true;
-        Loader.Log($"Train is in AE mode and should now be moving, setting max speed on {_locomotive.DisplayName}");
-        helper.SetOrdersValue(null, null, 45);
-    }
-
     public List<Car> GetCoaches()
     {
         return _locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).ToList();
@@ -241,6 +219,33 @@ public class PassengerLocomotive
         }
 
         return level / _waterSlotMax;
+    }
+
+    public void StopAE()
+    {
+        Loader.Log($"PH established locomotive should be stopped, setting AE speed to 0.");
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        AutoEngineerMode mode = helper.Mode;
+
+        if (mode == AutoEngineerMode.Off) return;
+        this.maxAESpeed = helper.Orders.MaxSpeedMph;
+        this._selfSentOrders = true;
+
+        helper.SetOrdersValue(null, null, 0);
+    }
+
+    public void StartAE()
+    {
+        Loader.Log($"PH established locomotive should no longer be stopped, setting AE speed to previous speed.");
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        AutoEngineerMode mode = helper.Mode;
+
+        if (mode == AutoEngineerMode.Off) return;
+        this._selfSentOrders = true;
+        helper.SetOrdersValue(null, null, this.maxAESpeed);
+        this.maxAESpeed = 0;
     }
 
     public void ReverseLocoDirection()
