@@ -421,6 +421,18 @@ public class TrainState
                 StoppedUnsupportedStation;
     }
 
+    public bool isStoppedOverrideable()
+    {
+        return CurrentlyStopped &&
+                (StoppedForDiesel ||
+                StoppedForCoal ||
+                StoppedForWater ||
+                StoppedNextStation ||
+                StoppedTerminusStation ||
+                StoppedStationPause ||
+                StoppedWaitForFullLoad);
+    }
+
     public static TrainState FromPropertyValue(Value value)
     {
         if (value.Type != KeyValue.Runtime.ValueType.Dictionary)

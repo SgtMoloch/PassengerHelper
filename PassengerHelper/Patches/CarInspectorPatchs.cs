@@ -20,6 +20,7 @@ using Model.Ops;
 using Model.Definition;
 using PassengerHelper.Support.GameObjects;
 using PassengerHelper.Plugin;
+using KeyValue.Runtime;
 
 [HarmonyPatch]
 public static class CarInspectorPatches
@@ -58,7 +59,7 @@ public static class CarInspectorPatches
                         plugin.settingsManager.ShowSettingsWindow(pl);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    if (AEMode && state.CurrentlyStopped)
+                    if (AEMode && state.isStoppedOverrideable())
                     {
                         builder.AddButton("Continue", delegate
                         {
@@ -68,6 +69,17 @@ public static class CarInspectorPatches
                             builder.Rebuild();
                         }).Tooltip("Resume travel", "Resume travel");
                     }
+
+                    builder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
+                    {
+                        TrainState state = plugin.trainStateManager.GetState(pl);
+
+                        if(state.isStoppedOverrideable())
+                        {
+                            builder.Rebuild();
+                        }
+
+                    }, callInitial: false));
                 });
             }
         }
