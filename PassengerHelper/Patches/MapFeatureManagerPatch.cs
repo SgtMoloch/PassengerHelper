@@ -6,7 +6,7 @@ using Game.Progression;
 using HarmonyLib;
 using Model.Ops;
 using PassengerHelper.Managers;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 using RollingStock;
 using Support;
 
@@ -17,8 +17,8 @@ public static class MapFeatureManagerPatches
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]
     private static void HandleFeatureEnablesChanged()
     {
-        Loader.LogDebug($"Progressions Changed. Checking Stations");
-        PassengerHelper shared = Loader.PassengerHelper;
+        Loader.LogDebug($"[MapFeatureManagerPatch] Progressions Changed. Checking Stations");
+        PassengerHelperPlugin shared = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {
@@ -32,15 +32,28 @@ public static class MapFeatureManagerPatches
         {
             passengerStopOrderManager.EnsureTopologyUpToDate(() =>
             {
-                if (StopOrder.TryComputeOrderedStopsAnchored(out var ordered, out var warn))
+                if (StopOrder.TryComputeOrderedStopsAnchored(out var orderedMainline, out var orderedAll, out var warn))
+            {
+                if (!string.IsNullOrEmpty(warn))
                 {
-                    if (!string.IsNullOrEmpty(warn))
-                        Loader.Log(warn);
-                    return ordered;
+                    Loader.Log(warn);
                 }
 
-                Loader.Log("Stop ordering failed; using empty list.");
-                return new List<PassengerStop>();
+                // TEMP DEBUG: dump ordering
+                for (int i = 0; i < orderedMainline.Count; i++)
+                {
+                    Loader.Log($"[MapFeatureManagerPatch] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
+                }
+
+                for (int i = 0; i < orderedAll.Count; i++)
+                {
+                    Loader.Log($"[MapFeatureManagerPatch] AllOrder[{i}] = {orderedAll[i].identifier}");
+                }
+
+                return new StopOrderResult{Mainline = orderedMainline, All = orderedAll, Warning = warn};
+            }
+
+            return new StopOrderResult{Mainline = new(), All = new(), Warning = "[MapFeatureManagerPatch] Stop ordering failed; using empty lists."};
             });
         }
 
@@ -48,8 +61,8 @@ public static class MapFeatureManagerPatches
 
         // 🔍 TEMP sanity log — after RefreshUnlocked
         var all = passengerStopOrderManager.OrderedAll;
-        var unlocked = passengerStopOrderManager.OrderedUnlocked;
+        var unlocked = passengerStopOrderManager.OrderedUnlockedAll;
 
-        Loader.Log($"StopOrder: all={all.Count}, unlocked={unlocked.Count}");
+        Loader.Log($"[MapFeatureManagerPatch] StopOrder: all={all.Count}, unlocked={unlocked.Count}");
     }
 }

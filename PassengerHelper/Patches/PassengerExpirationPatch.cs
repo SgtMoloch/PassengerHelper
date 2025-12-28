@@ -13,16 +13,18 @@ using System.Reflection;
 using Game;
 using Game.Messages;
 using Game.State;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 [HarmonyPatch]
 public static class PassengerExpirationPatches
 {
+    /* 
+    this patch will prevent expired passengers from poofing when the car is in motion and prevents expiring passengers when car is at a station
+     */
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
     {
-        PassengerHelper plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -31,7 +33,6 @@ public static class PassengerExpirationPatches
         /*
            Original Game code unless otherwise stated
         */
-
         IEnumerable<PassengerStop> enumerable = PassengerStop.FindAll();
         List<Car> list = TrainController.Shared.Cars.Where((Car car) => car.IsPassengerCar()).ToList();
         GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
@@ -69,7 +70,7 @@ public static class PassengerExpirationPatches
                     // start custom logic
                     if (!(passengerGroup.Boarded >= gameDateTime) && car.IsAtRest)
                     {
-                         //end custom logic
+                        //end custom logic
                         num += passengerGroup.Count;
                         valueOrDefault.Groups.RemoveAt(num2);
                         flag = true;

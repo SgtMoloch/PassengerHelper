@@ -13,67 +13,17 @@ using Game;
 using Game.Messages;
 using KeyValue.Runtime;
 using System;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 using PassengerHelper.Support.GameObjects;
 
 [HarmonyPatch]
 public static class PassengerStopPatches
 {
     [HarmonyPostfix]
-    [HarmonyPatch(typeof(PassengerStop), "Awake")]
-    private static void Awake(PassengerStop __instance)
-    {
-        PassengerHelper plugin = Loader.PassengerHelper;
-        if (!Loader.ModEntry.Enabled)
-        {
-            return;
-        }
-
-        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.gameObject.AddComponent<PassengerHelperPassengerStop>();
-        passengerHelperPassengerStop.gameObject.SetActive(true);
-    }
-
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(PassengerStop), "LoadState")]
-    private static void LoadState(PassengerStop __instance)
-    {
-        PassengerHelper plugin = Loader.PassengerHelper;
-        if (!Loader.ModEntry.Enabled)
-        {
-            return;
-        }
-        PassengerHelperPassengerStop passengerHelperPassengerStop = __instance.GetComponent<PassengerHelperPassengerStop>();
-
-        IReadOnlyDictionary<string, Value> dictionaryValue = passengerHelperPassengerStop._keyValueObject["pass-helper-state"].DictionaryValue;
-
-        if (!dictionaryValue.Any())
-        {
-            return;
-        }
-        try
-        {
-            List<Value> transferGroupListValue = dictionaryValue["transfer_group_list"].ArrayValue.ToList();
-            List<PassengerGroup> groups = transferGroupListValue.Select(g => PassengerGroup.FromPropertyValue(g)).ToList();
-
-            MethodInfo OffsetWaiting = typeof(PassengerStop).GetMethod("OffsetWaiting", BindingFlags.NonPublic | BindingFlags.Instance);
-
-            foreach (PassengerGroup g in groups)
-            {
-                OffsetWaiting.Invoke(__instance, new object[] { g.Destination, g.Origin, TimeWeather.Now, g.Count });
-            }
-        }
-        catch (Exception exception)
-        {
-            Loader.LogError(exception + " Exception in LoadState {__instance.identifier}" );
-        }
-    }
-
-
-    [HarmonyPostfix]
     [HarmonyPatch(typeof(PassengerStop), "ShouldWorkCar")]
     private static void ShouldWorkCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.PassengerHelper;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return;
@@ -86,16 +36,8 @@ public static class PassengerStopPatches
             return;
         }
 
-        PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engines[0]);
-        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);
-
-        AutoEngineerPersistence persistence = new(passengerLocomotive._locomotive.KeyValueObject);
-
-        if (persistence.Orders.Mode != AutoEngineerMode.Road)
-        {
-            // manual mode or yard mode
-            return;
-        }
+        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive((BaseLocomotive)engines[0]);
+        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
 
         if (settings.Disable)
         {
@@ -103,43 +45,59 @@ public static class PassengerStopPatches
             return;
         }
 
-        if (settings.TrainStatus.Arrived && passengerLocomotive.CurrentStation == __instance)
+        AutoEngineerPersistence persistence = new(pl._locomotive.KeyValueObject);
+
+        if (persistence.Orders.Mode == AutoEngineerMode.Off)
+        {
+            // manual mode
+            return;
+        }
+
+        if (persistence.Orders.Mode == AutoEngineerMode.Yard)
+        {
+            // yard mode
+            return;
+        }
+
+        TrainState state = plugin.trainStateManager.GetState(pl);
+
+        // train has arrived and ran station procedure, so work car
+        if (state.Arrived && state.CurrentStationId == __instance.identifier)
         {
             return;
         }
 
-        if (!settings.TrainStatus.Arrived && !settings.TrainStatus.ReadyToDepart && !settings.TrainStatus.Departed)
-        {
-            return;
-        }
-
-        Loader.LogVerbose($"Train {passengerLocomotive._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
+        Loader.LogVerbose($"Train {pl._locomotive.DisplayName} has not arrived at {__instance.DisplayName} yet, waiting to unload/load cars until it arrives");
         __result = false;
 
     }
 
+    /* 
+    prevents loading of car based on settings. because wait for full load at terminus is considered paused, has specific check for this case.
+     */
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerStop), "LoadCar")]
     private static bool LoadCar(ref bool __result, Car car, PassengerStop __instance)
     {
-        PassengerHelper plugin = Loader.PassengerHelper;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
         if (!Loader.ModEntry.Enabled)
         {
             return true;
         }
 
-        PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(car);
+        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
 
-        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(passengerLocomotive);
+        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
+        TrainState state = plugin.trainStateManager.GetState(pl);
 
         if (settings.Disable)
         {
             return true;
         }
 
-        bool trainIsPaused = settings.TrainStatus.CurrentlyStopped;
+        bool trainIsPaused = state.CurrentlyStopped;
         bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
-        bool trainAtTerminus = settings.TrainStatus.AtTerminusStationEast || settings.TrainStatus.AtTerminusStationWest;
+        bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
         bool waitForFullLoadAtTerminus = settings.WaitForFullPassengersTerminusStation;
 
         bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);

@@ -5,6 +5,6 @@
     "Version": "$(AssemblyVersion)",
     "ManagerVersion": "0.31.0",
     "AssemblyName": "$(AssemblyName).dll",
-    "EntryMethod": "$(AssemblyName).UMM.Loader.Load",
+    "EntryMethod": "$(AssemblyName).Plugin.Loader.Load",
     "HomePage": "https://www.nexusmods.com/railroader/mods/257"
 }

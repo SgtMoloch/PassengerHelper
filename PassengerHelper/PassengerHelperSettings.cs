@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityModManagerNet;
 
-namespace PassengerHelper.UMM;
+namespace PassengerHelper.Plugin;
 
 public class PassengerHelperSettings : UnityModManager.ModSettings, IDrawable
 {

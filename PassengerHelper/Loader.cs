@@ -1,31 +1,38 @@
+namespace PassengerHelper.Plugin;
+
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
 using Model.Ops;
-using PassengerHelper.Support;
+using Support;
+using Support.GameObjects;
+using UnityEngine;
 using UnityModManagerNet;
 
-namespace PassengerHelper.UMM;
 
 public static class Loader
 {
     public static UnityModManager.ModEntry ModEntry { get; private set; }
-    public static PassengerHelper PassengerHelper { get; private set; }
+    public static PassengerHelperPlugin PassengerHelper { get; private set; }
     public static PassengerHelperSettings Settings { get; private set; }
+
+    private static bool _runtimeCreated;
 
     private static bool Load(UnityModManager.ModEntry modEntry)
     {
         if (ModEntry != null)
         {
-            modEntry.Logger.Warning("Passenger Helper is already loaded!");
+            modEntry.Logger.Warning("[Loader] Passenger Helper is already loaded!");
             return false;
         }
-        modEntry.Logger.Log($"Loading Passenger Helper assembly version {Assembly.GetExecutingAssembly().GetName().Version}");
+        modEntry.Logger.Log($"[Loader] Loading Passenger Helper assembly version {Assembly.GetExecutingAssembly().GetName().Version}");
 
         ModEntry = modEntry;
         Settings = UnityModManager.ModSettings.Load<PassengerHelperSettings>(modEntry);
-        PassengerHelper = new PassengerHelper(modEntry.Info.Id);
+        PassengerHelper = new PassengerHelperPlugin(modEntry.Info.Id);
+        CreateRuntime();
 
         Messenger.Default.Register<MapDidLoadEvent>(modEntry, OnMapDidLoad);
 
@@ -39,6 +46,8 @@ public static class Loader
     private static bool Unload(UnityModManager.ModEntry modEntry)
     {
         PassengerHelper.harmony.UnpatchAll(modEntry.Info.Id);
+
+        DestroyRuntime();
 
         return true;
     }
@@ -62,7 +71,7 @@ public static class Loader
 
         PassengerHelper.passengerStopOrderManager.EnsureTopologyUpToDate(() =>
         {
-            if (StopOrder.TryComputeOrderedStopsAnchored(out var ordered, out var warn))
+            if (StopOrder.TryComputeOrderedStopsAnchored(out var orderedMainline, out var orderedAll, out var warn))
             {
                 if (!string.IsNullOrEmpty(warn))
                 {
@@ -70,25 +79,29 @@ public static class Loader
                 }
 
                 // TEMP DEBUG: dump ordering
-                for (int i = 0; i < ordered.Count; i++)
+                for (int i = 0; i < orderedMainline.Count; i++)
                 {
-                    Loader.Log($"StopOrder[{i}] = {ordered[i].identifier}");
+                    Loader.Log($"[Loader] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
                 }
 
-                return ordered;
+                for (int i = 0; i < orderedAll.Count; i++)
+                {
+                    Loader.Log($"[Loader] AllOrder[{i}] = {orderedAll[i].identifier}");
+                }
+
+                return new StopOrderResult { Mainline = orderedMainline, All = orderedAll, Warning = warn };
             }
 
-            Loader.Log("Stop ordering failed; using empty list.");
-            return new List<PassengerStop>();
+            return new StopOrderResult { Mainline = new(), All = new(), Warning = "[Loader] Stop ordering failed; using empty lists." };
         });
 
         PassengerHelper.passengerStopOrderManager.RefreshUnlocked(stop => !stop.ProgressionDisabled);
 
         // 🔍 TEMP sanity log — after RefreshUnlocked
         var all = PassengerHelper.passengerStopOrderManager.OrderedAll;
-        var unlocked = PassengerHelper.passengerStopOrderManager.OrderedUnlocked;
+        var unlocked = PassengerHelper.passengerStopOrderManager.OrderedUnlockedAll;
 
-        Loader.Log($"StopOrder: all={all.Count}, unlocked={unlocked.Count}");
+        Loader.Log($"[Loader] StopOrder: all={all.Count}, unlocked={unlocked.Count}");
     }
 
     public static void Log(string str)
@@ -112,6 +125,53 @@ public static class Loader
     {
         if (Settings.VerboseLogging)
             ModEntry?.Logger.Log(str);
+    }
+
+    private static void CreateRuntime()
+    {
+        if (_runtimeCreated)
+        {
+            return;
+        }
+
+        try
+        {
+            Log("CreateRuntime: creating PassengerHelperRuntime GO");
+
+            GameObject go = new GameObject("PassengerHelperRuntime");
+            UnityEngine.Object.DontDestroyOnLoad(go);
+
+            PassengerHelperRuntime runtime = go.AddComponent<PassengerHelperRuntime>();
+            PassengerHelper.runtime = runtime;
+
+            runtime.Init(PassengerHelper.stationManager, PassengerHelper.trainManager, PassengerHelper.settingsManager, PassengerHelper.trainStateManager, PassengerHelper.passengerStopOrderManager);
+
+            _runtimeCreated = true;
+
+            Log("CreateRuntime: runtime created + initialized OK");
+        }
+        catch (Exception ex)
+        {
+            Loader.LogError($"CreateRuntime: FAILED: {ex}");
+        }
+    }
+
+    private static void DestroyRuntime()
+    {
+        if (!_runtimeCreated)
+        {
+            return;
+        }
+
+        GameObject go = GameObject.Find("PassengerHelperRuntime");
+
+        if (go != null)
+        {
+            UnityEngine.Object.Destroy(go);
+        }
+
+        _runtimeCreated = false;
+        PassengerHelper.runtime = null;
     }
 
 }

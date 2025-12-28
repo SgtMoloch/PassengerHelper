@@ -19,7 +19,7 @@ using UnityEngine.UI;
 using Model.Ops;
 using Model.Definition;
 using PassengerHelper.Support.GameObjects;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 [HarmonyPatch]
 public static class CarInspectorPatches
@@ -28,7 +28,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
     private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)
     {
-        PassengerHelper plugin = Loader.PassengerHelper;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {
@@ -37,18 +37,18 @@ public static class CarInspectorPatches
 
         if (____car.IsLocomotive)
         {
-            BaseLocomotive _car = (BaseLocomotive)____car;
+            BaseLocomotive _locomotive = (BaseLocomotive)____car;
 
-            AutoEngineerPersistence persistence = new AutoEngineerPersistence(_car.KeyValueObject);
-            AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
+            AutoEngineerPersistence persistence = new AutoEngineerPersistence(_locomotive.KeyValueObject);
+            AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_locomotive as BaseLocomotive, persistence);
             AutoEngineerMode mode2 = helper.Mode;
 
             bool AEMode = mode2 == AutoEngineerMode.Road || mode2 == AutoEngineerMode.Waypoint;
 
-            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_car);
-            PassengerLocomotiveSettings pls = plugin.settingsManager.GetSettings(pl);
+            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+            TrainState state = plugin.trainStateManager.GetState(pl);
 
-            if (_car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+            if (_locomotive.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
             {
                 builder.Spacer(5f);
                 builder.HStack(delegate (UIPanelBuilder builder)
@@ -58,26 +58,13 @@ public static class CarInspectorPatches
                         plugin.settingsManager.ShowSettingsWindow(pl);
                     }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    if (pl.settingsHash == pls.getSettingsHash() && pl.stationSettingsHash == pls.getStationSettingsHash() && pl.StationProcedureRan)
-                    {
-                        builder.AddButton("Reset Cache", delegate
-                        {
-                            pl.ResetSettingsHash();
-                            pl.ResetStatusFlags();
-                            pl.PreviousStation = null;
-                            pl.CurrentStation = null;
-                            pl.StationProcedureRan = false;
-
-                            builder.Rebuild();
-                        }).Tooltip("Resets internal settings cache", "Reset internal settings cache");
-                    }
-
-                    if (AEMode && pls.TrainStatus.CurrentlyStopped)
+                    if (AEMode && state.CurrentlyStopped)
                     {
                         builder.AddButton("Continue", delegate
                         {
-                            pls.TrainStatus.Continue = true;
-                            plugin.settingsManager.SaveSettings(pl, pls);
+                            Loader.Log($"CONTINUE CLICK: loco={_locomotive.DisplayName} id={_locomotive.id} setting Continue=true");
+
+                            pl.SetStopOverrideActive();
                             builder.Rebuild();
                         }).Tooltip("Resume travel", "Resume travel");
                     }
@@ -92,7 +79,7 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulatePanel")]
     private static void PopulatePanel(Window ____window)
     {
-        PassengerHelper plugin = Loader.PassengerHelper;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
         {

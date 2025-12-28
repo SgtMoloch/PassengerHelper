@@ -24,12 +24,10 @@ using Support.GameObjects;
 using Helpers;
 using Support;
 using PassengerHelper.Support.UIHelp;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 public class PassengerSettingsWindow
 {
-    private UIHelper uIHelper;
-    private List<PassengerStop> stationStops;
 
     internal class Interactable
     {
@@ -130,33 +128,48 @@ public class PassengerSettingsWindow
 
     internal Dictionary<string, Interactable> interactableStationMap = new();
     internal SettingsManager settingsManager;
+    internal TrainStateManager trainStateManager;
+    internal PassengerHelperPlugin plugin;
 
-    internal PassengerSettingsWindow(UIHelper uIHelper, List<PassengerStop> stationStops, SettingsManager settingsManager)
+    private UIHelper uIHelper;
+    private List<PassengerStop> stationStops;
+
+    internal PassengerSettingsWindow(UIHelper uIHelper, PassengerHelperPlugin plugin)
     {
         this.uIHelper = uIHelper;
-        this.stationStops = stationStops;
-        this.settingsManager = settingsManager;
+        this.stationStops = new(plugin.passengerStopOrderManager.OrderedUnlockedMainline);
+        this.settingsManager = plugin.settingsManager;
+        this.trainStateManager = plugin.trainStateManager;
+        this.plugin = plugin;
     }
 
-    internal void PopulateAndShowSettingsWindow(Window passengerSettingsWindow, PassengerLocomotive passengerLocomotive)
+    internal void PopulateAndShowSettingsWindow(Window passengerSettingsWindow, PassengerLocomotive pl)
     {
         uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
         {
-            Loader.Log($"Populating passenger helper settings for {passengerLocomotive._locomotive.DisplayName}");
+            Loader.Log($"Populating passenger helper settings for {pl._locomotive.DisplayName}");
 
             builder.VStack(delegate (UIPanelBuilder builder)
             {
-                PopulateStationSettings(passengerSettingsWindow, builder, passengerLocomotive);
+                PopulateStationSettings(passengerSettingsWindow, builder, pl);
                 builder.AddExpandingVerticalSpacer();
             });
 
             builder.Spacer();
             builder.VStack(delegate (UIPanelBuilder builder)
             {
-                PopulateSettings(builder, passengerLocomotive);
+                PopulateSettings(builder, pl);
                 builder.AddExpandingVerticalSpacer();
             });
-            AddSaveButton(builder, passengerSettingsWindow);
+            builder.VStack(delegate (UIPanelBuilder builder)
+            {
+                builder.AddExpandingVerticalSpacer();
+                builder.HStack(delegate (UIPanelBuilder builder)
+                {
+                    AddSaveButton(builder, passengerSettingsWindow);
+                    AddDebugButton(builder, pl);
+                });
+            });
         });
 
         passengerSettingsWindow.ShowWindow();
@@ -168,7 +181,7 @@ public class PassengerSettingsWindow
 
         Loader.LogDebug($"Filtering stations to only unlocked ones");
 
-        List<Car> coaches = pl._locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
+        List<Car> coaches = pl.GetCoaches();
 
         builder.HStack(delegate (UIPanelBuilder builder)
         {
@@ -354,16 +367,13 @@ public class PassengerSettingsWindow
         if (allStationSettings.ContainsKey("alarkajct") && allStationSettings.ContainsKey("alarka"))
         {
             StationSetting alarkJctSettings = allStationSettings["alarkajct"];
-            StationSetting alarkaSettings = allStationSettings.GetValueOrDefault("alarka");
+            StationSetting alarkaSettings = allStationSettings["alarka"];
 
             if (alarkJctSettings.TransferStation)
             {
-                if (stationStops.Select(ps => ps.identifier).Contains("alarka"))
-                {
-                    alarkaSettings.TransferStation = false;
-                    // settings["alarka"] = Value.Dictionary(alarkaSettings);
-                    interactableStationMap["alarka"].Transfer = false;
-                }
+                alarkaSettings.TransferStation = false;
+                // settings["alarka"] = Value.Dictionary(alarkaSettings);
+                interactableStationMap["alarka"].Transfer = false;
             }
 
             if (alarkaSettings.TransferStation)
@@ -878,7 +888,20 @@ public class PassengerSettingsWindow
                                             "PassengerHelper can kind of figure this out on its own, but setting it will help it help you. " +
                                             "This is more of an edge case than anything else.";
 
-            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (int)settingsManager.GetSettings(pl).DirectionOfTravel, () => settingsManager.GetSettings(pl).DirectionOfTravel.ToString(), delegate (float value)
+            PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+            TrainState state = trainStateManager.GetState(pl);
+
+            EffectiveDOT ValueClosure()
+            {
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                TrainState state = trainStateManager.GetState(pl);
+
+                EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
+
+                return effectiveDOT;
+            }
+
+            RectTransform dotSlider = hBuilder.AddSliderQuantized(() => (int)ValueClosure().Value, () => ValueClosure().Source.ToString(), delegate (float value)
                         {
                             int newValue = (int)value;
 
@@ -886,13 +909,17 @@ public class PassengerSettingsWindow
                             Loader.Log($"Set direction of travel to: {newDirectionOfTravel.ToString()}");
                             PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
 
-
-                            pls.DirectionOfTravel = (DirectionOfTravel)newValue;
+                            pls.UserDirectionOfTravel = newDirectionOfTravel;
                             settingsManager.SaveSettings(pl, pls);
                         }, 1f, 0, 2).Width(150f);
-            dotSlider.GetComponentInChildren<CarControlSlider>().interactable = !settingsManager.GetSettings(pl).DoTLocked;
 
-            hBuilder.AddField("Direction of Travel", dotSlider).Tooltip("Direction of Travel", settingsManager.GetSettings(pl).DoTLocked ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
+            bool settingsDOTUnknown = pls.UserDirectionOfTravel == DirectionOfTravel.UNKNOWN;
+            bool inferredDOTUnknown = state.InferredDirectionOfTravel == DirectionOfTravel.UNKNOWN;
+
+            dotSlider.GetComponentInChildren<CarControlSlider>().interactable = inferredDOTUnknown;
+
+            hBuilder.AddField($"Direction of Travel ({DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel).Source.ToString()})", dotSlider)
+            .Tooltip("Direction of Travel", !inferredDOTUnknown ? tooltipLocked + tooltipUnlocked : tooltipUnlocked);
             hBuilder.Spacer().Width(5f);
             hBuilder.AddButton("?", () =>
             {
@@ -914,13 +941,91 @@ public class PassengerSettingsWindow
 
                 dotHelpWindow.ShowWindow();
             });
+            hBuilder.Spacer().Width(5f);
+
+            hBuilder.AddButton("Forget Inferred DOT", () =>
+            {
+                Loader.LogDebug($"Resetting Inferred Direction of Travel");
+
+                TrainState state2 = trainStateManager.GetState(pl);
+
+                state2.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
+
+                trainStateManager.SaveState(pl, state2);
+
+                hBuilder.Rebuild();
+            });
+
             hBuilder.Spacer().FlexibleWidth(1f);
+
+            int lastKey = DotRenderKey(pls, state);
+            hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
+            {
+                PassengerLocomotiveSettings pls2 = settingsManager.GetSettings(pl);
+                TrainState state2 = trainStateManager.GetState(pl);
+
+                int key = DotRenderKey(pls2, state2);
+                if (key == lastKey) return;
+                lastKey = key;
+                hBuilder.Rebuild();
+            }, callInitial: false));
+
+            hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
+            {
+                PassengerLocomotiveSettings pls2 = settingsManager.GetSettings(pl);
+                TrainState state2 = trainStateManager.GetState(pl);
+
+                int key = DotRenderKey(pls2, state2);
+                if (key == lastKey) return;
+                lastKey = key;
+                hBuilder.Rebuild();
+            }, callInitial: false));
+
         });
 
         builder.AddExpandingVerticalSpacer();
     }
 
+    static int DotRenderKey(PassengerLocomotiveSettings pls, TrainState state)
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + (int)pls.UserDirectionOfTravel;
+            h = h * 31 + (int)state.InferredDirectionOfTravel;
+
+            return h;
+        }
+    }
+
+
     private void AddSaveButton(UIPanelBuilder builder, Window passengerSettingsWindow)
+    {
+        builder.Spacer().FlexibleWidth(1f);
+        builder.AddButton("Save Settings", () =>
+        {
+            passengerSettingsWindow.CloseWindow();
+        });
+    }
+
+    private void AddDebugButton(UIPanelBuilder builder, PassengerLocomotive pl)
+    {
+        builder.AddButton("Debug", () =>
+        {
+            Window _debugWindow = uIHelper.CreateWindow("Moloch.PH.DEBUG." + pl._locomotive.id, 500, 500, Window.Position.Center);
+
+            DebugWindow debugWindow = new DebugWindow(this.uIHelper, this.plugin);
+
+            debugWindow.PopulateAndShowDebugWindow(_debugWindow, pl);
+
+            _debugWindow.SetResizable(new(500, 500), new(600, 1000));
+            _debugWindow.Title = $"{pl._locomotive.DisplayName} PH Debug";
+
+            _debugWindow.ShowWindow();
+        });
+    }
+
+    private void AddResetButton(UIPanelBuilder builder, PassengerLocomotive pl)
     {
         builder.VStack(delegate (UIPanelBuilder builder)
         {
@@ -928,10 +1033,10 @@ public class PassengerSettingsWindow
             builder.HStack(delegate (UIPanelBuilder builder)
             {
                 builder.Spacer().FlexibleWidth(1f);
-                builder.AddButton("Save Settings", () =>
+                builder.AddButton("Reset Train State", () =>
                 {
-                    passengerSettingsWindow.CloseWindow();
-                });
+                    pl.ResetTrainState();
+                }).Tooltip("Reset Train State", "Clears stop reasons, arrival tracking, and previous-station memory. Does not change your station selections.");
             });
 
         });

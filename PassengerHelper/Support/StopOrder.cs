@@ -5,20 +5,26 @@ using System.Collections.Generic;
 using System.Linq;
 using Model.Ops;
 
+public sealed class StopOrderResult
+{
+    public List<PassengerStop> Mainline { get; set; } = new();
+    public List<PassengerStop> All { get; set; } = new();
+    public string Warning { get; set; } = "";
+}
 public static class StopOrder
 {
     // Anchors that DEFINE the mainline
-    private const string EastAnchorId = "sylva";
-    private const string WestAnchorId = "andrews";
+    private const string EastAnchorId = StationIds.Sylva;
+    private const string WestAnchorId = StationIds.Andrews;
 
     // Known base-game branch
-    private const string AlarkaJunctionId = "alarkajct";
+    private const string AlarkaJunctionId = StationIds.AlarkaJct;
 
     private static readonly HashSet<string> AlarkaBranchIds =
         new HashSet<string>(StringComparer.Ordinal)
         {
-            "cochran",
-            "alarka"
+            StationIds.Cochran,
+            StationIds.Alarka
         };
 
     private static readonly string[] CanonicalBaseOrder = new string[]
@@ -26,8 +32,7 @@ public static class StopOrder
                 "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka",
                 "almond", "nantahala", "topton", "rhodo", "andrews"
                 };
-    private static readonly Dictionary<string, int> CanonicalIndex =
-BuildCanonicalIndex();
+    private static readonly Dictionary<string, int> CanonicalIndex = BuildCanonicalIndex();
 
     private static Dictionary<string, int> BuildCanonicalIndex()
     {
@@ -42,9 +47,10 @@ BuildCanonicalIndex();
     /// - Mainline is ALWAYS the path sylva -> andrews
     /// - At alarkajct, the Alarka branch is traversed first
     /// </summary>
-    public static bool TryComputeOrderedStopsAnchored(out List<PassengerStop> ordered, out string warning)
+    public static bool TryComputeOrderedStopsAnchored(out List<PassengerStop> orderedMainline, out List<PassengerStop> orderedAll, out string warning)
     {
-        ordered = new List<PassengerStop>();
+        orderedMainline = new List<PassengerStop>();
+        orderedAll = new List<PassengerStop>();
         warning = "";
 
         var allEnumerablePS = PassengerStop.FindAll();
@@ -81,7 +87,8 @@ BuildCanonicalIndex();
         {
             // Fallback: just return all stops in a stable-ish order (by canonical base-game ordering)
             warning = "Could not find sylva/andrews anchors. Falling back to canonical base-game ordering.";
-            ordered = SortByCanonicalOrder(byId);
+            orderedMainline = SortSupportedCanonicalOrder(byId);
+            orderedAll = SortByCanonicalOrderFirst(byId);
             return true;
         }
 
@@ -92,12 +99,14 @@ BuildCanonicalIndex();
         if (!TryShortestPath(east, west, out spine))
         {
             warning = "Could not find a path from sylva to andrews. Falling back to canonical base-game ordering.";
-            ordered = SortByCanonicalOrder(byId);
+            orderedMainline = SortSupportedCanonicalOrder(byId);
+            orderedAll = SortByCanonicalOrderFirst(byId);
             return true;
         }
 
         // Normal anchored build (no throws)
-        ordered = BuildOrderedFromSpine(spine, alarkaJct);
+        orderedMainline = BuildOrderedFromSpine(spine, alarkaJct);
+        orderedAll = BuildOrderedFromSpine(spine, alarkaJct, true);
         return true;
     }
 
@@ -108,7 +117,7 @@ BuildCanonicalIndex();
 
     private static List<PassengerStop> BuildOrderedFromSpine(
         List<PassengerStop> spine,
-        PassengerStop? alarkaJct)
+        PassengerStop? alarkaJct, bool includeOtherBranches = false)
     {
         var spineSet = new HashSet<PassengerStop>(RefEq<PassengerStop>.Instance);
         for (int i = 0; i < spine.Count; i++)
@@ -129,7 +138,8 @@ BuildCanonicalIndex();
                 TraverseNamedBranch(cur, spineSet, visited, ordered, AlarkaBranchIds);
 
             // Generic: any other non-spine branch components
-            TraverseOtherBranches(cur, spineSet, visited, ordered);
+            if (includeOtherBranches)
+                TraverseOtherBranches(cur, spineSet, visited, ordered);
         }
 
         return ordered;
@@ -211,25 +221,39 @@ BuildCanonicalIndex();
         }
     }
 
-    private static List<PassengerStop> SortByCanonicalOrder(
+    private static List<PassengerStop> SortByCanonicalOrderFirst(
     Dictionary<string, PassengerStop> byId)
     {
-        var list = new List<PassengerStop>(byId.Values);
+        var list = SortSupportedCanonicalOrder(byId);
 
-        list.Sort((a, b) =>
+        List<PassengerStop> extras = new List<PassengerStop>();
+
+        foreach (KeyValuePair<string, PassengerStop> kvp in byId)
         {
-            bool aKnown = CanonicalIndex.TryGetValue(a.identifier, out int ai);
-            bool bKnown = CanonicalIndex.TryGetValue(b.identifier, out int bi);
+            if (!CanonicalIndex.ContainsKey(kvp.Key) && kvp.Value != null)
+            {
+                extras.Add(kvp.Value);
+            }
+        }
 
-            if (aKnown && bKnown)
-                return ai.CompareTo(bi);
+        extras.Sort((a, b) => string.CompareOrdinal(a.identifier, b.identifier));
+        list.AddRange(extras);
 
-            if (aKnown) return -1;   // known stations first
-            if (bKnown) return 1;
+        return list;
+    }
 
-            // both unknown (custom mods): stable-ish secondary sort
-            return string.CompareOrdinal(a.identifier, b.identifier);
-        });
+    private static List<PassengerStop> SortSupportedCanonicalOrder(
+    Dictionary<string, PassengerStop> byId)
+    {
+        List<PassengerStop> list = new List<PassengerStop>(CanonicalBaseOrder.Length);
+
+        foreach (string id in CanonicalIndex.Keys)
+        {
+            if (byId.TryGetValue(id, out var ps) && ps != null)
+            {
+                list.Add(ps);
+            }
+        }
 
         return list;
     }

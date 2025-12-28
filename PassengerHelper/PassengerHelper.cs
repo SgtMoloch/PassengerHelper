@@ -1,4 +1,4 @@
-﻿namespace PassengerHelper.UMM;
+﻿namespace PassengerHelper.Plugin;
 
 using GalaSoft.MvvmLight.Messaging;
 using Game.Events;
@@ -13,43 +13,39 @@ using Game;
 using global::PassengerHelper.Support.UIHelp;
 using UnityModManagerNet;
 using System.Reflection;
+using PassengerHelper.Support.GameObjects;
 
-public class PassengerHelper
+public class PassengerHelperPlugin
 {
+    internal TrainStateManager trainStateManager { get; }
     internal SettingsManager settingsManager { get; }
     internal TrainManager trainManager { get; }
     internal StationManager stationManager { get; }
-    internal UtilManager utilManager { get; }
     internal PassengerStopOrderManager passengerStopOrderManager { get; }
     internal UIHelper UIHelper { get; }
     internal bool TestMode { get; } = true;
     internal Harmony harmony { get; }
+    internal PassengerHelperRuntime runtime { get; set; }
 
-    internal readonly List<string> orderedStations = new List<string>()
-                {
-                "sylva", "dillsboro", "wilmot", "whittier", "ela", "bryson", "hemingway", "alarkajct", "cochran", "alarka",
-                "almond", "nantahala", "topton", "rhodo", "andrews"
-                };
-
-    public PassengerHelper(string modId)
+    public PassengerHelperPlugin(string modId)
     {
         this.harmony = new Harmony(modId);
         this.harmony.PatchAll(GetType().Assembly);
         Dictionary<string, PassengerLocomotiveSettings> passengerLocomotivesSettings = new Dictionary<string, PassengerLocomotiveSettings>();
 
         UIHelper uIHelper = new UIHelper();
-        UtilManager utilManager = new UtilManager();
         PassengerStopOrderManager passengerStopOrderManager = new PassengerStopOrderManager();
-        SettingsManager settingsManager = new SettingsManager(uIHelper, utilManager);
-        TrainManager trainManager = new TrainManager(settingsManager);
-        StationManager stationManager = new StationManager(settingsManager, trainManager, () => passengerStopOrderManager.OrderedAllStopIds);
+        TrainStateManager trainStateManager = new TrainStateManager();
+        SettingsManager settingsManager = new SettingsManager(uIHelper, () => (List<PassengerStop>)passengerStopOrderManager.OrderedMainline);
+        TrainManager trainManager = new TrainManager(settingsManager, trainStateManager);
+        StationManager stationManager = new StationManager(settingsManager, trainManager, trainStateManager, () => passengerStopOrderManager.OrderedMainlineStopIds);
 
         this.UIHelper = uIHelper;
         this.passengerStopOrderManager = passengerStopOrderManager;
-        this.utilManager = utilManager;
         this.settingsManager = settingsManager;
         this.trainManager = trainManager;
         this.stationManager = stationManager;
+        this.trainStateManager = trainStateManager;
     }
 
 }

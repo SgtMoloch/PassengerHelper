@@ -10,17 +10,19 @@ using Model.Definition;
 using Game.Messages;
 using static Model.Car;
 using Support.GameObjects;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 public class TrainManager
 {
-    private Dictionary<BaseLocomotive, PassengerLocomotive> passengerLocomotives = new();
+    private Dictionary<string, PassengerLocomotive> passengerLocomotives = new();
 
     private SettingsManager settingsManager;
+    private TrainStateManager trainStateManager;
 
-    public TrainManager(SettingsManager settingsManager)
+    public TrainManager(SettingsManager settingsManager, TrainStateManager trainStateManager)
     {
         this.settingsManager = settingsManager;
+        this.trainStateManager = trainStateManager;
 
         Messenger.Default.Register<MapDidUnloadEvent>(this, (@event) => this.passengerLocomotives.Clear());
     }
@@ -28,18 +30,23 @@ public class TrainManager
     public PassengerLocomotive GetPassengerLocomotive(BaseLocomotive locomotive)
     {
         Loader.LogVerbose($"Getting PassengerLocomotive for {locomotive.DisplayName}");
-        if (!this.passengerLocomotives.TryGetValue(locomotive, out PassengerLocomotive passengerLocomotive))
+        if (!this.passengerLocomotives.TryGetValue(locomotive.id, out PassengerLocomotive passengerLocomotive))
         {
             Loader.Log($"Did not find existing PassengerLocomotive for {locomotive.DisplayName}, looking for existing PassengerSettings and creating a new Passenger Locomotive");
-            passengerLocomotive = new PassengerLocomotive(locomotive, settingsManager);
-            passengerLocomotive.LoadSettings();
+            passengerLocomotive = new PassengerLocomotive(locomotive, trainStateManager, settingsManager);
 
             Loader.LogDebug($"Adding new Passenger Locomotive to internal Dictionary");
 
-            this.passengerLocomotives.Add(locomotive, passengerLocomotive);
+            this.passengerLocomotives.Add(locomotive.id, passengerLocomotive);
         }
 
         return passengerLocomotive;
+    }
+
+    public PassengerLocomotive GetPassengerLocomotive(string locoId)
+    {
+        Loader.LogVerbose($"Getting PassengerLocomotive for {locoId}");
+        return passengerLocomotives.TryGetValue(locoId, out var pl) ? pl : null;
     }
 
     public PassengerLocomotive GetPassengerLocomotive(Car car)
@@ -53,6 +60,11 @@ public class TrainManager
         .Where(car => car.IsLocomotive)
         .Where(loco => loco.ControlProperties[PropertyChange.Control.Mu] == false)
         .ToList();
+
+        if (engines.Count == 0)
+        {
+            throw new System.Exception($"No non-MU locomotive coupled to {car.DisplayName}");
+        }
 
         if (engines.Count > 1)
         {

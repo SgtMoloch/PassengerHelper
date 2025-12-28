@@ -1,280 +1,293 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game;
 using Model;
 using Model.Ops;
 using PassengerHelper.Support;
 using PassengerHelper.Support.GameObjects;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 namespace PassengerHelper.Managers;
 
 // core
 public partial class StationManager
 {
-    public bool HandleTrainAtStation(BaseLocomotive locomotive, PassengerStop currentStop)
+    class StationProcedureContext
     {
-        PassengerLocomotive passengerLocomotive = this.trainManager.GetPassengerLocomotive(locomotive);
-        PassengerLocomotiveSettings settings = settingsManager.GetSettings(passengerLocomotive);
+        internal Dictionary<string, int> OrderIndex = new(StringComparer.Ordinal);
+        internal Dictionary<string, int> StopAtIndex = new(StringComparer.Ordinal);
+        internal Dictionary<string, int> TerminusIndex = new(StringComparer.Ordinal);
+        internal Dictionary<string, int> PickupIndex = new(StringComparer.Ordinal);
+        internal Dictionary<string, int> TransferIndex = new(StringComparer.Ordinal);
 
-        if (settings.Disable)
+
+        internal List<string> OrderedTerminusStations;
+        internal List<string> OrderedStopAtStations;
+        internal List<string> OrderedPickupStations;
+        internal List<string> OrderedTransferStations;
+
+        internal string EastTerminusId => OrderedTerminusStations[0];
+        internal string WestTerminusId => OrderedTerminusStations[1];
+
+        internal List<Car> Coaches;
+
+        internal PassengerStop CurrentStation;
+    }
+
+    public void TickDepartureChecks()
+    {
+        foreach (string locoId in _armedDepartures.ToArray())
         {
-            Loader.Log($"Passenger Helper is currently disabled for " + locomotive.DisplayName + " due to disabled setting.");
+            PassengerLocomotive pl = trainManager.GetPassengerLocomotive(locoId);
+            if (pl == null)
+            {
+                _armedDepartures.Remove(locoId);
+                continue;
+            }
+
+            TrainState state = trainStateManager.GetState(pl);
+
+            if (!state.ReadyToDepart || state.Departed || state.CurrentStation == null)
+            {
+                _armedDepartures.Remove(locoId);
+                continue;
+            }
+
+            float speed = Math.Abs(pl._locomotive.velocity);
+
+            if (!pl._locomotive.IsStopped(10f) && speed > 0.05f)
+            {
+                Loader.Log($"Train {pl._locomotive.DisplayName} has departed {state.CurrentStation.DisplayName} at {TimeWeather.Now}.");
+
+                state.Arrived = false;
+                state.ReadyToDepart = false;
+                state.Departed = true;
+                state.StopOverrideActive = false;
+                state.StopOverrideStationId = null;
+                state.PreviousStation = state.CurrentStation;
+                state.CurrentStation = null;
+
+                trainStateManager.SaveState(pl, state);
+            }
+        }
+    }
+
+    /* 
+        returns true if the train should stay stopped at the station
+        returns false if there is no reason for the train to stay stopped and defer to base game logic for departure
+     */
+    public void HandleTrainAtStation(BaseLocomotive locomotive, PassengerStop currentStop)
+    {
+        PassengerLocomotive pl = this.trainManager.GetPassengerLocomotive(locomotive);
+        PassengerLocomotiveSettings pls = this.settingsManager.GetSettings(pl);
+        TrainState state = this.trainStateManager.GetState(pl);
+
+        StationProcedureContext ctx = new StationProcedureContext();
+
+        /* 
+            1. Check if PH is disabled, if so, return false for base game departure logic
+         */
+        if (pls.Disable)
+        {
+            Loader.Log($"Passenger Helper is currently disabled for {locomotive.DisplayName} due to disabled setting.");
             // return to original game logic
-            return false;
+            return;
         }
 
-        int stopCount = settings.StationSettings.Values.Count(v => v.StopAtStation);
-        int terminusCount = settings.StationSettings.Values.Count(v => v.TerminusStation);
+        Loader.LogVerbose($"AT STATION: loco={locomotive.DisplayName} id={locomotive.id} Station={currentStop.DisplayName}");
 
-        if (stopCount < 2 || terminusCount != 2)
+        /* 
+            2. build order indexe, saves computation time later on when doing index based checking
+         */
+        Dictionary<string, int> orderIndex = BuildOrderIndex(getOrderedStations());
+
+        List<string> orderedStopAtStations = pls.StationSettings
+            .Where(kvp => kvp.Value.StopAtStation)
+            .Select(kvp => kvp.Key)
+            .OrderBy(id => GetOrder(orderIndex, id))
+            .ToList();
+
+        List<string> orderedTerminusStations = pls.StationSettings
+            .Where(kvp => kvp.Value.TerminusStation)
+            .Select(kvp => kvp.Key)
+            .OrderBy(id => GetOrder(orderIndex, id))
+            .ToList();
+
+        List<string> orderedPickupStations = pls.StationSettings
+            .Where(kvp => kvp.Value.PickupPassengersForStation)
+            .Select(kvp => kvp.Key)
+            .OrderBy(id => GetOrder(orderIndex, id))
+            .ToList();
+
+        List<string> orderedTransferStations = pls.StationSettings
+            .Where(s => s.Value.TransferStation && s.Value.StopAtStation)
+            .Select(station => station.Key)
+            .OrderBy(id => GetOrder(orderIndex, id))
+            .ToList();
+
+        /* 
+            3. Check station is supported -> check station is a stopat station -> validate settings
+            Validate that there are at least 2 stopat stations and 2 terminus stations and the current station is supported
+            if not, quick return
+         */
+
+        if (!orderIndex.ContainsKey(currentStop.identifier))
         {
-            Loader.Log($"Invalid settings detected. Alerting player and stopping.");
-            passengerLocomotive.PostNotice("ai-stop", $"Paused, invalid settings.");
-            Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Invalid settings. Check your passenger settings.\"");
+            string reason = "Station is not supported";
+            if (state.CurrentReasonForStop != reason)
+            {
+                Loader.Log($"Current station is not supported.");
+                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Current station is not supported by PassengerHelper.\"");
+
+                state.CurrentlyStopped = true;
+                state.CurrentReasonForStop = reason;
+                state.StoppedUnsupportedStation = true;
+            }
+
+            return;
         }
 
-        if (currentStop != passengerLocomotive.CurrentStation)
+        if (!orderedStopAtStations.Contains(currentStop.identifier))
+        {
+            NotAtASelectedStationProcedure(pl, pls, state, currentStop, orderIndex, orderedTerminusStations);
+            trainStateManager.SaveState(pl, state);
+            return;
+        }
+
+        ctx.OrderIndex = orderIndex;
+        ctx.CurrentStation = currentStop;
+        ctx.OrderedStopAtStations = orderedStopAtStations;
+        ctx.OrderedPickupStations = orderedPickupStations;
+        ctx.OrderedTerminusStations = orderedTerminusStations;
+        ctx.OrderedTransferStations = orderedTransferStations;
+
+        bool validSettings = ValidateStationSettings(pl, pls, state, ctx);
+        trainStateManager.SaveState(pl, state);
+
+        if (!validSettings)
+        {
+            return;
+        }
+
+        /* 
+            4. arrival transition; if the state of the train is not indicative of being at this station, update the state, and reset the settings hash and state status flags, disarm departure for safety
+         */
+        if (currentStop != state.CurrentStation)
         {
             Loader.Log($"Train " + locomotive.DisplayName + " has arrived at station " + currentStop.DisplayName);
-            passengerLocomotive.CurrentStation = currentStop;
-            passengerLocomotive.ResetSettingsHash();
-            passengerLocomotive.ResetStatusFlags();
-            settings.TrainStatus.Arrived = true;
-            settingsManager.SaveSettings(passengerLocomotive, settings);
-            settings = settingsManager.GetSettings(passengerLocomotive);
-
+            state.CurrentStation = currentStop;
+            pl.ResetSettingsHash();
+            state.ResetStatusFlags();
+            state.Arrived = true;
+            state.StopOverrideActive = false;
+            state.StopOverrideStationId = null;
+            DisarmDepartureCheck(pl);
+            trainStateManager.SaveState(pl, state);
         }
 
-        if (settings.TrainStatus.Continue)
+        /* 
+            5. Check if stopoverride is active and if so, quick return
+         */
+        bool stopOverrideActive = state.StopOverrideActive && state.StopOverrideStationId == state.CurrentStationId;
+
+        if (stopOverrideActive)
         {
-            passengerLocomotive.ResetStoppedFlags();
-            settings = settingsManager.GetSettings(passengerLocomotive);
+            ArmDepartureCheck(pl);
+            return;
         }
 
-        Loader.Log($"locomotive cached settings hash: {passengerLocomotive.settingsHash}, actual setting hash: {settings.getSettingsHash()}");
-        // if we have departed, cease all procedures unless a setting was changed after running the procedure
-        if (settings.TrainStatus.ReadyToDepart && passengerLocomotive.settingsHash == settings.getSettingsHash())
+        /*
+            6. if the train is ready to depart and the settings have not changed, do not procede, early return and defer to base game departure logic.
+            on first arrival at station, neither readyToDepart nor the settingsHash will be true. This is for quick return after running the station procedure.
+         */
+        Loader.Log($"{locomotive.DisplayName} cached settings hash: {pl.settingsHash}, actual setting hash: {pls.getSettingsHash()}");
+        if (state.ReadyToDepart && pl.settingsHash == pls.getSettingsHash())
         {
-            return false;
+            return;
         }
 
-        // v2
-        // is next station occupied?
-        // is train en-route to current station?
-        // how many tracks does current station have?
-        // route appropriately
+        /*
+            7. Build station procedure context and disarm departure
+         */
+        DisarmDepartureCheck(pl);
 
-        // if train is currently Stopped
-        if (IsStoppedAndShouldStayStopped(passengerLocomotive, settings))
+        ctx.StopAtIndex = BuildOrderIndex(orderedStopAtStations);
+        ctx.TerminusIndex = BuildOrderIndex(orderedTerminusStations);
+        ctx.PickupIndex = BuildOrderIndex(orderedPickupStations);
+        ctx.TransferIndex = BuildOrderIndex(orderedTransferStations);
+        ctx.Coaches = pl.GetCoaches();
+
+        /*
+            8. Check if train is currently stopped, and if so, should it stay stopped.
+            if in AE mode, and stopped, will set AE speed to 0
+         */
+        bool shouldStayStopped = IsStoppedAndShouldStayStopped(pl, pls, state, ctx);
+        trainStateManager.SaveState(pl, state);
+
+        if (shouldStayStopped)
         {
-            return true;
+            return;
         }
 
-        if (passengerLocomotive.stationSettingsHash != settings.getStationSettingsHash())
+        /*
+            9. Determine if at terminus station, midway station or out of bounds station
+         */
+        bool atTerminus = ctx.TerminusIndex.TryGetValue(state.CurrentStationId, out _);
+        bool hasCurrent = ctx.StopAtIndex.TryGetValue(ctx.CurrentStation.identifier, out _);
+
+        /*
+            10. run relevant station procedure 
+         */
+        if (atTerminus && !state.TerminusStationProcedureComplete)
         {
-            if (!settings.TrainStatus.Continue)
-            {
-                Loader.Log($"Running Station Procedure");
-                if (RunStationProcedure(passengerLocomotive, settings))
-                {
-                    settingsManager.SaveSettings(passengerLocomotive, settings);
-                    return true;
-                }
-            }
+            RunTerminusStationProcedure(pl, pls, state, ctx);
+        }
+        else if (!atTerminus && !state.NonTerminusStationProcedureComplete)
+        {
+            RunStationProcedure(pl, pls, state, ctx);
         }
         else
         {
-            Loader.Log($"Skipping Station Procedure");
+            Loader.Log($"Station Procedure already completed, skipping.");
         }
 
-        if (passengerLocomotive.settingsHash != settings.getSettingsHash())
+        /*
+            11. Check Pause conditions
+            if in AE mode, and pause conditions are met, will set AE speed to 0
+         */
+        if (pl.settingsHash != pls.getSettingsHash() && !state.StopOverrideActive)
         {
-            if (!settings.TrainStatus.Continue)
+            Loader.Log($"Settings have changed, checking for pause conditions");
+            PauseAtCurrentStation(pl, pls, state);
+            HaveLowFuel(pl, pls, state);
+
+            pl.settingsHash = pls.getSettingsHash();
+
+            if (state.CurrentlyStopped)
             {
-                Loader.Log($"Settings have changed, checking for pause conditions");
-                passengerLocomotive.ResetStoppedFlags();
-
-                if (PauseAtCurrentStation(passengerLocomotive, settings))
-                {
-                    settingsManager.SaveSettings(passengerLocomotive, settings);
-                    return true;
-                }
-
-                if (HaveLowFuel(passengerLocomotive, settings))
-                {
-                    settingsManager.SaveSettings(passengerLocomotive, settings);
-                    return true;
-                }
+                trainStateManager.SaveState(pl, state);
+                return;
             }
-
-            passengerLocomotive.settingsHash = settings.getSettingsHash();
         }
         else
         {
             Loader.Log($"Settings have not changed, skipping check for pause conditions");
         }
 
-        if (!settings.TrainStatus.CurrentlyStopped)
+        /*
+            12. if train is not currently stopped, set ready to depart and arm departure 
+         */
+        if (!state.CurrentlyStopped)
         {
             Loader.Log($"Train {locomotive.DisplayName} is ready to depart station {currentStop.DisplayName}");
-            settings.TrainStatus.ReadyToDepart = true;
-            settingsManager.SaveSettings(passengerLocomotive, settings);
+            state.ReadyToDepart = true;
+            ArmDepartureCheck(pl);
         }
 
-        return settings.TrainStatus.CurrentlyStopped;
-    }
-
-    private Dictionary<string, int> orderIndex = new(StringComparer.Ordinal);
-
-    private bool RunStationProcedure(PassengerLocomotive passengerLocomotive, PassengerLocomotiveSettings settings)
-    {
-        orderIndex = BuildOrderIndex();
-
-        BaseLocomotive _locomotive = passengerLocomotive._locomotive;
-        string LocomotiveName = _locomotive.DisplayName;
-        PassengerStop CurrentStop = passengerLocomotive.CurrentStation;
-        string CurrentStopIdentifier = CurrentStop.identifier;
-        string CurrentStopName = CurrentStop.DisplayName;
-
-        List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).ToList();
-
-        List<string> orderedTerminusStations = settings.StationSettings
-            .Where(kvp => kvp.Value.TerminusStation)
-            .Select(kvp => kvp.Key)
-            .OrderBy(id => GetOrder(orderIndex, id))
-            .ToList();
-
-        List<string> orderedSelectedStations = settings.StationSettings
-            .Where(kvp => kvp.Value.StopAtStation)
-            .Select(kvp => kvp.Key)
-            .OrderBy(id => GetOrder(orderIndex, id))
-            .ToList();
-
-        Loader.Log($"Running station procedure for Train {LocomotiveName} at {CurrentStopName} with {coaches.Count()} coaches, the following selected stations: {Dump(orderedSelectedStations)}, and the following terminus stations: {Dump(orderedTerminusStations)}, in the following direction: {settings.DirectionOfTravel.ToString()}");
-
-        if (orderedSelectedStations.Count < 2)
-        {
-            Loader.Log($"there are less than 2 stations to stop at, current selected stations: {orderedSelectedStations}");
-            Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"At least 2 stations must be selected. Check your passenger settings.\"");
-
-            settings.TrainStatus.CurrentlyStopped = true;
-            settings.TrainStatus.CurrentReasonForStop = "Stations not selected";
-            settings.TrainStatus.StoppedInsufficientStopAtStations = true;
-
-            return true;
-        }
-
-        if (orderedTerminusStations.Count != 2)
-        {
-            Loader.Log($"there are not exactly 2 terminus stations, current selected terminus stations: {orderedTerminusStations}");
-            Say($"AI Engineer {Hyperlink.To(_locomotive)}: \"2 Terminus stations must be selected. Check your passenger settings.\"");
-
-            settings.TrainStatus.CurrentlyStopped = true;
-            settings.TrainStatus.CurrentReasonForStop = "Terminus stations not selected";
-            settings.TrainStatus.StoppedInsufficientTerminusStations = true;
-            return true;
-        }
-
-        if (!orderedTerminusStations.Contains(CurrentStopIdentifier))
-        {
-            Loader.Log($"Not at a terminus station");
-
-            if (settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN && (passengerLocomotive.PreviousStation == null || passengerLocomotive.PreviousStation == CurrentStop))
-            {
-                string reason = "Unknown Direction of Travel";
-                if (settings.TrainStatus.CurrentReasonForStop != reason)
-                {
-                    Loader.Log($"Train is in {CurrentStop.DisplayName}, previous stop is not known, direction of travel is unknown, so cannot accurately determine direction, pausing and waiting for manual intervention");
-                    Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(CurrentStop)} until I receive Direction of Travel via PassengerSettings.\"");
-                    Say($"AI Engineer {Hyperlink.To(passengerLocomotive._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
-                    passengerLocomotive.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(CurrentStop)}.");
-                    settings.TrainStatus.CurrentlyStopped = true;
-                    settings.TrainStatus.CurrentReasonForStop = reason;
-
-                    if (CurrentStop.identifier == "alarka")
-                    {
-                        settings.TrainStatus.AtAlarka = true;
-                    }
-
-                    if (CurrentStop.identifier == "cochran")
-                    {
-                        settings.TrainStatus.AtCochran = true;
-                    }
-                }
-
-                settings.TrainStatus.StoppedUnknownDirection = true;
-
-                return true;
-            }
-
-            bool nonTerminusStationProcedureRetVal = RunNonTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations);
-
-            if (!nonTerminusStationProcedureRetVal)
-            {
-                Loader.Log($"Setting Previous stop to the current stop (not at terminus)");
-                passengerLocomotive.PreviousStation = CurrentStop;
-
-                settings.DoTLocked = true;
-                settings.TrainStatus.NonTerminusStationProcedureComplete = true;
-                settingsManager.SaveSettings(passengerLocomotive, settings);
-            }
-
-            // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
-
-            return nonTerminusStationProcedureRetVal;
-        }
-        else
-        {
-            Loader.Log($"At terminus station");
-
-            bool atTerminusStationWest = orderedTerminusStations[1] == CurrentStopIdentifier;
-            bool atTerminusStationEast = orderedTerminusStations[0] == CurrentStopIdentifier;
-
-            Loader.Log($"at west terminus: {atTerminusStationWest} at east terminus {atTerminusStationEast}");
-            Loader.Log($"passenger locomotive atTerminusWest settings: {settings.TrainStatus.AtTerminusStationWest}");
-            Loader.Log($"passenger locomotive atTerminusEast settings: {settings.TrainStatus.AtTerminusStationEast}");
-
-            // true means stay stopped, false means continue
-            bool terminusStationProcedureRetVal = false;
-
-            if (atTerminusStationWest && !settings.TrainStatus.AtTerminusStationWest)
-            {
-                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.EAST);
-
-                if (!terminusStationProcedureRetVal)
-                {
-                    Loader.Log($"Setting Previous stop to the current stop (west terminus)");
-                }
-            }
-
-            if (atTerminusStationEast && !settings.TrainStatus.AtTerminusStationEast)
-            {
-                terminusStationProcedureRetVal = RunTerminusStationProcedure(passengerLocomotive, settings, CurrentStop, coaches, orderedSelectedStations, orderedTerminusStations, DirectionOfTravel.WEST);
-
-                if (!terminusStationProcedureRetVal)
-                {
-                    Loader.Log($"Setting Previous stop to the current stop (east terminus)");
-                }
-            }
-
-            if (!terminusStationProcedureRetVal && !settings.TrainStatus.TerminusStationProcedureComplete)
-            {
-                passengerLocomotive.PreviousStation = CurrentStop;
-                settings.TrainStatus.AtTerminusStationWest = atTerminusStationWest;
-                settings.TrainStatus.AtTerminusStationEast = atTerminusStationEast;
-                settings.TrainStatus.TerminusStationProcedureComplete = true;
-
-                settings.DoTLocked = true;
-
-                settingsManager.SaveSettings(passengerLocomotive, settings);
-            }
-
-            // setting the previous stop on the settings changes the hash, so re-cache the settings
-            passengerLocomotive.stationSettingsHash = settings.getStationSettingsHash();
-
-            return terminusStationProcedureRetVal;
-        }
+        /*
+            13. save state and return 
+         */
+        trainStateManager.SaveState(pl, state);
     }
 }

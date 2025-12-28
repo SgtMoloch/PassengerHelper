@@ -13,30 +13,29 @@ using Model.Definition;
 using Model.Ops;
 using RollingStock;
 using Support;
-using TMPro;
 using UI;
 using UI.Builder;
 using UI.Common;
 using UnityEngine;
 using UnityEngine.UI;
 using KeyValue.Runtime;
-using PassengerHelper.Support.UIHelp;
-using PassengerHelper.UMM;
+using Support.UIHelp;
+using PassengerHelper.Plugin;
 
 public class SettingsManager
 {
     internal UIHelper uIHelper { get; }
+    private Func<List<PassengerStop>> getMainlineStations;
 
-    private UtilManager utilManager;
     private Dictionary<BaseLocomotive, bool> settingsWindowShowing = new();
 
     private Dictionary<PassengerLocomotive, PassengerLocomotiveSettings> plsMap = new();
     private Dictionary<PassengerLocomotive, IDisposable> plKeyObvDisposeMap = new();
 
-    public SettingsManager(UIHelper uIHelper, UtilManager utilManager)
+    public SettingsManager(UIHelper uIHelper, Func<List<PassengerStop>> getMainlineStations)
     {
         this.uIHelper = uIHelper;
-        this.utilManager = utilManager;
+        this.getMainlineStations = getMainlineStations;
 
         Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
@@ -46,13 +45,14 @@ public class SettingsManager
         StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(pls.PropertyValue())));
 
         pl.settingsHash = pls.getSettingsHash();
+        pl.stationSettingsHash = pls.getStationSettingsHash();
 
         plsMap[pl] = pls;
     }
-    
+
     public PassengerLocomotiveSettings CreateNewSettings(PassengerLocomotive pl)
     {
-        PassengerLocomotiveSettings pls = new(this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+        PassengerLocomotiveSettings pls = new(this.getMainlineStations().Select(ps => ps.identifier).ToList());
         plsMap.Add(pl, pls);
 
         SaveSettings(pl, pls);
@@ -60,7 +60,7 @@ public class SettingsManager
         IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
         {
             Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
-            PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+            PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val);
             Loader.LogVerbose($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
             plsMap[pl] = pls;
         }, callInitial: false);
@@ -72,7 +72,19 @@ public class SettingsManager
 
     public PassengerLocomotiveSettings LoadSettings(PassengerLocomotive pl)
     {
-        PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier_Settings], this.utilManager.GetPassengerStops().Select(ps => ps.identifier).ToList());
+        PassengerLocomotiveSettings pls;
+
+        try
+        {
+            pls = PassengerLocomotiveSettings.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier_Settings]);
+        }
+        catch
+        {
+            Loader.LogError("Error when loading passenger settings. setting current settings to null and then creating new settings. Previous settings will be lost unfortuneately. Sorry for the inconvience.");
+            StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(Value.Null())));
+            return CreateNewSettings(pl);
+        }
+
 
         Loader.Log($"loaded settings for {pl._locomotive.DisplayName}");
         if (!plsMap.ContainsKey(pl))
@@ -82,7 +94,7 @@ public class SettingsManager
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
             {
                 Loader.LogVerbose($"updating settings map existing loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
-                PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val, utilManager.orderedStations);
+                PassengerLocomotiveSettings pls = PassengerLocomotiveSettings.FromPropertyValue(val);
                 Loader.LogVerbose($"new settings for {pl._locomotive.DisplayName}: {pls.ToString()}");
                 plsMap[pl] = pls;
             }, callInitial: false);
@@ -93,18 +105,11 @@ public class SettingsManager
         return pls;
     }
 
-    public void UpdateSettings(PassengerLocomotive pl)
-    {
-        PassengerLocomotiveSettings pls = LoadSettings(pl);
-
-        plsMap[pl] = pls;
-    }
-
     public PassengerLocomotiveSettings GetSettings(PassengerLocomotive pl)
     {
         if (!plsMap.ContainsKey(pl))
         {
-            throw new Exception("passneger locomotive has not been added to internal settings map");
+            return CreateNewSettings(pl);
         }
 
         return plsMap[pl];
@@ -114,7 +119,7 @@ public class SettingsManager
     {
         if (!plsMap.ContainsKey(pl))
         {
-            throw new Exception("passneger locomotive has not been added to internal settings map");
+            return CreateNewSettings(pl).StationSettings[stationId];
         }
 
         return plsMap[pl].StationSettings[stationId];
@@ -125,7 +130,6 @@ public class SettingsManager
         foreach (KeyValuePair<PassengerLocomotive, PassengerLocomotiveSettings> kvp in plsMap)
         {
             PassengerLocomotiveSettings pls = kvp.Value;
-            pls.gameLoadFlag = true;
 
             SaveSettings(kvp.Key, pls);
         }
@@ -168,7 +172,9 @@ public class SettingsManager
 
         Window passengerSettingsWindow = CreateSettingsWindow(locomotiveDisplayName);
 
-        PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, this.utilManager.GetPassengerStops(), this);
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
+
+        PassengerSettingsWindow settingsWindow = new PassengerSettingsWindow(this.uIHelper, plugin);
 
         settingsWindow.PopulateAndShowSettingsWindow(passengerSettingsWindow, passengerLocomotive);
 

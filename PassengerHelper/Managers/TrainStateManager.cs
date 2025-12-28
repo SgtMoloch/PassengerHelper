@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GalaSoft.MvvmLight.Messaging;
+using Game;
 using Game.Events;
 using Game.Messages;
 using Game.State;
 using KeyValue.Runtime;
 using PassengerHelper.Support;
 using PassengerHelper.Support.GameObjects;
-using PassengerHelper.UMM;
+using PassengerHelper.Plugin;
 
 namespace PassengerHelper.Managers;
 
@@ -25,7 +26,7 @@ public class TrainStateManager
 
     public void SaveState(PassengerLocomotive pl, TrainState state)
     {
-        StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(state.PropertyValue())));
+        StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_State, PropertyValueConverter.RuntimeToSnapshot(state.PropertyValue())));
 
         pl.stateHash = state.GetHashCode();
 
@@ -39,7 +40,7 @@ public class TrainStateManager
 
         SaveState(pl, state);
 
-        IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
+        IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
         {
             Loader.LogVerbose($"updating state map for loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
             TrainState state = TrainState.FromPropertyValue(val);
@@ -54,7 +55,7 @@ public class TrainStateManager
 
     public TrainState LoadState(PassengerLocomotive pl)
     {
-        TrainState state = TrainState.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier_Settings]);
+        TrainState state = TrainState.FromPropertyValue(pl._keyValueObject[pl.KeyValueIdentifier_State]);
 
         Loader.Log($"loaded state for {pl._locomotive.DisplayName}");
         if (!stateMap.ContainsKey(pl))
@@ -62,7 +63,7 @@ public class TrainStateManager
             Loader.Log($"pass loco not in state map, adding observer");
             stateMap.Add(pl, state);
 
-            IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
+            IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
             {
                 Loader.LogVerbose($"updating state map for loco {pl._locomotive.DisplayName}, new values: {val.DictionaryValue.Select(kvp => kvp.Key.ToString() + ": " + kvp.Value.ToString())}");
                 TrainState state = TrainState.FromPropertyValue(val);
@@ -79,7 +80,7 @@ public class TrainStateManager
     {
         if (!stateMap.ContainsKey(pl))
         {
-            throw new Exception("passneger locomotive has not been added to internal settings map");
+            return CreateNewState(pl);
         }
 
         return stateMap[pl];

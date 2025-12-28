@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Model.Ops;
+using PassengerHelper.Support;
+using PassengerHelper.Plugin;
 
 namespace PassengerHelper.Managers;
 
@@ -9,18 +11,23 @@ public sealed class PassengerStopOrderManager
 {
     private int _topologyFingerprint;
     private List<PassengerStop> _orderedAll = new();
-    private List<PassengerStop> _orderedUnlocked = new();
+    private List<PassengerStop> _orderedMainline = new();
+    private List<PassengerStop> _orderedUnlockedAll = new();
+    private List<PassengerStop> _orderedUnlockedMainline = new();
 
     public IReadOnlyList<PassengerStop> OrderedAll => _orderedAll;
-    public IReadOnlyList<PassengerStop> OrderedUnlocked => _orderedUnlocked;
+    public IReadOnlyList<PassengerStop> OrderedMainline => _orderedMainline;
+    public IReadOnlyList<PassengerStop> OrderedUnlockedAll => _orderedUnlockedAll;
+    public IReadOnlyList<PassengerStop> OrderedUnlockedMainline => _orderedUnlockedMainline;
 
     public List<string> OrderedAllStopIds { get; private set; } = new();
+    public List<string> OrderedMainlineStopIds { get; private set; } = new();
 
     /// <summary>
     /// Call on game load, and occasionally later. Rebuilds the expensive ordering only
     /// if the station graph changed (mods, scenario reload, etc).
     /// </summary>
-    public void EnsureTopologyUpToDate(Func<List<PassengerStop>> rebuildOrdering)
+    public void EnsureTopologyUpToDate(Func<StopOrderResult> rebuildOrdering)
     {
         var all = PassengerStop.FindAll();
         int fp = ComputeTopologyFingerprint(all.ToArray());
@@ -31,12 +38,22 @@ public sealed class PassengerStopOrderManager
         _topologyFingerprint = fp;
 
         // Expensive rebuild (provided by you in Piece 2)
-        _orderedAll = rebuildOrdering();
+        StopOrderResult result = rebuildOrdering();
+        _orderedAll = result.All;
+        _orderedMainline = result.Mainline;
+
+        if (!string.IsNullOrEmpty(result.Warning))
+            Loader.Log(result.Warning);
 
         OrderedAllStopIds = _orderedAll
             .Where(s => s != null && !string.IsNullOrEmpty(s.identifier))
             .Select(s => s.identifier)
             .ToList();
+
+        OrderedMainlineStopIds = _orderedMainline
+        .Where(s => s != null && !string.IsNullOrEmpty(s.identifier))
+        .Select(s => s.identifier)
+        .ToList();
     }
 
     /// <summary>
@@ -44,7 +61,8 @@ public sealed class PassengerStopOrderManager
     /// </summary>
     public void RefreshUnlocked(Func<PassengerStop, bool> isUnlocked)
     {
-        _orderedUnlocked = FilterUnlocked(_orderedAll, isUnlocked);
+        _orderedUnlockedAll = FilterUnlocked(_orderedAll, isUnlocked);
+        _orderedUnlockedMainline = FilterUnlocked(_orderedMainline, isUnlocked);
     }
 
     private static List<PassengerStop> FilterUnlocked(

@@ -15,8 +15,9 @@ public static class SettingKey
     public static string WaitForFullPassengersTerminusStation = "wait_for_full_load_at_terminus_station";
     public static string Disable = "disable";
     public static string DirectionOfTravel = "direction_of_travel";
-    public static string DoTLocked = "dot_locked";
+    public static string DOTMode = "dot_mode";
     public static string TrainStatus = "train_status";
+    public static string StationSettings = "station_settings";
 }
 
 public static class StationSettingKey
@@ -45,6 +46,7 @@ internal static class TrainStatusKey
     internal static string StoppedUnknownDirection = "stopped_unknown_direction";
     internal static string StoppedInvalidTerminusStations = "stopped_invalid_terminus_stations";
     internal static string StoppedInvalidStations = "stopped_invalid_stations";
+    internal static string StoppedUnsupportedStation = "stopped_unsupported_station";
     internal static string StoppedDiesel = "stopped_diesel";
     internal static string StoppedCoal = "stopped_coal";
     internal static string StoppedWater = "stopped_water";
@@ -55,4 +57,6 @@ internal static class TrainStatusKey
     internal static string ReadyToDepart = "ready_to_depart";
     internal static string Departed = "departed";
     internal static string Continue = "continue";
+    internal static string InferredDirectionOfTravel = "inferred_dot";
+    internal static string DoTLocked = "dot_locked";
 }
