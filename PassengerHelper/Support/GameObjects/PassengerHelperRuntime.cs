@@ -16,7 +16,7 @@ namespace PassengerHelper.Support.GameObjects;
 
 public sealed class PassengerHelperRuntime : MonoBehaviour
 {
-    private const float _intervalSeconds = 5.0f;
+    private const float _intervalSeconds = 3.0f;
     public float IntervalSeconds => _intervalSeconds;
 
     private StationManager _stationManager;
