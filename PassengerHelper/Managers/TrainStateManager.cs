@@ -91,6 +91,7 @@ public class TrainStateManager
         foreach (KeyValuePair<PassengerLocomotive, TrainState> kvp in stateMap)
         {
             TrainState state = kvp.Value;
+            state.gameLoadFlag = true;
 
             SaveState(kvp.Key, state);
         }

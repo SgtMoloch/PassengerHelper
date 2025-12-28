@@ -93,9 +93,16 @@ public class PassengerLocomotive
         persistence.ObserveOrders(delegate (Orders orders)
         {
             Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentOrders is: {_selfSentOrders}");
+            TrainState state = trainStateManager.GetState(this);
+            if (state.gameLoadFlag)
+            {
+                state.gameLoadFlag = false;
+                trainStateManager.SaveState(this, state);
+                return;
+            }
             if (!_selfSentOrders)
             {
-                TrainState state = trainStateManager.GetState(this);
+
                 // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
 
                 state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;

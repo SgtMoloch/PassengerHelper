@@ -351,6 +351,7 @@ public class TrainState
     public bool StopOverrideActive { get; set; } = false;
     public string StopOverrideStationId { get; set; }
     public DirectionOfTravel InferredDirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
+    public bool gameLoadFlag { get; set; } = true;
 
     public void ResetStoppedFlags()
     {
