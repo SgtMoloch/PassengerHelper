@@ -4,6 +4,8 @@ using System.Linq;
 using Model.Ops;
 using PassengerHelper.Support;
 using PassengerHelper.Plugin;
+using GalaSoft.MvvmLight.Messaging;
+using Game.Events;
 
 namespace PassengerHelper.Managers;
 
@@ -15,6 +17,8 @@ public sealed class PassengerStopOrderManager
     private List<PassengerStop> _orderedUnlockedAll = new();
     private List<PassengerStop> _orderedUnlockedMainline = new();
 
+    
+
     public IReadOnlyList<PassengerStop> OrderedAll => _orderedAll;
     public IReadOnlyList<PassengerStop> OrderedMainline => _orderedMainline;
     public IReadOnlyList<PassengerStop> OrderedUnlockedAll => _orderedUnlockedAll;
@@ -22,6 +26,20 @@ public sealed class PassengerStopOrderManager
 
     public List<string> OrderedAllStopIds { get; private set; } = new();
     public List<string> OrderedMainlineStopIds { get; private set; } = new();
+
+
+    public PassengerStopOrderManager()
+    {
+        Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
+    }
+    
+    private void OnMapDidUnload(MapDidUnloadEvent @event)
+    {
+        _orderedAll.Clear();
+        _orderedMainline.Clear();
+        _orderedUnlockedAll.Clear();
+        _orderedUnlockedMainline.Clear();
+    }
 
     /// <summary>
     /// Call on game load, and occasionally later. Rebuilds the expensive ordering only
@@ -69,12 +87,17 @@ public sealed class PassengerStopOrderManager
         List<PassengerStop> orderedAll,
         Func<PassengerStop, bool> isUnlocked)
     {
-        var result = new List<PassengerStop>(orderedAll.Count);
+        var result = new List<PassengerStop>();
         for (int i = 0; i < orderedAll.Count; i++)
         {
             var s = orderedAll[i];
-            if (s != null && isUnlocked(s))
-                result.Add(s);
+            if (s != null)
+            {
+                Loader.Log($"[PassengerStopOrderManager::FilterUnlocked] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled} isUnlockedCB: {isUnlocked(s)}");
+                if (isUnlocked(s))
+                    result.Add(s);
+            }
+
         }
         return result;
     }
@@ -85,30 +108,30 @@ public sealed class PassengerStopOrderManager
     /// </summary>
     private static int ComputeTopologyFingerprint(PassengerStop[] stops)
     {
-        unchecked
+
+        int hash = 17;
+        hash = hash * 31 + stops.Length;
+
+        for (int i = 0; i < stops.Length; i++)
         {
-            int hash = 17;
-            hash = hash * 31 + stops.Length;
+            var s = stops[i];
+            if (s == null) continue;
 
-            for (int i = 0; i < stops.Length; i++)
-            {
-                var s = stops[i];
-                if (s == null) continue;
+            Loader.Log($"[PassengerStopOrderManager::ComputeTopologyFingerprint] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled}");
+            hash = hash * 31 + (s.identifier?.GetHashCode() ?? 0);
+            hash = hash * 31 + (s.ProgressionDisabled.GetHashCode());
 
-                hash = hash * 31 + (s.identifier?.GetHashCode() ?? 0);
+            var nbrs = s.neighbors;
+            if (nbrs == null) continue;
 
-                var nbrs = s.neighbors;
-                if (nbrs == null) continue;
+            // Order-independent neighbor hashing: sum of neighbor id hashes
+            int nh = 0;
+            for (int n = 0; n < nbrs.Length; n++)
+                nh += (nbrs[n]?.identifier?.GetHashCode() ?? 0);
 
-                // Order-independent neighbor hashing: sum of neighbor id hashes
-                int nh = 0;
-                for (int n = 0; n < nbrs.Length; n++)
-                    nh += (nbrs[n]?.identifier?.GetHashCode() ?? 0);
-
-                hash = hash * 31 + nh;
-            }
-
-            return hash;
+            hash = hash * 31 + nh;
         }
+
+        return hash;
     }
 }

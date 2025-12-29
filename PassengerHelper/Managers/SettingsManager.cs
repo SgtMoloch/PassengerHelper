@@ -109,7 +109,18 @@ public class SettingsManager
     {
         if (!plsMap.ContainsKey(pl))
         {
-            return CreateNewSettings(pl);
+            Value dictionaryValue = pl._keyValueObject[pl.KeyValueIdentifier_Settings];
+            PassengerLocomotiveSettings pls;
+            if (dictionaryValue.IsNull || !pl._keyValueObject.Keys.Contains(pl.KeyValueIdentifier_Settings))
+            {
+                Loader.LogVerbose($"Creating new settings for {pl._locomotive.DisplayName}");
+                pls = CreateNewSettings(pl);
+            }
+            else
+            {
+                Loader.LogVerbose($"Loading existing settings for {pl._locomotive.DisplayName}");
+                pls = LoadSettings(pl);
+            }
         }
 
         return plsMap[pl];
@@ -132,15 +143,16 @@ public class SettingsManager
             plKeyObvDisposeMap[pl].Dispose();
         }
 
-        plKeyObvDisposeMap.Clear();
-
         foreach (KeyValuePair<PassengerLocomotive, PassengerLocomotiveSettings> kvp in plsMap)
         {
             PassengerLocomotiveSettings pls = kvp.Value;
+            PassengerLocomotive pl = kvp.Key;
 
-            SaveSettings(kvp.Key, pls);
+            StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(pls.PropertyValue())));
         }
+
         plsMap.Clear();
+        plKeyObvDisposeMap.Clear();
     }
 
     private Window CreateSettingsWindow(string locomotiveDisplayName)

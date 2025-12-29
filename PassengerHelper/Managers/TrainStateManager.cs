@@ -70,7 +70,7 @@ public class TrainStateManager
                 Loader.LogVerbose($"new state for {pl._locomotive.DisplayName}: {state.ToString()}");
                 stateMap[pl] = state;
             }, callInitial: false);
-            
+
             plKeyObvDisposeMap[pl] = plObv;
         }
 
@@ -81,7 +81,18 @@ public class TrainStateManager
     {
         if (!stateMap.ContainsKey(pl))
         {
-            return CreateNewState(pl);
+            Value dictionaryValue = pl._keyValueObject[pl.KeyValueIdentifier_State];
+            TrainState state;
+            if (dictionaryValue.IsNull || !pl._keyValueObject.Keys.Contains(pl.KeyValueIdentifier_State))
+            {
+                Loader.LogVerbose($"Creating new state for {pl._locomotive.DisplayName}");
+                state = CreateNewState(pl);
+            }
+            else
+            {
+                Loader.LogVerbose($"Loading existing state for {pl._locomotive.DisplayName}");
+                state = LoadState(pl);
+            }
         }
 
         return stateMap[pl];
@@ -99,10 +110,12 @@ public class TrainStateManager
             TrainState state = kvp.Value;
             state.gameLoadFlag = true;
 
-            SaveState(kvp.Key, state);
-        }
-        stateMap.Clear();
+            PassengerLocomotive pl = kvp.Key;
 
+            StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_State, PropertyValueConverter.RuntimeToSnapshot(state.PropertyValue())));
+        }
+
+        stateMap.Clear();
         plKeyObvDisposeMap.Clear();
     }
 }

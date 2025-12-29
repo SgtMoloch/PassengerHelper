@@ -103,8 +103,8 @@ public class PassengerLocomotive
 
         this.FuelCar = GetFuelCar();
 
-        StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_Settings, _keyValueObject, _locomotive);
-        StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_State, _keyValueObject, AuthorizationRequirement.HostOnly);
+        // StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_Settings, _keyValueObject, _locomotive);
+        // StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_State, _keyValueObject, _locomotive);
 
         LoadSettings();
         LoadState();

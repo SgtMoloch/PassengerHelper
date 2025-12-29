@@ -48,7 +48,7 @@ public partial class StationManager
                 state.StopOverrideStationId = null;
                 state.PreviousStation = state.CurrentStation;
                 state.CurrentStation = null;
-
+                
                 trainStateManager.SaveState(pl, state);
 
                 _armedDepartures.Remove(locoId);
@@ -62,25 +62,28 @@ public partial class StationManager
 
         foreach (PassengerStop ps in passStops)
         {
-            HashSet<string> visitedCarIds = new HashSet<string>(StringComparer.Ordinal);
-            HashSet<string> processedLocoIds = new HashSet<string>(StringComparer.Ordinal);
-            IEnumerable<Car> carsAtStation = (IEnumerable<Car>)FindCars.Invoke(ps, new object[] { TrainController.Shared });
-
-            foreach (Car car in carsAtStation)
+            if (ps != null)
             {
-                if (car == null) continue;
+                HashSet<string> visitedCarIds = new HashSet<string>(StringComparer.Ordinal);
+                HashSet<string> processedLocoIds = new HashSet<string>(StringComparer.Ordinal);
+                HashSet<Car> carsAtStation = (HashSet<Car>)FindCars.Invoke(ps, new object[] { TrainController.Shared });
 
-                if (!visitedCarIds.Add(car.id)) continue;
-
-                if (!TryGetPassengerLocomotive(car, visitedCarIds, out BaseLocomotive lm, out string failReason))
+                foreach (Car car in carsAtStation)
                 {
-                    Loader.LogError($"PassenegerHelperTick: skipping {car.DisplayName} because: {failReason}");
-                    continue;
+                    if (car == null) continue;
+
+                    if (!visitedCarIds.Add(car.id)) continue;
+
+                    if (!TryGetPassengerLocomotive(car, visitedCarIds, out BaseLocomotive lm, out string failReason))
+                    {
+                        Loader.LogError($"PassenegerHelperTick: skipping {car.DisplayName} because: {failReason}");
+                        continue;
+                    }
+
+                    if (!processedLocoIds.Add(lm.id)) continue;
+
+                    HandleTrainAtStation(lm, ps);
                 }
-
-                if (!processedLocoIds.Add(lm.id)) continue;
-
-                HandleTrainAtStation(lm, ps);
             }
         }
         // 1) Use your station-span scan here to find passenger cars “being worked”

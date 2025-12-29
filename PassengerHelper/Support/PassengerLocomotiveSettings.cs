@@ -36,11 +36,11 @@ public class PassengerLocomotiveSettings
         int prime = 31;
         int result = 1;
 
-        foreach(StationSetting ss in StationSettings.Values)
+        foreach (StationSetting ss in StationSettings.Values)
         {
             result = prime * result + ss.GetHashCode();
         }
-        
+
 
         return result;
     }
@@ -428,10 +428,26 @@ public class TrainState
     public void OnSettingsChangedReset()
     {
         ResetStoppedFlags();
+        NonTerminusStationProcedureComplete = false;
         TerminusStationProcedureComplete = false;
         ReadyToDepart = false;
         StopOverrideActive = false;
         StopOverrideStationId = null;
+    }
+
+    public void OnDepartReset()
+    {
+        ResetStoppedFlags();
+        NonTerminusStationProcedureComplete = false;
+        TerminusStationProcedureComplete = false;
+        ReadyToDepart = false;
+        Arrived = false;
+        ReadyToDepart = false;
+        Departed = true;
+        StopOverrideActive = false;
+        StopOverrideStationId = null;
+        PreviousStation = CurrentStation;
+        CurrentStation = null;
     }
 
     public bool ShouldStayStopped()

@@ -24,10 +24,10 @@ public static class Loader
     {
         if (ModEntry != null)
         {
-            modEntry.Logger.Warning("[Loader] Passenger Helper is already loaded!");
+            modEntry.Logger.Warning("[Loader::Load] Passenger Helper is already loaded!");
             return false;
         }
-        modEntry.Logger.Log($"[Loader] Loading Passenger Helper assembly version {Assembly.GetExecutingAssembly().GetName().Version}");
+        modEntry.Logger.Log($"[Loader::Load] Loading Passenger Helper assembly version {Assembly.GetExecutingAssembly().GetName().Version}");
 
         ModEntry = modEntry;
         Settings = UnityModManager.ModSettings.Load<PassengerHelperSettings>(modEntry);
@@ -81,12 +81,12 @@ public static class Loader
                 // TEMP DEBUG: dump ordering
                 for (int i = 0; i < orderedMainline.Count; i++)
                 {
-                    Loader.Log($"[Loader] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
+                    Loader.Log($"[Loader::OnMapDidLoad] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
                 }
 
                 for (int i = 0; i < orderedAll.Count; i++)
                 {
-                    Loader.Log($"[Loader] AllOrder[{i}] = {orderedAll[i].identifier}");
+                    Loader.Log($"[Loader::OnMapDidLoad] AllOrder[{i}] = {orderedAll[i].identifier}");
                 }
 
                 return new StopOrderResult { Mainline = orderedMainline, All = orderedAll, Warning = warn };
@@ -101,7 +101,7 @@ public static class Loader
         var all = PassengerHelper.passengerStopOrderManager.OrderedAll;
         var unlocked = PassengerHelper.passengerStopOrderManager.OrderedUnlockedAll;
 
-        Loader.Log($"[Loader] StopOrder: all={all.Count}, unlocked={unlocked.Count}");
+        Loader.Log($"[Loader::OnMapDidLoad] StopOrder: all={all.Count}, unlocked={unlocked.Count}");
     }
 
     public static void Log(string str)
@@ -136,7 +136,7 @@ public static class Loader
 
         try
         {
-            Log("CreateRuntime: creating PassengerHelperRuntime GO");
+            Log("[Loader::CreateRuntime] creating PassengerHelperRuntime GO");
 
             GameObject go = new GameObject("PassengerHelperRuntime");
             UnityEngine.Object.DontDestroyOnLoad(go);
@@ -148,11 +148,11 @@ public static class Loader
 
             _runtimeCreated = true;
 
-            Log("CreateRuntime: runtime created + initialized OK");
+            Log("[Loader::CreateRuntime] runtime created + initialized OK");
         }
         catch (Exception ex)
         {
-            Loader.LogError($"CreateRuntime: FAILED: {ex}");
+            LogError($"[Loader::CreateRuntime] FAILED: {ex}");
         }
     }
 
@@ -168,6 +168,7 @@ public static class Loader
         if (go != null)
         {
             UnityEngine.Object.Destroy(go);
+            Log("[Loader::DestroyRuntime] runtime destroyed");
         }
 
         _runtimeCreated = false;
