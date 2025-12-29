@@ -113,6 +113,7 @@ public partial class StationManager
         if (!orderedStopAtStations.Contains(currentStop.identifier))
         {
             NotAtASelectedStationProcedure(pl, pls, state, currentStop, orderIndex, orderedTerminusStations);
+            Loader.LogVerbose("not at a selected station quick return");
             trainStateManager.SaveState(pl, state);
             return;
         }
@@ -129,6 +130,7 @@ public partial class StationManager
 
         if (!validSettings)
         {
+            Loader.LogVerbose("invalid settings quick return");
             pl.StopAE();
             return;
         }
@@ -157,6 +159,7 @@ public partial class StationManager
 
         if (stopOverrideActive)
         {
+            Loader.LogVerbose("stop override quick return");
             ArmDepartureCheck(pl);
             return;
         }
@@ -165,10 +168,10 @@ public partial class StationManager
             6. if the train is ready to depart and the settings have not changed, do not procede, early return and defer to base game departure logic.
             on first arrival at station, neither readyToDepart nor the settingsHash will be true. This is for quick return after running the station procedure.
          */
-        Loader.Log($"{locomotive.DisplayName} cached settings hash: {pl.settingsHash}, actual setting hash: {pls.getSettingsHash()}");
-        if (state.ReadyToDepart && pl.settingsHash == pls.getSettingsHash())
+        if (state.ReadyToDepart)
         {
             // this is for if the game loads when train is at station, the arm isn't saved, so rearm
+            Loader.LogVerbose("ready to depart quick return");
             ArmDepartureCheck(pl);
             pl.StartAE();
             return;
@@ -190,13 +193,21 @@ public partial class StationManager
             8. Check if train is currently stopped, and if so, should it stay stopped.
             if in AE mode, and stopped, will set AE speed to 0
          */
-        bool shouldStayStopped = IsStoppedAndShouldStayStopped(pl, pls, state, ctx);
-        trainStateManager.SaveState(pl, state);
-
-        if (shouldStayStopped)
+        if (state.CurrentlyStopped)
         {
-            return;
+            bool shouldStayStopped = IsStoppedAndShouldStayStopped(pl, pls, state, ctx);
+
+            if (!shouldStayStopped)
+            {
+                trainStateManager.SaveState(pl, state);
+            }
+
+            if (shouldStayStopped)
+            {
+                return;
+            }
         }
+
 
         /*
             9. Determine if at terminus station, midway station or out of bounds station
@@ -209,10 +220,12 @@ public partial class StationManager
          */
         if (atTerminus && !state.TerminusStationProcedureComplete)
         {
+            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": running terminus station procedure at {currentStop.DisplayName}\"");
             RunTerminusStationProcedure(pl, pls, state, ctx);
         }
         else if (!atTerminus && !state.NonTerminusStationProcedureComplete)
         {
+            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": running station procedure at {currentStop.DisplayName}\"");
             RunStationProcedure(pl, pls, state, ctx);
         }
         else
@@ -224,13 +237,11 @@ public partial class StationManager
             11. Check Pause conditions
             if in AE mode, and pause conditions are met, will set AE speed to 0
          */
-        if (pl.settingsHash != pls.getSettingsHash() && !state.StopOverrideActive)
+        if (!state.StopOverrideActive)
         {
             Loader.Log($"Settings have changed, checking for pause conditions");
             PauseAtCurrentStation(pl, pls, state);
             HaveLowFuel(pl, pls, state);
-
-            pl.settingsHash = pls.getSettingsHash();
 
             if (state.CurrentlyStopped)
             {
@@ -258,6 +269,6 @@ public partial class StationManager
             13. save state and return 
          */
         trainStateManager.SaveState(pl, state);
-        
+
     }
 }

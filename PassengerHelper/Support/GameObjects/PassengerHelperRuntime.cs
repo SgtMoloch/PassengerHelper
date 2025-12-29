@@ -18,7 +18,7 @@ namespace PassengerHelper.Support.GameObjects;
 
 public sealed class PassengerHelperRuntime : MonoBehaviour
 {
-    private const float _intervalSeconds = 3.0f;
+    private const float _intervalSeconds = 5.0f;
     public float IntervalSeconds => _intervalSeconds;
 
     private StationManager _stationManager;
@@ -31,7 +31,7 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
     public bool IsRunning => _loop != null;
 
-    
+
     public void Init(
         StationManager stationManager,
         TrainManager trainManager,
@@ -85,8 +85,6 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
     private IEnumerator Loop()
     {
-        int tick = 0;
-        int stationTicks = (int)_intervalSeconds;
         while (true)
         {
             if (!Loader.ModEntry.Enabled)
@@ -96,31 +94,22 @@ public sealed class PassengerHelperRuntime : MonoBehaviour
 
             try
             {
-                Tick(tick, stationTicks);
-                
-                if (tick == stationTicks)
-                {
-                    tick = 0;
-                }
-                tick++;
+                Tick();
             }
             catch (System.Exception ex)
             {
                 Loader.LogError($"PassengerHelperTicker exception: {ex}");
             }
 
-            yield return new WaitForSeconds(1.0f);
+            yield return new WaitForSeconds(_intervalSeconds);
         }
     }
 
-    private void Tick(int ticks, int stationTicks)
+    private void Tick()
     {
-        if (ticks % stationTicks == 0)
-        {
-            _stationManager.TickStations();
-        }
 
         _stationManager.TickDeparture();
+        _stationManager.TickStations();
     }
-    
+
 }

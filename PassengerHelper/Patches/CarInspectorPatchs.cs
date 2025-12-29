@@ -40,11 +40,9 @@ public static class CarInspectorPatches
         {
             BaseLocomotive _locomotive = (BaseLocomotive)____car;
 
-            AutoEngineerPersistence persistence = new AutoEngineerPersistence(_locomotive.KeyValueObject);
-            AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_locomotive as BaseLocomotive, persistence);
-            AutoEngineerMode mode = helper.Mode;
+            Orders orders = Orders.FromPropertyValue(_locomotive.KeyValueObject["aiOrders"]) ?? Orders.Disabled;
 
-            bool AEMode = mode == AutoEngineerMode.Road || mode == AutoEngineerMode.Waypoint;
+            bool AEMode = orders.Mode == AutoEngineerMode.Road || orders.Mode == AutoEngineerMode.Waypoint;
 
             PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
             TrainState state = plugin.trainStateManager.GetState(pl);

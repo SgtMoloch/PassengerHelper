@@ -70,6 +70,7 @@ public class TrainStateManager
                 Loader.LogVerbose($"new state for {pl._locomotive.DisplayName}: {state.ToString()}");
                 stateMap[pl] = state;
             }, callInitial: false);
+            
             plKeyObvDisposeMap[pl] = plObv;
         }
 

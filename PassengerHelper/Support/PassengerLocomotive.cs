@@ -37,7 +37,24 @@ public class PassengerLocomotive
     public bool isSteam;
     public bool hasTender;
 
-    internal int settingsHash = 0;
+    internal int _settingsHash = 0;
+    internal int settingsHash
+    {
+        get => _settingsHash;
+        set
+        {
+            if (_settingsHash == value)
+            {
+                return;
+            }
+
+            _settingsHash = value;
+
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
     internal int _stationSettingsHash = 0;
     internal int stationSettingsHash
     {
@@ -86,7 +103,7 @@ public class PassengerLocomotive
 
         this.FuelCar = GetFuelCar();
 
-        StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_Settings, _keyValueObject, AuthorizationRequirement.HostOnly);
+        StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_Settings, _keyValueObject, _locomotive);
         StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_State, _keyValueObject, AuthorizationRequirement.HostOnly);
 
         LoadSettings();
@@ -266,17 +283,21 @@ public class PassengerLocomotive
         this.maxAESpeed = 0;
     }
 
-    public void ReverseLocoDirection()
+    public bool ReverseLocoDirection()
     {
         Loader.Log($"reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
+        if (mode == AutoEngineerMode.Off) return false;
+
         _selfSentRevOrders = true;
         Loader.Log($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
         Loader.Log($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
+
+        return true;
     }
 
     public void SetStopOverrideActive()

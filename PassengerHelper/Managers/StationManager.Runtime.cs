@@ -39,6 +39,7 @@ public partial class StationManager
             if (!pl._locomotive.IsStopped(10f) && speed > 0.05f)
             {
                 Loader.Log($"Train {pl._locomotive.DisplayName} has departed {state.CurrentStation.DisplayName} at {TimeWeather.Now}.");
+                Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": has departed {state.CurrentStation.DisplayName}\"");
 
                 state.Arrived = false;
                 state.ReadyToDepart = false;
@@ -49,6 +50,8 @@ public partial class StationManager
                 state.CurrentStation = null;
 
                 trainStateManager.SaveState(pl, state);
+
+                _armedDepartures.Remove(locoId);
             }
         }
     }

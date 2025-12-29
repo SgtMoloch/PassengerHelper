@@ -17,7 +17,6 @@ public partial class StationManager
     private void RunTerminusStationProcedure(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, StationProcedureContext ctx)
     {
         Loader.Log($"{pl._locomotive.DisplayName} reached terminus station at {ctx.CurrentStation.DisplayName}");
-        Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Reached terminus station at {Hyperlink.To(ctx.CurrentStation)}.\"");
 
         bool atTerminusStationWest = ctx.WestTerminusId == state.CurrentStationId;
         bool atTerminusStationEast = ctx.EastTerminusId == state.CurrentStationId;
@@ -116,9 +115,13 @@ public partial class StationManager
         }
 
         Loader.Log($"Reversing direction");
-        Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Reversing direction.\"");
 
         // reverse the direction of the loco
-        pl.ReverseLocoDirection();
+        bool reversed = pl.ReverseLocoDirection();
+
+        if (reversed)
+        {
+            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \"Reversed direction.\"");
+        }
     }
 }

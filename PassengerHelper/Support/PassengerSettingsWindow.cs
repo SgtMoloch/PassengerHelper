@@ -890,6 +890,7 @@ public class PassengerSettingsWindow
 
             PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
             TrainState state = trainStateManager.GetState(pl);
+            int lastKey = DotRenderKey(pls, state);
 
             EffectiveDOT ValueClosure()
             {
@@ -911,6 +912,7 @@ public class PassengerSettingsWindow
 
                             pls.UserDirectionOfTravel = newDirectionOfTravel;
                             settingsManager.SaveSettings(pl, pls);
+                            lastKey = DotRenderKey(pls, state);
                         }, 1f, 0, 2).Width(150f);
 
             bool settingsDOTUnknown = pls.UserDirectionOfTravel == DirectionOfTravel.UNKNOWN;
@@ -958,7 +960,7 @@ public class PassengerSettingsWindow
 
             hBuilder.Spacer().FlexibleWidth(1f);
 
-            int lastKey = DotRenderKey(pls, state);
+            
             hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
             {
                 PassengerLocomotiveSettings pls2 = settingsManager.GetSettings(pl);

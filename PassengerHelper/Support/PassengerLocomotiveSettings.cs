@@ -36,7 +36,11 @@ public class PassengerLocomotiveSettings
         int prime = 31;
         int result = 1;
 
-        result = prime * result + StationSettings.GetHashCode();
+        foreach(StationSetting ss in StationSettings.Values)
+        {
+            result = prime * result + ss.GetHashCode();
+        }
+        
 
         return result;
     }
@@ -209,6 +213,20 @@ public class StationSetting
     public bool TransferStation { get; set; } = false;
     public PassengerMode PassengerMode { get; set; } = PassengerMode.PointToPoint;
 
+    public override int GetHashCode()
+    {
+        int prime = 31;
+        int result = 1;
+
+        result = prime * result + StopAtStation.GetHashCode();
+        result = prime * result + TerminusStation.GetHashCode();
+        result = prime * result + PickupPassengersForStation.GetHashCode();
+        result = prime * result + PauseAtStation.GetHashCode();
+        result = prime * result + TransferStation.GetHashCode();
+        result = prime * result + PassengerMode.GetHashCode();
+
+        return result;
+    }
     public override string ToString()
     {
         StringBuilder sb = new();
@@ -407,6 +425,15 @@ public class TrainState
         StopOverrideStationId = null;
     }
 
+    public void OnSettingsChangedReset()
+    {
+        ResetStoppedFlags();
+        TerminusStationProcedureComplete = false;
+        ReadyToDepart = false;
+        StopOverrideActive = false;
+        StopOverrideStationId = null;
+    }
+
     public bool ShouldStayStopped()
     {
         return StoppedForDiesel ||
@@ -502,6 +529,42 @@ public class TrainState
         _trainStatus[TrainStatusKey.InferredDirectionOfTravel] = Value.Int((int)InferredDirectionOfTravel);
 
         return Value.Dictionary(_trainStatus);
+    }
+
+    public override int GetHashCode()
+    {
+        int prime = 31;
+        int result = 1;
+
+        result = prime * result + PreviousStationId.GetHashCode();
+        result = prime * result + CurrentStationId.GetHashCode();
+        result = prime * result + (CurrentStation == null ? 0 : CurrentStation.GetHashCode());
+        result = prime * result + (PreviousStation == null ? 0 : PreviousStation.GetHashCode());
+        result = prime * result + Arrived.GetHashCode();
+        result = prime * result + AtTerminusStationEast.GetHashCode();
+        result = prime * result + AtTerminusStationWest.GetHashCode();
+        result = prime * result + TerminusStationProcedureComplete.GetHashCode();
+        result = prime * result + NonTerminusStationProcedureComplete.GetHashCode();
+        result = prime * result + CurrentlyStopped.GetHashCode();
+        result = prime * result + CurrentReasonForStop.GetHashCode();
+        result = prime * result + StoppedUnknownDirection.GetHashCode();
+        result = prime * result + StoppedUnsupportedStation.GetHashCode();
+        result = prime * result + StoppedInsufficientTerminusStations.GetHashCode();
+        result = prime * result + StoppedInsufficientStopAtStations.GetHashCode();
+        result = prime * result + StoppedForDiesel.GetHashCode();
+        result = prime * result + StoppedForCoal.GetHashCode();
+        result = prime * result + StoppedForWater.GetHashCode();
+        result = prime * result + StoppedNextStation.GetHashCode();
+        result = prime * result + StoppedTerminusStation.GetHashCode();
+        result = prime * result + StoppedStationPause.GetHashCode();
+        result = prime * result + StoppedWaitForFullLoad.GetHashCode();
+        result = prime * result + ReadyToDepart.GetHashCode();
+        result = prime * result + Departed.GetHashCode();
+        result = prime * result + StopOverrideActive.GetHashCode();
+        result = prime * result + (StopOverrideStationId == null ? 0 : StopOverrideStationId.GetHashCode());
+        result = prime * result + InferredDirectionOfTravel.GetHashCode();
+
+        return result;
     }
 
     public override string ToString()
