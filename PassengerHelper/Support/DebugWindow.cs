@@ -29,65 +29,66 @@ public class DebugWindow
             Loader.Log($"Populating debug for {pl._locomotive.DisplayName}");
             builder.VScrollView(delegate (UIPanelBuilder vBuilder)
             {
-                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
-                TrainState state = trainStateManager.GetState(pl);
+                vBuilder.VStack(delegate (UIPanelBuilder vsBuilder)
+                {
+                    PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+                    TrainState state = trainStateManager.GetState(pl);
 
-                vBuilder.AddSection("Locomotive Info");
-                vBuilder.AddField("Locomotive:", $"{pl._locomotive.DisplayName}");
-                vBuilder.AddField("LocomotiveId:", $"{pl._locomotive.id}");
-                vBuilder.AddField("Locomotive Settings Hash:", $"{pl.settingsHash}");
-                vBuilder.AddField("Current Settings Hash:", $"{pls.getSettingsHash()}");
-                vBuilder.AddField("Locomotive Station Settings Hash:", $"{pl.stationSettingsHash}");
-                vBuilder.AddField("Current Station Settings Hash:", $"{pls.getStationSettingsHash()}");
-                vBuilder.AddField("Locomotive State Hash:", $"{pl.stateHash}");
-                vBuilder.AddField("Current State Hash:", $"{state.GetHashCode()}");
+                    vsBuilder.AddSection("Locomotive Info");
+                    vsBuilder.AddField("Locomotive:", $"{pl._locomotive.DisplayName}");
+                    vsBuilder.AddField("LocomotiveId:", $"{pl._locomotive.id}");
+                    vsBuilder.AddField("Locomotive Settings Hash:", $"{pl.settingsHash}");
+                    vsBuilder.AddField("Current Settings Hash:", $"{pls.getSettingsHash()}");
+                    vsBuilder.AddField("Locomotive Station Settings Hash:", $"{pl.stationSettingsHash}");
+                    vsBuilder.AddField("Current Station Settings Hash:", $"{pls.getStationSettingsHash()}");
+                    vsBuilder.AddField("Locomotive State Hash:", $"{pl.stateHash}");
+                    vsBuilder.AddField("Current State Hash:", $"{state.GetHashCode()}");
 
-                vBuilder.AddSection("Current Station Info");
-                vBuilder.AddField("At Station:", $"{TFToYN(state.CurrentStation != null)}");
-                vBuilder.AddField("CurrentStation:", $"{state.CurrentStation?.DisplayName}");
-                vBuilder.AddField("CurrentStationId:", $"{state.CurrentStationId}");
-                vBuilder.AddField("PreviousStation:", $"{state.PreviousStation?.DisplayName}");
-                vBuilder.AddField("PreviousStationId:", $"{state.PreviousStationId}");
+                    vsBuilder.AddSection("Current Station Info");
+                    vsBuilder.AddField("At Station:", $"{TFToYN(state.CurrentStation != null)}");
+                    vsBuilder.AddField("CurrentStation:", $"{state.CurrentStation?.DisplayName}");
+                    vsBuilder.AddField("CurrentStationId:", $"{state.CurrentStationId}");
+                    vsBuilder.AddField("PreviousStation:", $"{state.PreviousStation?.DisplayName}");
+                    vsBuilder.AddField("PreviousStationId:", $"{state.PreviousStationId}");
 
-                vBuilder.AddSection("Direction of Travel Info");
-                EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
-                vBuilder.AddField("UserDOT:", $"{pls.UserDirectionOfTravel}");
-                vBuilder.AddField("InferredDOT:", $"{state.InferredDirectionOfTravel}");
-                vBuilder.AddField("EffectiveDOT:", $"{effectiveDOT.Value}");
+                    vsBuilder.AddSection("Direction of Travel Info");
+                    EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
+                    vsBuilder.AddField("UserDOT:", $"{pls.UserDirectionOfTravel}");
+                    vsBuilder.AddField("InferredDOT:", $"{state.InferredDirectionOfTravel}");
+                    vsBuilder.AddField("EffectiveDOT:", $"{effectiveDOT.Value}");
 
-                vBuilder.AddSection("Train State");
-                vBuilder.AddField("Disabled:", $"{TFToYN(pls.Disable)}");
-                vBuilder.AddField("Currently Stopped:", $"{TFToYN(state.CurrentlyStopped)} for reason: {state.CurrentReasonForStop}");
-                vBuilder.AddField("Arrived:", $"{TFToYN(state.Arrived)}");
-                vBuilder.AddField("AtTerminusStationEast:", $"{TFToYN(state.AtTerminusStationEast)}");
-                vBuilder.AddField("AtTerminusStationWest:", $"{TFToYN(state.AtTerminusStationWest)}");
-                vBuilder.AddField("AtAlarka:", $"{TFToYN(state.AtAlarka)}");
-                vBuilder.AddField("AtCochran:", $"{TFToYN(state.AtCochran)}");
-                vBuilder.AddField("TerminusStationProcedureComplete:", $"{TFToYN(state.TerminusStationProcedureComplete)}");
-                vBuilder.AddField("NonTerminusStationProcedureComplete:", $"{TFToYN(state.NonTerminusStationProcedureComplete)}");
-                vBuilder.AddField("StoppedUnknownDirection:", $"{TFToYN(state.StoppedUnknownDirection)}");
-                vBuilder.AddField("StoppedUnsupportedStation:", $"{TFToYN(state.StoppedUnsupportedStation)}");
-                vBuilder.AddField("StoppedInsufficientTerminusStations:", $"{TFToYN(state.StoppedInsufficientTerminusStations)}");
-                vBuilder.AddField("StoppedInsufficientStopAtStations:", $"{TFToYN(state.StoppedInsufficientStopAtStations)}");
-                vBuilder.AddField("StoppedForDiesel:", $"{TFToYN(state.StoppedForDiesel)}");
-                vBuilder.AddField("StoppedForCoal:", $"{TFToYN(state.StoppedForCoal)}");
-                vBuilder.AddField("StoppedForWater:", $"{TFToYN(state.StoppedForWater)}");
-                vBuilder.AddField("StoppedNextStation:", $"{TFToYN(state.StoppedNextStation)}");
-                vBuilder.AddField("StoppedTerminusStation:", $"{TFToYN(state.StoppedTerminusStation)}");
-                vBuilder.AddField("StoppedStationPause:", $"{TFToYN(state.StoppedStationPause)}");
-                vBuilder.AddField("StoppedWaitForFullLoad:", $"{TFToYN(state.StoppedWaitForFullLoad)}");
-                vBuilder.AddField("ReadyToDepart:", $"{TFToYN(state.ReadyToDepart)}");
-                vBuilder.AddField("Departed:", $"{TFToYN(state.Departed)}");
-                vBuilder.AddField("StopOverrideActive:", $"{TFToYN(state.StopOverrideActive)}");
-                vBuilder.AddField("StopOverrideStationId:", $"{state.StopOverrideStationId}");
+                    vsBuilder.AddSection("Train State");
+                    vsBuilder.AddField("Disabled:", $"{TFToYN(pls.Disable)}");
+                    vsBuilder.AddField("Currently Stopped:", $"{TFToYN(state.CurrentlyStopped)} for reason: {state.CurrentReasonForStop}");
+                    vsBuilder.AddField("Arrived:", $"{TFToYN(state.Arrived)}");
+                    vsBuilder.AddField("AtTerminusStationEast:", $"{TFToYN(state.AtTerminusStationEast)}");
+                    vsBuilder.AddField("AtTerminusStationWest:", $"{TFToYN(state.AtTerminusStationWest)}");
+                    vsBuilder.AddField("AtAlarka:", $"{TFToYN(state.AtAlarka)}");
+                    vsBuilder.AddField("AtCochran:", $"{TFToYN(state.AtCochran)}");
+                    vsBuilder.AddField("TerminusStationProcedureComplete:", $"{TFToYN(state.TerminusStationProcedureComplete)}");
+                    vsBuilder.AddField("NonTerminusStationProcedureComplete:", $"{TFToYN(state.NonTerminusStationProcedureComplete)}");
+                    vsBuilder.AddField("StoppedUnknownDirection:", $"{TFToYN(state.StoppedUnknownDirection)}");
+                    vsBuilder.AddField("StoppedUnsupportedStation:", $"{TFToYN(state.StoppedUnsupportedStation)}");
+                    vsBuilder.AddField("StoppedInsufficientTerminusStations:", $"{TFToYN(state.StoppedInsufficientTerminusStations)}");
+                    vsBuilder.AddField("StoppedInsufficientStopAtStations:", $"{TFToYN(state.StoppedInsufficientStopAtStations)}");
+                    vsBuilder.AddField("StoppedForDiesel:", $"{TFToYN(state.StoppedForDiesel)}");
+                    vsBuilder.AddField("StoppedForCoal:", $"{TFToYN(state.StoppedForCoal)}");
+                    vsBuilder.AddField("StoppedForWater:", $"{TFToYN(state.StoppedForWater)}");
+                    vsBuilder.AddField("StoppedNextStation:", $"{TFToYN(state.StoppedNextStation)}");
+                    vsBuilder.AddField("StoppedTerminusStation:", $"{TFToYN(state.StoppedTerminusStation)}");
+                    vsBuilder.AddField("StoppedStationPause:", $"{TFToYN(state.StoppedStationPause)}");
+                    vsBuilder.AddField("StoppedWaitForFullLoad:", $"{TFToYN(state.StoppedWaitForFullLoad)}");
+                    vsBuilder.AddField("ReadyToDepart:", $"{TFToYN(state.ReadyToDepart)}");
+                    vsBuilder.AddField("Departed:", $"{TFToYN(state.Departed)}");
+                    vsBuilder.AddField("StopOverrideActive:", $"{TFToYN(state.StopOverrideActive)}");
+                    vsBuilder.AddField("StopOverrideStationId:", $"{state.StopOverrideStationId}");
 
-                vBuilder.AddSection("Runtime");
-                vBuilder.AddField("PH Runtime Active:", $"{TFToYN(Loader.PassengerHelper.runtime.IsRunning)}");
-                vBuilder.AddField("PH Runtime Interval:", $"{Loader.PassengerHelper.runtime.IntervalSeconds}s");
+                    vsBuilder.AddSection("Runtime");
+                    vsBuilder.AddField("PH Runtime Active:", $"{TFToYN(Loader.PassengerHelper.runtime.IsRunning)}");
+                    vsBuilder.AddField("PH Runtime Interval:", $"{Loader.PassengerHelper.runtime.IntervalSeconds}s");
 
-
-                vBuilder.RebuildOnInterval(1f);
-
+                    vsBuilder.RebuildOnInterval(1f);
+                });
             });
         });
 
