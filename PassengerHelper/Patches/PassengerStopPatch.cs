@@ -32,28 +32,28 @@ public static class PassengerStopPatches
             return true;
         }
 
-        // PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
+        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
 
-        // PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
-        // TrainState state = plugin.trainStateManager.GetState(pl);
+        PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
+        TrainState state = plugin.trainStateManager.GetState(pl);
 
-        // if (settings.Disable)
-        // {
-        //     return true;
-        // }
+        if (settings.Disable)
+        {
+            return true;
+        }
 
-        // bool trainIsPaused = state.CurrentlyStopped;
-        // bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
-        // bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
-        // bool waitForFullLoadAtTerminus = settings.WaitForFullPassengersTerminusStation;
+        bool trainIsPaused = state.CurrentlyStopped;
+        bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
+        bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
+        bool waitForFullLoadAtTerminus = settings.WaitForFullPassengersTerminusStation;
 
-        // bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
+        bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
 
-        // if (shouldNotLoad)
-        // {
-        //     __result = true;
-        //     return false;
-        // }
+        if (shouldNotLoad)
+        {
+            __result = true;
+            return false;
+        }
 
         return true;
     }
