@@ -166,41 +166,53 @@ public partial class StationManager
     private bool TryInferDirection(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, StationProcedureContext ctx)
     {
         EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
+        DirectionOfTravel effectiveDir = effectiveDOT.Value;
 
-        if (effectiveDOT.Value != DirectionOfTravel.UNKNOWN)
+        if (state.InferredDirectionOfTravel != DirectionOfTravel.UNKNOWN)
         {
-            return true;
+            return effectiveDir != DirectionOfTravel.UNKNOWN;
         }
+
 
         string reason = "Unknown Direction of Travel";
 
-        if (!ctx.OrderIndex.TryGetValue(state.PreviousStationId, out var prev))
+        bool hasPrev = ctx.OrderIndex.TryGetValue(state.PreviousStationId, out int prev);
+        bool hasCur = ctx.OrderIndex.TryGetValue(state.CurrentStationId, out int cur);
+
+        if (!hasPrev || !hasCur)
         {
+            if (effectiveDir != DirectionOfTravel.UNKNOWN)
+            {
+                return true;
+            }
+
             PauseUnknownStation(pl, pls, state, reason, ctx);
-
-            return false;
-        }
-
-        if (!ctx.OrderIndex.TryGetValue(state.CurrentStationId, out var cur))
-        {
-            PauseUnknownStation(pl, pls, state, reason, ctx);
-
             return false;
         }
 
         if (prev == cur)
         {
+            if (effectiveDir != DirectionOfTravel.UNKNOWN)
+            {
+                return true;
+            }
+
             PauseSameStation(pl, pls, state, reason, ctx);
-
             return false;
         }
 
-        if (PauseAlakraStation(pl, pls, state, reason, ctx))
+        if (effectiveDir == DirectionOfTravel.UNKNOWN)
         {
-            return false;
+            if (PauseAlakraStation(pl, pls, state, reason, ctx))
+            {
+                return false;
+            }
         }
 
-        state.InferredDirectionOfTravel = (cur > prev) ? DirectionOfTravel.WEST : DirectionOfTravel.EAST;
+        DirectionOfTravel inferred = (cur > prev) ? DirectionOfTravel.WEST : DirectionOfTravel.EAST;
+        state.InferredDirectionOfTravel = inferred;
+        pl.ResetDOTHandoff();
+
         return true;
     }
 

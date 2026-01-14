@@ -35,6 +35,7 @@ public partial class StationManager
             Loader.Log($"The new direction of travel is opposite current direction of travel");
             TerminusStationReverseDirectionProcedure(pl, pls, ctx.CurrentStation.identifier);
             state.InferredDirectionOfTravel = DirectionOfTravel.WEST;
+            pl.ResetDOTHandoff();
             //update local variable for calculation cost savings
             currentDOT = DirectionOfTravel.WEST;
         }
@@ -49,6 +50,7 @@ public partial class StationManager
             Loader.Log($"The new direction of travel is opposite current direction of travel");
             TerminusStationReverseDirectionProcedure(pl, pls, ctx.CurrentStation.identifier);
             state.InferredDirectionOfTravel = DirectionOfTravel.EAST;
+            pl.ResetDOTHandoff();
             //update local variable for calculation cost savings
             currentDOT = DirectionOfTravel.EAST;
         }

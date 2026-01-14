@@ -41,14 +41,7 @@ public partial class StationManager
                 Loader.Log($"Train {pl._locomotive.DisplayName} has departed {state.CurrentStation.DisplayName} at {TimeWeather.Now}.");
                 Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": has departed {state.CurrentStation.DisplayName}\"");
 
-                state.Arrived = false;
-                state.ReadyToDepart = false;
-                state.Departed = true;
-                state.StopOverrideActive = false;
-                state.StopOverrideStationId = null;
-                state.PreviousStation = state.CurrentStation;
-                state.CurrentStation = null;
-                
+                state.OnDepartReset();
                 trainStateManager.SaveState(pl, state);
 
                 _armedDepartures.Remove(locoId);

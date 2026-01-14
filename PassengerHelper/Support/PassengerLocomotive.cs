@@ -53,6 +53,7 @@ public class PassengerLocomotive
             TrainState state = trainStateManager.GetState(this);
             state.OnSettingsChangedReset();
             trainStateManager.SaveState(this, state);
+            StopAE();
         }
     }
     internal int _stationSettingsHash = 0;
@@ -71,6 +72,7 @@ public class PassengerLocomotive
             TrainState state = trainStateManager.GetState(this);
             state.OnStationSettingsChangedReset();
             trainStateManager.SaveState(this, state);
+            StopAE();
         }
     }
     internal int stateHash = 0;
@@ -78,6 +80,7 @@ public class PassengerLocomotive
     private bool _selfSentStartOrders = false;
     private bool _selfSentStopOrders = false;
     private bool _selfSentRevOrders = false;
+    bool _didDotHandoffThisManualSession = false;
 
     internal KeyValueObject _keyValueObject;
 
@@ -115,6 +118,7 @@ public class PassengerLocomotive
         {
             Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentStartOrders is: {_selfSentStartOrders} and selfSentStopOrders is: {_selfSentStopOrders} and selfSentRevOrders is: {_selfSentRevOrders}");
             TrainState state = trainStateManager.GetState(this);
+
             if (_selfSentStartOrders)
             {
                 _selfSentStartOrders = false;
@@ -129,6 +133,25 @@ public class PassengerLocomotive
             {
                 _selfSentRevOrders = false;
                 return;
+            }
+
+            if (state.InferredDirectionOfTravel == DirectionOfTravel.UNKNOWN)
+            {
+                _didDotHandoffThisManualSession = false;
+                return;
+            }
+
+            DirectionOfTravel dot = state.InferredDirectionOfTravel;
+
+            if (!_didDotHandoffThisManualSession)
+            {
+                var pls = settingsManager.GetSettings(this);
+
+                // Copy last inferred into user hint to avoid stale fallback.
+                pls.UserDirectionOfTravel = state.InferredDirectionOfTravel;
+                settingsManager.SaveSettings(this, pls);
+
+                _didDotHandoffThisManualSession = true;
             }
 
             state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
@@ -337,6 +360,11 @@ public class PassengerLocomotive
     public void ResetStateHash()
     {
         this.stateHash = 0;
+    }
+
+    public void ResetDOTHandoff()
+    {
+        this._didDotHandoffThisManualSession = false;
     }
 
     private Car GetFuelCar()
