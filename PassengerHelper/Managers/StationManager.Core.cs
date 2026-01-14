@@ -100,7 +100,7 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.Log($"Current station is not supported.");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Current station is not supported by PassengerHelper.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Current station is not supported by PassengerHelper.\"");
 
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;
@@ -220,12 +220,12 @@ public partial class StationManager
          */
         if (atTerminus && !state.TerminusStationProcedureComplete)
         {
-            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": running terminus station procedure at {currentStop.DisplayName}\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: : running terminus station procedure at {currentStop.DisplayName}\"");
             RunTerminusStationProcedure(pl, pls, state, ctx);
         }
         else if (!atTerminus && !state.NonTerminusStationProcedureComplete)
         {
-            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": running station procedure at {currentStop.DisplayName}\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: running station procedure at {currentStop.DisplayName}\"");
             RunStationProcedure(pl, pls, state, ctx);
         }
         else

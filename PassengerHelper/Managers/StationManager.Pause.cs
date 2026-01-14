@@ -186,7 +186,7 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.Log($"there are less than 2 stations to stop at, current selected stations: {Dump(ctx.OrderedStopAtStations)}");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"At least 2 stations must be selected. Check your passenger settings.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: At least 2 stations must be selected. Check your passenger settings.\"");
 
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;
@@ -204,7 +204,7 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.Log($"there are not exactly 2 terminus stations, current selected terminus stations: {Dump(ctx.OrderedTerminusStations)}");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"2 Terminus stations must be selected. Check your passenger settings.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: 2 Terminus stations must be selected. Check your passenger settings.\"");
 
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;
@@ -225,7 +225,7 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.LogError("Terminus station not found in ordered stopat station list; pausing to avoid invalid indexing.");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Pausing due to terminus station ordering mismatch.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Pausing due to terminus station ordering mismatch.\"");
 
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;
@@ -251,7 +251,7 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.LogError("Terminus station not found in ordered pickup station list; pausing to avoid invalid indexing.");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Pausing due to terminus station ordering mismatch.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Pausing due to terminus station ordering mismatch.\"");
 
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;

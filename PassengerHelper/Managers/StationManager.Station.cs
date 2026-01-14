@@ -77,7 +77,7 @@ public partial class StationManager
             {
                 // train is at alarka, and this is not a terminus, so we need to reverse direction but NOT change cardinal direction
                 Loader.Log($"Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Arrived in Alarka, reversing direction to continue.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Arrived in Alarka, reversing direction to continue.\"");
                 pl.ReverseLocoDirection();
             }
 
@@ -85,7 +85,7 @@ public partial class StationManager
             {
                 // train is at cochran, train does not go to alarka, there are more stops, we need to reverse direction but NOT change cardinal direction
                 Loader.Log($"Train is in Cochran, there are more stops, loop mode is not activated and alarka is not a selected station. Reversing train.");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Arrived in Cochran, reversing direction to continue.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Arrived in Cochran, reversing direction to continue.\"");
                 pl.ReverseLocoDirection();
             }
         }

@@ -123,7 +123,7 @@ public partial class StationManager
 
         if (reversed)
         {
-            Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \"Reversed direction.\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: Reversed direction.\"");
         }
     }
 }

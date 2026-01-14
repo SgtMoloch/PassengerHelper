@@ -221,8 +221,8 @@ public partial class StationManager
         if (state.CurrentReasonForStop != reason)
         {
             Loader.Log($"Train is at an unknown station, so cannot accurately determine direction, pausing and waiting for manual intervention");
-            Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
-            Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
             pl.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(ctx.CurrentStation)}.");
             state.CurrentlyStopped = true;
             state.CurrentReasonForStop = reason;
@@ -236,8 +236,8 @@ public partial class StationManager
         if (state.CurrentReasonForStop != reason)
         {
             Loader.Log($"Current and Previous stations are the same, direction of travel is unknown, so cannot accurately determine direction, pausing and waiting for manual intervention");
-            Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Unknown Direction. Pausing until at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
-            Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: Unknown Direction. Pausing until at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
             pl.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(ctx.CurrentStation)}.");
             state.CurrentlyStopped = true;
             state.CurrentReasonForStop = reason;
@@ -253,8 +253,8 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.Log($"Train is in Cochran, previous stop was alarka, direction of travel is unknown, and alarka was not a terminus station, so cannot accurately determine direction, pausing and waiting for manual intervention");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
                 pl.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(ctx.CurrentStation)}.");
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;
@@ -269,8 +269,8 @@ public partial class StationManager
             if (state.CurrentReasonForStop != reason)
             {
                 Loader.Log($"Train is in Alarka, previous stop was cochran, direction of travel is unknown, so cannot accurately determine direction, pausing and waiting for manual intervention");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
-                Say($"AI Engineer {Hyperlink.To(pl._locomotive)}: \"Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Unknown Direction. Pausing at {Hyperlink.To(ctx.CurrentStation)} until I receive Direction of Travel via PassengerSettings.\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Be sure to put the reverser in the correct direction too. Else I might go in the wrong direction.\"");
                 pl.PostNotice("ai-stop", $"Paused, Unknown Direction at {Hyperlink.To(ctx.CurrentStation)}.");
                 state.CurrentlyStopped = true;
                 state.CurrentReasonForStop = reason;

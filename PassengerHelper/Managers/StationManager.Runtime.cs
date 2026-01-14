@@ -39,7 +39,7 @@ public partial class StationManager
             if (!pl._locomotive.IsStopped(10f) && speed > 0.05f)
             {
                 Loader.Log($"Train {pl._locomotive.DisplayName} has departed {state.CurrentStation.DisplayName} at {TimeWeather.Now}.");
-                Say($"PH AI Engineer {Hyperlink.To(pl._locomotive)}: \": has departed {state.CurrentStation.DisplayName}\"");
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: has departed {state.CurrentStation.DisplayName}\"");
 
                 state.OnDepartReset();
                 trainStateManager.SaveState(pl, state);
