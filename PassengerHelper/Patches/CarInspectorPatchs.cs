@@ -39,6 +39,10 @@ public static class CarInspectorPatches
         if (____car.IsLocomotive)
         {
             BaseLocomotive _locomotive = (BaseLocomotive)____car;
+            if (_locomotive.ControlProperties[PropertyChange.Control.Mu] == true)
+            {
+                return;
+            }
 
             Orders orders = Orders.FromPropertyValue(_locomotive.KeyValueObject["aiOrders"]) ?? Orders.Disabled;
 
