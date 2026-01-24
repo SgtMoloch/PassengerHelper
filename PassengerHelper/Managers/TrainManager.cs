@@ -35,7 +35,7 @@ public class TrainManager
             Loader.Log($"Did not find existing PassengerLocomotive for {locomotive.DisplayName}, looking for existing PassengerSettings and creating a new Passenger Locomotive");
             passengerLocomotive = new PassengerLocomotive(locomotive, trainStateManager, settingsManager);
 
-            Loader.LogDebug($"Adding new Passenger Locomotive to internal Dictionary");
+            Loader.LogVerbose($"Adding new Passenger Locomotive to internal Dictionary");
 
             this.passengerLocomotives.Add(locomotive.id, passengerLocomotive);
         }

@@ -17,7 +17,7 @@ public static class MapFeatureManagerPatches
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]
     private static void HandleFeatureEnablesChanged()
     {
-        Loader.LogDebug($"[MapFeatureManagerPatch] Progressions Changed. Checking Stations");
+        Loader.LogVerbose($"[MapFeatureManagerPatch] Progressions Changed. Checking Stations");
         PassengerHelperPlugin shared = Loader.PassengerHelper;
 
         if (!Loader.ModEntry.Enabled)
