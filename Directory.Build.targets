@@ -14,7 +14,7 @@
     <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion)</AssemblyVersion>
     <FileVersion>$(AssemblyVersion)</FileVersion>
     <ProductVersion>$(AssemblyVersion)</ProductVersion>
-    <InformationalVersion>$(AssemblyVersion)$(VersionSuffix)</InformationalVersion>
+    <InformationalVersion>$(AssemblyVersion).$(VersionSuffix)</InformationalVersion>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(PublishMod)' != 'false'">
