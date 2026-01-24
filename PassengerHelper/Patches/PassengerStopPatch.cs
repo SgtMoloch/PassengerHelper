@@ -42,12 +42,24 @@ public static class PassengerStopPatches
             return true;
         }
 
+        if (!state.TerminusStationProcedureComplete || !state.NonTerminusStationProcedureComplete)
+        {
+            __result = true;
+            return false;
+        }
+
+        bool trainPausedFulload = state.StoppedWaitForFullLoad;
+        bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
+
+        if (trainPausedFulload && trainAtTerminus)
+        {
+            return true;
+        }
+
         bool trainIsPaused = state.CurrentlyStopped;
         bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
-        bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
-        bool waitForFullLoadAtTerminus = settings.WaitForFullPassengersTerminusStation;
 
-        bool shouldNotLoad = trainIsPaused && preventPaxLoad && !(trainAtTerminus && waitForFullLoadAtTerminus);
+        bool shouldNotLoad = trainIsPaused && preventPaxLoad;
 
         if (shouldNotLoad)
         {

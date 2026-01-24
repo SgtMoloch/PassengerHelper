@@ -328,27 +328,27 @@ public class PassengerSettingsWindow
             bool isAlarka = stationId == "alarka";
             bool isSylva = stationId == "sylva";
             bool isAndrews = stationId == "andrews";
-            StationSetting stationSettings = allStationSettings[stationId];
+            StationSetting stationSetting = allStationSettings[stationId];
 
-            Loader.LogDebug($"pre interaction station settings for {stationId} are: {stationSettings}");
+            Loader.LogDebug($"pre interaction station settings for {stationId} are: {stationSetting}");
 
-            bool stopAtSelected = stationSettings.StopAtStation;
+            bool stopAtSelected = stationSetting.StopAtStation;
 
-            bool pauseSetting = stationSettings.PauseAtStation && stopAtSelected;
-            stationSettings.PauseAtStation = pauseSetting;
+            bool pauseSetting = stationSetting.PauseAtStation && stopAtSelected;
+            stationSetting.PauseAtStation = pauseSetting;
 
-            bool terminusSetting = stationSettings.TerminusStation && stopAtSelected;
-            stationSettings.TerminusStation = terminusSetting;
+            bool terminusSetting = stationSetting.TerminusStation && stopAtSelected;
+            stationSetting.TerminusStation = terminusSetting;
 
             bool terminusSelected = terminusSetting;
 
-            bool transferSetting = stationSettings.TransferStation && stopAtSelected
+            bool transferSetting = stationSetting.TransferStation && stopAtSelected
                                                                     && pickUpCountBigger
                                                                     && (terminusSelected || isAlarkaJct)
                                                                     && !isSylva
                                                                     && !isAndrews;
 
-            stationSettings.TransferStation = transferSetting;
+            stationSetting.TransferStation = transferSetting;
 
             if (interactableStationMap.ContainsKey(stationId))
             {
@@ -361,7 +361,7 @@ public class PassengerSettingsWindow
                 interactableStationMap[stationId].Pause = stopAtSelected;
             }
 
-            Loader.LogDebug($"post interaction station settings for {stationId} are: {stationSettings}");
+            Loader.LogDebug($"post interaction station settings for {stationId} are: {stationSetting}");
         }
 
         if (allStationSettings.ContainsKey("alarkajct") && allStationSettings.ContainsKey("alarka"))
@@ -612,6 +612,12 @@ public class PassengerSettingsWindow
                 Loader.LogDebug($"Pause for {stationId} set to {on}");
                 PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
                 pls.StationSettings[stationId].PauseAtStation = on;
+
+                if (on && pls.StationSettings[stationId].TerminusStation)
+                {
+                    pls.WaitForFullPassengersTerminusStation = false;
+                }
+
                 settingsManager.SaveSettings(pl, pls);
             })
             .Width(60f);
@@ -844,8 +850,13 @@ public class PassengerSettingsWindow
 
                     pls.PauseAtTerminusStation = on;
 
+                    if (on)
+                    {
+                        pls.WaitForFullPassengersTerminusStation = false;
+                    }
+
                     settingsManager.SaveSettings(pl, pls);
-                }).Tooltip("Pause At Terminus Station Toggle", $"Toggle whether the AI should pause at the terminus station(s)")
+                }).Tooltip("Pause At Terminus Station Toggle", $"Toggle whether the AI should pause at the terminus station(s). Setting this will DISABLE waiting for full load at terminus station setting.")
             .Width(25f);
                 hBuilder.AddLabel("Pause At Terminus Station").FlexibleWidth(1f);
             });
@@ -872,8 +883,15 @@ public class PassengerSettingsWindow
 
                 pls.WaitForFullPassengersTerminusStation = on;
 
+                if (on)
+                {
+                    Loader.LogDebug($"Wait for full load at terminus station is now on, so disabling pause at terminus station");
+                    pls.PauseAtTerminusStation = false;
+                }
+
                 settingsManager.SaveSettings(pl, pls);
-            }).Tooltip("Wait for Full Passengers at Terminus Station Toggle", $"Toggle whether the AI should wait for a full passenger load at the terminus station before continuing on")
+            }).Tooltip("Wait for Full Passengers at Terminus Station Toggle", $"Toggle whether the AI should wait for a full passenger load at the terminus station before continuing on. " +
+            "This setting takes precedence over prevent loading when paused and setting it will DISABLE the pause at terminus station setting.")
         .Width(25f);
             hBuilder.AddLabel("Wait For Full Load at Terminus Station").FlexibleWidth(1f);
         });
@@ -960,7 +978,7 @@ public class PassengerSettingsWindow
 
             hBuilder.Spacer().FlexibleWidth(1f);
 
-            
+
             hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
             {
                 PassengerLocomotiveSettings pls2 = settingsManager.GetSettings(pl);

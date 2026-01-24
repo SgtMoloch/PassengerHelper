@@ -68,6 +68,39 @@ public partial class StationManager
 
     private void StayStoppedStationPause(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, StationProcedureContext ctx)
     {
+        if (state.StoppedWaitForFullLoad && pls.WaitForFullPassengersTerminusStation)
+        {
+            if (pls.PauseAtNextStation || pls.PauseAtNextStation || pls.PauseAtTerminusStation)
+            {
+                Loader.Log($"{pl._locomotive.DisplayName}: Ambiguous pause settings at {state.CurrentStation.DisplayName}. Check settings. Defaulting to Waiting for full load.");
+            }
+
+            bool notFull = false;
+            foreach (Car coach in pl.GetCoaches())
+            {
+                PassengerMarker? marker = coach.GetPassengerMarker();
+                if (marker == null)
+                {
+                    Loader.Log($"Passenger car not full, remaining stopped");
+                    notFull = true;
+                    break;
+                }
+
+                int maxCapacity = PassengerCapacity(coach, ctx.CurrentStation);
+                PassengerMarker actualMarker = marker.Value;
+                bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(ctx.CurrentStation.identifier);
+                bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
+                if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
+                {
+                    Loader.Log($"Passenger car not full, remaining stopped");
+                    notFull = true;
+                    break;
+                }
+            }
+
+            state.StoppedWaitForFullLoad = notFull;
+        }
+
         if (state.StoppedNextStation && pls.PauseAtNextStation)
         {
             Loader.Log($"StopAtNextStation is selected. {pl._locomotive.DisplayName} is remaining stopped.");
@@ -96,34 +129,6 @@ public partial class StationManager
             {
                 state.StoppedStationPause = false;
             }
-        }
-
-        if (state.StoppedWaitForFullLoad && pls.WaitForFullPassengersTerminusStation)
-        {
-            bool notFull = false;
-            foreach (Car coach in pl.GetCoaches())
-            {
-                PassengerMarker? marker = coach.GetPassengerMarker();
-                if (marker == null)
-                {
-                    Loader.Log($"Passenger car not full, remaining stopped");
-                    notFull = true;
-                    break;
-                }
-
-                int maxCapacity = PassengerCapacity(coach, ctx.CurrentStation);
-                PassengerMarker actualMarker = marker.Value;
-                bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(ctx.CurrentStation.identifier);
-                bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
-                if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
-                {
-                    Loader.Log($"Passenger car not full, remaining stopped");
-                    notFull = true;
-                    break;
-                }
-            }
-
-            state.StoppedWaitForFullLoad = notFull;
         }
     }
 
@@ -273,45 +278,20 @@ public partial class StationManager
     }
     private bool PauseAtCurrentStation(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state)
     {
-        if (pls.PauseAtNextStation)
-        {
-            Loader.Log($"Pausing at station due to setting");
-            pl.PostNotice("ai-stop", $"Paused at {Hyperlink.To(state.CurrentStation)}.");
-            state.CurrentlyStopped = true;
-            state.CurrentReasonForStop = "Requested pause at next station";
-            state.StoppedNextStation = true;
-            return true;
-        }
-
         if (!pls.StationSettings.TryGetValue(state.CurrentStation.identifier, out var curStationSettings))
         {
             Loader.Log($"No StationSettings entry for {state.CurrentStation.identifier}; skipping pause logic.");
             return false;
         }
 
-        if (curStationSettings.PauseAtStation)
-        {
-            Loader.Log($"Pausing at {state.CurrentStation.DisplayName} due to setting");
-            pl.PostNotice("ai-stop", $"Paused at {Hyperlink.To(state.CurrentStation)}.");
-            state.CurrentlyStopped = true;
-            state.CurrentReasonForStop = "Requested pause at " + state.CurrentStation.DisplayName;
-            state.StoppedStationPause = true;
-            return true;
-        }
-
-        if (pls.PauseAtTerminusStation && curStationSettings.TerminusStation == true)
-        {
-            Loader.Log($"Pausing at {state.CurrentStation.DisplayName} due to setting");
-            pl.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(state.CurrentStation)}.");
-            state.CurrentlyStopped = true;
-            state.CurrentReasonForStop = "Requested pause at terminus station " + state.CurrentStation.DisplayName;
-            state.StoppedTerminusStation = true;
-            return true;
-        }
-
         if (pls.WaitForFullPassengersTerminusStation && curStationSettings.TerminusStation == true)
         {
             Loader.Log($"Waiting For full Passengers at terminus.");
+
+            if (pls.PauseAtNextStation || pls.PauseAtNextStation || pls.PauseAtTerminusStation)
+            {
+                Say($"PH \"{Hyperlink.To(pl._locomotive)}: Ambiguous pause settings at {state.CurrentStation.DisplayName}. Check settings. Defaulting to Waiting for full load.\"");
+            }
 
             foreach (Car coach in pl.GetCoaches())
             {
@@ -344,6 +324,36 @@ public partial class StationManager
             Loader.Log($"Passengers are full, continuing.");
         }
 
+        if (pls.PauseAtNextStation)
+        {
+            Loader.Log($"Pausing at station due to setting");
+            pl.PostNotice("ai-stop", $"Paused at {Hyperlink.To(state.CurrentStation)}.");
+            state.CurrentlyStopped = true;
+            state.CurrentReasonForStop = "Requested pause at next station";
+            state.StoppedNextStation = true;
+            return true;
+        }
+
+        if (curStationSettings.PauseAtStation)
+        {
+            Loader.Log($"Pausing at {state.CurrentStation.DisplayName} due to setting");
+            pl.PostNotice("ai-stop", $"Paused at {Hyperlink.To(state.CurrentStation)}.");
+            state.CurrentlyStopped = true;
+            state.CurrentReasonForStop = "Requested pause at " + state.CurrentStation.DisplayName;
+            state.StoppedStationPause = true;
+            return true;
+        }
+
+        if (pls.PauseAtTerminusStation && curStationSettings.TerminusStation == true)
+        {
+            Loader.Log($"Pausing at {state.CurrentStation.DisplayName} due to setting");
+            pl.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(state.CurrentStation)}.");
+            state.CurrentlyStopped = true;
+            state.CurrentReasonForStop = "Requested pause at terminus station " + state.CurrentStation.DisplayName;
+            state.StoppedTerminusStation = true;
+            return true;
+        }
+
         return false;
     }
 
@@ -354,21 +364,27 @@ public partial class StationManager
         {
             Loader.Log($"Requested stop for low diesel, checking level");
             // check diesel
-            retVal |= CheckDieselLevel(pl, pls, state);
+            bool pause = CheckDieselLevel(pl, pls, state);
+            retVal |= pause;
+            state.StoppedForDiesel = pause;
         }
 
         if (pls.PauseForCoal)
         {
             Loader.Log($"Requested stop for low coal, checking level");
             // check coal
-            retVal |= CheckCoalLevel(pl, pls, state);
+            bool pause = CheckCoalLevel(pl, pls, state);
+            retVal |= pause;
+            state.StoppedForCoal = pause;
         }
 
         if (pls.PauseForWater)
         {
             Loader.Log($"Requested stop for low water, checking level");
             // check water
-            retVal |= CheckWaterLevel(pl, pls, state);
+            bool pause = CheckWaterLevel(pl, pls, state);
+            retVal |= pause;
+            state.StoppedForWater = pause;
         }
 
         if (retVal)

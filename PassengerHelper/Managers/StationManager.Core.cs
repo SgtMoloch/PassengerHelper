@@ -240,10 +240,13 @@ public partial class StationManager
         if (!state.StopOverrideActive)
         {
             Loader.Log($"Settings have changed, checking for pause conditions");
-            PauseAtCurrentStation(pl, pls, state);
-            HaveLowFuel(pl, pls, state);
+            if (PauseAtCurrentStation(pl, pls, state))
+            {
+                trainStateManager.SaveState(pl, state);
+                return;
+            }
 
-            if (state.CurrentlyStopped)
+            if (HaveLowFuel(pl, pls, state))
             {
                 trainStateManager.SaveState(pl, state);
                 return;
