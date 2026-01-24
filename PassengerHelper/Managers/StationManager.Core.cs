@@ -220,7 +220,7 @@ public partial class StationManager
          */
         if (atTerminus && !state.TerminusStationProcedureComplete)
         {
-            Say($"PH \"{Hyperlink.To(pl._locomotive)}: : running terminus station procedure at {currentStop.DisplayName}\"");
+            Say($"PH \"{Hyperlink.To(pl._locomotive)}: running terminus station procedure at {currentStop.DisplayName}\"");
             RunTerminusStationProcedure(pl, pls, state, ctx);
         }
         else if (!atTerminus && !state.NonTerminusStationProcedureComplete)
