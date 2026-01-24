@@ -44,46 +44,48 @@ public static class CarInspectorPatches
                 return;
             }
 
+            if (_locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).Count() == 0)
+            {
+                return;
+            }
+
             Orders orders = Orders.FromPropertyValue(_locomotive.KeyValueObject["aiOrders"]) ?? Orders.Disabled;
 
             bool AEMode = orders.Mode == AutoEngineerMode.Road || orders.Mode == AutoEngineerMode.Waypoint;
 
             PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
             TrainState state = plugin.trainStateManager.GetState(pl);
-
-            if (pl.GetCoaches().Any())
+ 
+            builder.Spacer(5f);
+            builder.HStack(delegate (UIPanelBuilder hBuilder)
             {
-                builder.Spacer(5f);
-                builder.HStack(delegate (UIPanelBuilder hBuilder)
+                hBuilder.AddButton("PassengerSettings", delegate
                 {
-                    hBuilder.AddButton("PassengerSettings", delegate
-                    {
-                        plugin.settingsManager.ShowSettingsWindow(pl);
-                    }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
+                    plugin.settingsManager.ShowSettingsWindow(pl);
+                }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
 
-                    if (AEMode && state.isStoppedOverrideable())
+                if (AEMode && state.isStoppedOverrideable())
+                {
+                    hBuilder.AddButton("Continue", delegate
                     {
-                        hBuilder.AddButton("Continue", delegate
-                        {
-                            Loader.Log($"CONTINUE CLICK: loco={_locomotive.DisplayName} id={_locomotive.id} setting Continue=true");
+                        Loader.Log($"CONTINUE CLICK: loco={_locomotive.DisplayName} id={_locomotive.id} setting Continue=true");
 
-                            pl.SetStopOverrideActive();
-                            hBuilder.Rebuild();
-                        }).Tooltip("Resume travel", "Resume travel");
+                        pl.SetStopOverrideActive();
+                        hBuilder.Rebuild();
+                    }).Tooltip("Resume travel", "Resume travel");
+                }
+
+                hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
+                {
+                    TrainState state = plugin.trainStateManager.GetState(pl);
+
+                    if (state.StopOverrideActive && state.StopOverrideStationId != null)
+                    {
+                        hBuilder.Rebuild();
                     }
 
-                    hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
-                    {
-                        TrainState state = plugin.trainStateManager.GetState(pl);
-
-                        if (state.isStoppedOverrideable() || !state.CurrentlyStopped)
-                        {
-                            hBuilder.Rebuild();
-                        }
-
-                    }, callInitial: false));
-                });
-            }
+                }, callInitial: false));
+            });
         }
     }
 
