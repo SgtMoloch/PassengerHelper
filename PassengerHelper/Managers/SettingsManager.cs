@@ -40,12 +40,12 @@ public class SettingsManager
         Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
 
-    public void SaveSettings(PassengerLocomotive pl, PassengerLocomotiveSettings pls)
+    public void SaveSettings(PassengerLocomotive pl, PassengerLocomotiveSettings pls, bool invalidateState = true)
     {
         StateManager.ApplyLocal(new PropertyChange(pl._locomotive.id, pl.KeyValueIdentifier_Settings, PropertyValueConverter.RuntimeToSnapshot(pls.PropertyValue())));
 
-        pl.settingsHash = pls.getSettingsHash();
-        pl.stationSettingsHash = pls.getStationSettingsHash();
+        pl.SetSettingsHash(pls.getSettingsHash(), invalidateState);
+        pl.SetStationSettingsHash(pls.getStationSettingsHash(), invalidateState);
 
         plsMap[pl] = pls;
     }

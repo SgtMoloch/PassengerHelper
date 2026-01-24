@@ -39,12 +39,7 @@ public partial class StationManager
             //update local variable for calculation cost savings
             currentDOT = DirectionOfTravel.WEST;
         }
-        else
-        {
-            Loader.Log($"The current direction of travel is the same as the new direction of travel.");
-        }
-
-        if (atTerminusStationWest && currentDOT == DirectionOfTravel.WEST)
+        else if (atTerminusStationWest && currentDOT == DirectionOfTravel.WEST)
         {
             // arrived at west terminus, need to flip direction
             Loader.Log($"The new direction of travel is opposite current direction of travel");

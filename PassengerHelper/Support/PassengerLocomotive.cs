@@ -53,7 +53,6 @@ public class PassengerLocomotive
             TrainState state = trainStateManager.GetState(this);
             state.OnSettingsChangedReset();
             trainStateManager.SaveState(this, state);
-            StopAE();
         }
     }
     internal int _stationSettingsHash = 0;
@@ -72,7 +71,6 @@ public class PassengerLocomotive
             TrainState state = trainStateManager.GetState(this);
             state.OnStationSettingsChangedReset();
             trainStateManager.SaveState(this, state);
-            StopAE();
         }
     }
     internal int stateHash = 0;
@@ -93,6 +91,8 @@ public class PassengerLocomotive
     internal int maxAESpeed = 45;
 
     internal bool _gameLoadFlag = true;
+
+    private Orders prevOrders;
 
     public PassengerLocomotive(BaseLocomotive _locomotive, TrainStateManager trainStateManager, SettingsManager settingsManager)
     {
@@ -119,25 +119,55 @@ public class PassengerLocomotive
             Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentStartOrders is: {_selfSentStartOrders} and selfSentStopOrders is: {_selfSentStopOrders} and selfSentRevOrders is: {_selfSentRevOrders}");
             TrainState state = trainStateManager.GetState(this);
 
+
             if (_selfSentStartOrders)
             {
                 _selfSentStartOrders = false;
+                this.prevOrders = orders;
                 return;
             }
+
             if (_selfSentStopOrders)
             {
                 _selfSentStopOrders = false;
+                this.prevOrders = orders;
                 return;
             }
+
             if (_selfSentRevOrders)
             {
                 _selfSentRevOrders = false;
+                this.prevOrders = orders;
                 return;
+            }
+
+            if (orders.Mode == AutoEngineerMode.Waypoint)
+            {
+                var pls = settingsManager.GetSettings(this);
+                if (state.InferredDirectionOfTravel != DirectionOfTravel.UNKNOWN && pls.UserDirectionOfTravel != state.InferredDirectionOfTravel)
+                {
+                    // Copy last inferred into user hint to avoid stale fallback.
+                    pls.UserDirectionOfTravel = state.InferredDirectionOfTravel;
+                    settingsManager.SaveSettings(this, pls, false);
+                }
+
+                this.prevOrders = orders;
+                return;
+            }
+
+            if (orders.Mode == AutoEngineerMode.Road)
+            {
+                if (this.prevOrders.Forward == orders.Forward)
+                {
+                    this.prevOrders = orders;
+                    return;
+                }
             }
 
             if (state.InferredDirectionOfTravel == DirectionOfTravel.UNKNOWN)
             {
                 _didDotHandoffThisManualSession = false;
+                this.prevOrders = orders;
                 return;
             }
 
@@ -156,6 +186,7 @@ public class PassengerLocomotive
 
             state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
             trainStateManager.SaveState(this, state);
+            this.prevOrders = orders;
         }, callInitial: false);
     }
 
@@ -174,7 +205,7 @@ public class PassengerLocomotive
             pls = settingsManager.LoadSettings(this);
         }
 
-        this.settingsHash = pls.getSettingsHash();
+        SetSettingsHash(pls.getSettingsHash(), false);
     }
 
     public void LoadState()
@@ -299,12 +330,14 @@ public class PassengerLocomotive
 
     public bool ReverseLocoDirection()
     {
-        Loader.Log($"reversing loco direction");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
 
         if (mode == AutoEngineerMode.Off) return false;
+        if (mode == AutoEngineerMode.Waypoint) return false;
+
+        Loader.Log($"reversing loco direction");
 
         _selfSentRevOrders = true;
         Loader.Log($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
@@ -352,6 +385,42 @@ public class PassengerLocomotive
     {
         this.stateHash = 0;
     }
+
+    public void SetSettingsHash(int value, bool invalidateState = true)
+    {
+        if (_settingsHash == value)
+        {
+            return;
+        }
+
+        _settingsHash = value;
+
+        if (invalidateState)
+        {
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+
+    public void SetStationSettingsHash(int value, bool invalidateState = true)
+    {
+        if (_stationSettingsHash == value)
+        {
+            return;
+        }
+
+        _stationSettingsHash = value;
+
+        if (invalidateState)
+        {
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+
+
 
     public void ResetDOTHandoff()
     {

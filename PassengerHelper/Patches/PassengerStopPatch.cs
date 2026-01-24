@@ -42,8 +42,11 @@ public static class PassengerStopPatches
             return true;
         }
 
-        if (!state.TerminusStationProcedureComplete || !state.NonTerminusStationProcedureComplete)
+        bool station_procedure_ran = state.NonTerminusStationProcedureComplete || state.TerminusStationProcedureComplete;
+
+        if (!station_procedure_ran)
         {
+            Loader.Log($"station procedure for {pl._locomotive.DisplayName} has not ran yet, not loading");
             __result = true;
             return false;
         }

@@ -90,6 +90,8 @@ public partial class StationManager
             }
         }
 
+        state.NonTerminusStationProcedureComplete = true;
+
         return;
     }
 
