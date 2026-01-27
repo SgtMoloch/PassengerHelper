@@ -145,34 +145,41 @@ public class PassengerSettingsWindow
 
     internal void PopulateAndShowSettingsWindow(Window passengerSettingsWindow, PassengerLocomotive pl)
     {
-        uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
+        try
         {
-            Loader.Log($"Populating passenger helper settings for {pl._locomotive.DisplayName}");
+            uIHelper.PopulateWindow(passengerSettingsWindow, (Action<UIPanelBuilder>)delegate (UIPanelBuilder builder)
+            {
+                Loader.Log($"Populating passenger helper settings for {pl._locomotive.DisplayName}");
 
-            builder.VStack(delegate (UIPanelBuilder builder)
-            {
-                PopulateStationSettings(passengerSettingsWindow, builder, pl);
-                builder.AddExpandingVerticalSpacer();
-            });
-
-            builder.Spacer();
-            builder.VStack(delegate (UIPanelBuilder builder)
-            {
-                PopulateSettings(builder, pl);
-                builder.AddExpandingVerticalSpacer();
-            });
-            builder.VStack(delegate (UIPanelBuilder builder)
-            {
-                builder.AddExpandingVerticalSpacer();
-                builder.HStack(delegate (UIPanelBuilder builder)
+                builder.VStack(delegate (UIPanelBuilder builder)
                 {
-                    AddSaveButton(builder, passengerSettingsWindow);
-                    AddDebugButton(builder, pl);
+                    PopulateStationSettings(passengerSettingsWindow, builder, pl);
+                    builder.AddExpandingVerticalSpacer();
+                });
+
+                builder.Spacer();
+                builder.VStack(delegate (UIPanelBuilder builder)
+                {
+                    PopulateSettings(builder, pl);
+                    builder.AddExpandingVerticalSpacer();
+                });
+                builder.VStack(delegate (UIPanelBuilder builder)
+                {
+                    builder.AddExpandingVerticalSpacer();
+                    builder.HStack(delegate (UIPanelBuilder builder)
+                    {
+                        AddSaveButton(builder, passengerSettingsWindow);
+                        AddDebugButton(builder, pl);
+                    });
                 });
             });
-        });
 
-        passengerSettingsWindow.ShowWindow();
+            passengerSettingsWindow.ShowWindow();
+        }
+        catch (Exception ex)
+        {
+            Loader.LogError($"[PH UI] Settings window build failed for {pl._locomotive.id}: {ex}");
+        }
     }
 
     private void PopulateStationSettings(Window passengerSettingsWindow, UIPanelBuilder builder, PassengerLocomotive pl)

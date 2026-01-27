@@ -128,12 +128,20 @@ public class SettingsManager
 
     public StationSetting GetStationSetting(PassengerLocomotive pl, string stationId)
     {
-        if (!plsMap.ContainsKey(pl))
+        if (!plsMap.TryGetValue(pl, out var pls))
         {
             return CreateNewSettings(pl).StationSettings[stationId];
         }
 
-        return plsMap[pl].StationSettings[stationId];
+        if(!plsMap[pl].StationSettings.TryGetValue(stationId, out var stationSetting))
+        {
+            stationSetting = new StationSetting();
+            plsMap[pl].StationSettings[stationId] = stationSetting;
+
+            SaveSettings(pl, pls);
+        }
+
+        return stationSetting;
     }
 
     private void OnMapDidUnload(MapDidUnloadEvent @event)

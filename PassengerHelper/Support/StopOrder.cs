@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Model.Ops;
+using PassengerHelper.Plugin;
 
 public sealed class StopOrderResult
 {
@@ -85,6 +86,7 @@ public static class StopOrder
         if (!byId.TryGetValue(EastAnchorId, out var east) ||
             !byId.TryGetValue(WestAnchorId, out var west))
         {
+            Loader.Log("[StopOrder::TryComputeOrderedStopsAnchored]Could not find sylva/andrews anchors. Falling back to canonical base-game ordering.");
             // Fallback: just return all stops in a stable-ish order (by canonical base-game ordering)
             warning = "Could not find sylva/andrews anchors. Falling back to canonical base-game ordering.";
             orderedMainline = SortSupportedCanonicalOrder(byId);
@@ -94,10 +96,12 @@ public static class StopOrder
 
         // If junction missing, just skip the special detour; still compute spine
         byId.TryGetValue(AlarkaJunctionId, out var alarkaJct);
+        Dictionary<string, HashSet<string>> adj = BuildUndirectedAdjacency(byId);
 
         List<PassengerStop> spine;
-        if (!TryShortestPath(east, west, out spine))
+        if (!TryShortestPath(east, west, byId, adj, out spine))
         {
+            Loader.Log("[StopOrder::TryComputeOrderedStopsAnchored]Could not find a path from sylva to andrews. Falling back to canonical base-game ordering.");
             warning = "Could not find a path from sylva to andrews. Falling back to canonical base-game ordering.";
             orderedMainline = SortSupportedCanonicalOrder(byId);
             orderedAll = SortByCanonicalOrderFirst(byId);
@@ -105,8 +109,8 @@ public static class StopOrder
         }
 
         // Normal anchored build (no throws)
-        orderedMainline = BuildOrderedFromSpine(spine, alarkaJct);
-        orderedAll = BuildOrderedFromSpine(spine, alarkaJct, true);
+        orderedMainline = BuildOrderedFromSpine(spine, alarkaJct, byId, adj);
+        orderedAll = BuildOrderedFromSpine(spine, alarkaJct, byId, adj, true);
         return true;
     }
 
@@ -117,7 +121,10 @@ public static class StopOrder
 
     private static List<PassengerStop> BuildOrderedFromSpine(
         List<PassengerStop> spine,
-        PassengerStop? alarkaJct, bool includeOtherBranches = false)
+        PassengerStop? alarkaJct,
+        Dictionary<string, PassengerStop> byId,
+        Dictionary<string, HashSet<string>> adj,
+        bool includeOtherBranches = false)
     {
         var spineSet = new HashSet<PassengerStop>(RefEq<PassengerStop>.Instance);
         for (int i = 0; i < spine.Count; i++)
@@ -135,11 +142,11 @@ public static class StopOrder
 
             // Special-case: Alarka branch detour
             if (alarkaJct != null && ReferenceEquals(cur, alarkaJct))
-                TraverseNamedBranch(cur, spineSet, visited, ordered, AlarkaBranchIds);
+                TraverseNamedBranch(cur, byId, adj, spineSet, visited, ordered, AlarkaBranchIds);
 
             // Generic: any other non-spine branch components
             if (includeOtherBranches)
-                TraverseOtherBranches(cur, spineSet, visited, ordered);
+                TraverseOtherBranches(cur, byId, adj, spineSet, visited, ordered);
         }
 
         return ordered;
@@ -147,41 +154,47 @@ public static class StopOrder
 
     private static void TraverseNamedBranch(
         PassengerStop junction,
+        Dictionary<string, PassengerStop> byId,
+        Dictionary<string, HashSet<string>> adj,
         HashSet<PassengerStop> spineSet,
         HashSet<PassengerStop> visited,
         List<PassengerStop> ordered,
         HashSet<string> branchIds)
     {
-        var nbrs = junction.neighbors;
-        if (nbrs == null) return;
+        var jId = junction.identifier;
+        if (string.IsNullOrEmpty(jId)) return;
 
-        for (int i = 0; i < nbrs.Length; i++)
+        if (!adj.TryGetValue(jId, out var nbrIds)) return;
+
+        foreach (var nbId in nbrIds)
         {
-            var nb = nbrs[i];
-            if (nb == null) continue;
+            if (!byId.TryGetValue(nbId, out var nb) || nb == null) continue;
             if (spineSet.Contains(nb)) continue;
 
-            if (branchIds.Contains(nb.identifier))
-                TraverseBranchComponent(nb, junction, spineSet, visited, ordered);
+            if (branchIds.Contains(nbId))
+                TraverseBranchComponent(nb, junction, byId, adj, spineSet, visited, ordered);
         }
     }
 
     private static void TraverseOtherBranches(
-        PassengerStop spineNode,
-        HashSet<PassengerStop> spineSet,
-        HashSet<PassengerStop> visited,
-        List<PassengerStop> ordered)
+    PassengerStop spineNode,
+    Dictionary<string, PassengerStop> byId,
+    Dictionary<string, HashSet<string>> adj,
+    HashSet<PassengerStop> spineSet,
+    HashSet<PassengerStop> visited,
+    List<PassengerStop> ordered)
     {
-        var nbrs = spineNode.neighbors;
-        if (nbrs == null) return;
+        var spineId = spineNode.identifier;
+        if (string.IsNullOrEmpty(spineId)) return;
 
-        for (int i = 0; i < nbrs.Length; i++)
+        if (!adj.TryGetValue(spineId, out var nbrIds)) return;
+
+        foreach (var nbId in nbrIds)
         {
-            var nb = nbrs[i];
-            if (nb == null) continue;
+            if (!byId.TryGetValue(nbId, out var nb) || nb == null) continue;
             if (spineSet.Contains(nb)) continue;
 
-            TraverseBranchComponent(nb, spineNode, spineSet, visited, ordered);
+            TraverseBranchComponent(nb, spineNode, byId, adj, spineSet, visited, ordered);
         }
     }
 
@@ -189,11 +202,13 @@ public static class StopOrder
     /// DFS a branch component without spilling back onto the spine.
     /// </summary>
     private static void TraverseBranchComponent(
-        PassengerStop start,
-        PassengerStop? parent,
-        HashSet<PassengerStop> spineSet,
-        HashSet<PassengerStop> visited,
-        List<PassengerStop> ordered)
+    PassengerStop start,
+    PassengerStop? parent,
+    Dictionary<string, PassengerStop> byId,
+    Dictionary<string, HashSet<string>> adj,
+    HashSet<PassengerStop> spineSet,
+    HashSet<PassengerStop> visited,
+    List<PassengerStop> ordered)
     {
         var stack = new Stack<(PassengerStop cur, PassengerStop? parent)>();
         stack.Push((start, parent));
@@ -201,18 +216,18 @@ public static class StopOrder
         while (stack.Count > 0)
         {
             var (cur, par) = stack.Pop();
-            if (!visited.Add(cur))
-                continue;
+            if (!visited.Add(cur)) continue;
 
             ordered.Add(cur);
 
-            var nbrs = cur.neighbors;
-            if (nbrs == null) continue;
+            var curId = cur.identifier;
+            if (string.IsNullOrEmpty(curId)) continue;
 
-            for (int i = nbrs.Length - 1; i >= 0; i--)
+            if (!adj.TryGetValue(curId, out var nbrIds)) continue;
+
+            foreach (var nbId in nbrIds)
             {
-                var nb = nbrs[i];
-                if (nb == null) continue;
+                if (!byId.TryGetValue(nbId, out var nb) || nb == null) continue;
                 if (ReferenceEquals(nb, par)) continue;
                 if (spineSet.Contains(nb)) continue;
 
@@ -261,44 +276,122 @@ public static class StopOrder
     /// <summary>
     /// Unweighted shortest path (BFS).
     /// </summary>
-    private static bool TryShortestPath(PassengerStop start, PassengerStop goal, out List<PassengerStop> path)
+    private static bool TryShortestPath(PassengerStop start, PassengerStop goal, Dictionary<string, PassengerStop> byId, Dictionary<string, HashSet<string>> adj, out List<PassengerStop> path)
     {
         path = new List<PassengerStop>();
 
-        var q = new Queue<PassengerStop>();
-        var parent = new Dictionary<PassengerStop, PassengerStop?>(RefEq<PassengerStop>.Instance);
+        string startId = start.identifier;
+        string goalId = goal.identifier;
 
-        q.Enqueue(start);
-        parent[start] = null;
+        if (string.IsNullOrEmpty(startId) || string.IsNullOrEmpty(goalId))
+            return false;
+
+        var q = new Queue<string>();
+        var parent = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        q.Enqueue(startId);
+        parent[startId] = null;
 
         while (q.Count > 0)
         {
-            var cur = q.Dequeue();
-            if (ReferenceEquals(cur, goal))
+            var curId = q.Dequeue();
+            if (StringComparer.Ordinal.Equals(curId, goalId))
                 break;
 
-            var nbrs = cur.neighbors;
+            if (!adj.TryGetValue(curId, out var nbrIds)) continue;
+
+            foreach (var nbId in nbrIds)
+            {
+                if (parent.ContainsKey(nbId)) continue;
+                parent[nbId] = curId;
+                q.Enqueue(nbId);
+            }
+        }
+
+        if (!parent.ContainsKey(goalId))
+            return false;
+
+        var ids = new List<string>();
+
+        for (string? cur = goalId; cur != null; cur = parent[cur])
+            ids.Add(cur);
+
+        ids.Reverse();
+
+        // map ids -> PassengerStop
+        foreach (var id in ids)
+        {
+            if (byId.TryGetValue(id, out var ps))
+                path.Add(ps);
+            else
+                return false; // should not happen if adj/byId are consistent
+        }
+
+        return true;
+    }
+
+    private static Dictionary<string, HashSet<string>> BuildUndirectedAdjacency(Dictionary<string, PassengerStop> byId)
+    {
+        var adj = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+        // init
+        foreach (var id in byId.Keys)
+            adj[id] = new HashSet<string>(StringComparer.Ordinal);
+
+        // add edges as undirected
+        foreach (var kvp in byId)
+        {
+            var aId = kvp.Key;
+            var a = kvp.Value;
+            var nbrs = a?.neighbors;
             if (nbrs == null) continue;
 
             for (int i = 0; i < nbrs.Length; i++)
             {
-                var nb = nbrs[i];
-                if (nb == null) continue;
-                if (parent.ContainsKey(nb)) continue;
+                var b = nbrs[i];
+                if (b == null) continue;
+                var bId = b.identifier;
+                if (string.IsNullOrEmpty(bId)) continue;
 
-                parent[nb] = cur;
-                q.Enqueue(nb);
+                // only connect to stops we actually know about
+                if (!byId.ContainsKey(bId)) continue;
+
+                adj[aId].Add(bId);
+                adj[bId].Add(aId); // <- the critical “make it symmetric”
             }
         }
 
-        if (!parent.ContainsKey(goal))
-            return false;
+        // Iterate over a snapshot because we'll mutate adj.
+        foreach (var kvp in byId.ToList())
+        {
+            var xId = kvp.Key;
 
-        for (PassengerStop? cur = goal; cur != null; cur = parent[cur])
-            path.Add(cur);
+            if (!adj.TryGetValue(xId, out var xNbrs))
+                continue;
 
-        path.Reverse();
-        return true;
+            // Inline candidate: exactly two neighbors.
+            if (xNbrs.Count != 2)
+                continue;
+
+            var arr = xNbrs.ToArray();
+            var aId = arr[0];
+            var bId = arr[1];
+
+            // If A and B aren't connected, nothing to split.
+            if (!adj.TryGetValue(aId, out var aNbrs) || !aNbrs.Contains(bId))
+                continue;
+            if (!adj.TryGetValue(bId, out var bNbrs) || !bNbrs.Contains(aId))
+                continue;
+
+            // Remove the shortcut edge A<->B so paths must go A->X->B
+            aNbrs.Remove(bId);
+            bNbrs.Remove(aId);
+
+            // (Optional) log for debug
+            Loader.Log($"[StopOrder] Split shortcut edge {aId}<->{bId} via inline stop {xId}");
+        }
+
+        return adj;
     }
 
     /// <summary>

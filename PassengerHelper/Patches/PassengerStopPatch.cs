@@ -51,6 +51,13 @@ public static class PassengerStopPatches
             return false;
         }
 
+        bool trainIsPaused = state.CurrentlyStopped;
+
+        if (!trainIsPaused)
+        {
+            return true;
+        }
+        
         bool trainPausedFulload = state.StoppedWaitForFullLoad;
         bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
 
@@ -59,12 +66,9 @@ public static class PassengerStopPatches
             return true;
         }
 
-        bool trainIsPaused = state.CurrentlyStopped;
         bool preventPaxLoad = settings.PreventLoadWhenPausedAtStation;
 
-        bool shouldNotLoad = trainIsPaused && preventPaxLoad;
-
-        if (shouldNotLoad)
+        if (preventPaxLoad)
         {
             __result = true;
             return false;

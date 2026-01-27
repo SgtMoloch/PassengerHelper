@@ -118,6 +118,7 @@ public sealed class PassengerStopOrderManager
             if (s == null) continue;
 
             Loader.Log($"[PassengerStopOrderManager::ComputeTopologyFingerprint] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled}");
+            Loader.Log($"[PassengerStopOrderManager::ComputeTopologyFingerprint] stop neighbors: {string.Join(",", s.neighbors?.Select(n=>n?.identifier) ?? Enumerable.Empty<string>())}");
             hash = hash * 31 + (s.identifier?.GetHashCode() ?? 0);
             hash = hash * 31 + (s.ProgressionDisabled.GetHashCode());
 
