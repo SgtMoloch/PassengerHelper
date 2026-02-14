@@ -32,7 +32,19 @@ public static class PassengerStopPatches
             return true;
         }
 
-        PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(car);
+        if (!plugin.trainManager.TryGetPassengerLocomotive(car, out PassengerLocomotive pl))
+        {
+            if (Loader.Settings.LoadWhenNoEngine)
+            {
+                return true;
+            }
+            else
+            {
+                Loader.LogVerbose($"not loading car {car.DisplayName} due to no engine being coupled and mod setting");
+                __result = true;
+                return false;
+            }
+        }
 
         PassengerLocomotiveSettings settings = plugin.settingsManager.GetSettings(pl);
         TrainState state = plugin.trainStateManager.GetState(pl);
@@ -57,7 +69,7 @@ public static class PassengerStopPatches
         {
             return true;
         }
-        
+
         bool trainPausedFulload = state.StoppedWaitForFullLoad;
         bool trainAtTerminus = state.AtTerminusStationEast || state.AtTerminusStationWest;
 

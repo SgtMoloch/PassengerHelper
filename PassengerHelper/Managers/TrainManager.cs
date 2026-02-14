@@ -73,4 +73,32 @@ public class TrainManager
 
         return GetPassengerLocomotive((BaseLocomotive)engines[0]);
     }
+
+    public bool TryGetPassengerLocomotive(Car car, out PassengerLocomotive pl)
+    {
+        Loader.LogVerbose($"Getting PassengerLocomotive coupled to {car.DisplayName}");
+        pl = null;
+
+        // find all cars coupled to car
+        // filter to only locomotives
+        // filter out MU locomotives
+        List<Car> engines = car.EnumerateCoupled()
+        .Where(car => car.IsLocomotive)
+        .Where(loco => loco.ControlProperties[PropertyChange.Control.Mu] == false)
+        .ToList();
+
+        if (engines.Count == 0)
+        {
+            return false;
+        }
+
+        if (engines.Count > 1)
+        {
+            return false;
+        }
+        
+        pl = GetPassengerLocomotive((BaseLocomotive)engines[0]);
+
+        return true;
+    }
 }
