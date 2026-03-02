@@ -1,77 +1,82 @@
-namespace PassengerHelperPlugin.Patches;
-
+using System.Reflection;
 using HarmonyLib;
 using Model;
 using Model.AI;
-using Serilog;
-using System.Reflection;
-using Game;
-using RollingStock;
-using Support;
 using Model.Ops;
+using PassengerHelper.Plugin;
+using PassengerHelper.Support;
+
+namespace PassengerHelper.Patches;
 
 [HarmonyPatch]
-public static class AutoEngineerPassengerStopperPatches
+public static class AutoEngineerPassengerStopperPatch
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(AutoEngineerPassengerStopperPatches));
+    private static readonly FieldInfo FI_locomotive =
+        AccessTools.Field(typeof(AutoEngineerPassengerStopper), "_locomotive");
+
+    private static readonly FieldInfo FI_currentstop =
+    AccessTools.Field(typeof(AutoEngineerPassengerStopper), "_nextStop");
+
+    private static readonly MethodInfo MI_PassengerCapacity = AccessTools.Method(typeof(PassengerStop), "PassengerCapacity", new[] { typeof(Car) });
+
+
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "ShouldStayStopped")]
-    private static bool ShouldStayStopped(ref bool __result, AutoEngineerPassengerStopper __instance)
+    private static bool ShouldStayStopped(ref bool __result, string bypassStationCode, AutoEngineerPassengerStopper __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
+
+        PassengerHelperPlugin shared = Loader.PassengerHelper;
+
+        if (!Loader.ModEntry.Enabled)
         {
             return true;
         }
 
-        var _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
-        var _currentStop = typeof(AutoEngineerPassengerStopper).GetField("_nextStop", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as PassengerStop;
+        var _locomotive = FI_locomotive.GetValue(__instance) as BaseLocomotive;
+        var _currentStop = FI_currentstop.GetValue(__instance) as PassengerStop;
 
         if (_locomotive == null || _currentStop == null)
         {
             return true;
         }
 
-        if (plugin.stationManager.HandleTrainAtStation(_locomotive, _currentStop))
+        PassengerLocomotive pl = shared.trainManager.GetPassengerLocomotive(_locomotive.id);
+
+        if (pl == null)
         {
-            __result = true;
-            return false;
+            return true;
+        }
+
+        PassengerLocomotiveSettings pls = shared.settingsManager.GetSettings(pl);
+
+        if (!pls.DepartStationsWhenFull)
+        {
+            return true;
+        }
+
+        foreach (Car coach in pl.GetCoaches())
+        {
+            PassengerMarker? marker = coach.GetPassengerMarker();
+            if (marker == null)
+            {
+                Loader.LogVerbose($"Passenger car not full, remaining stopped");
+                __result = true;
+                return false;
+            }
+
+            int maxCapacity = (int)MI_PassengerCapacity.Invoke(_currentStop, new[] { coach });
+            PassengerMarker actualMarker = marker.Value;
+            bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(_currentStop.identifier);
+            bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
+            if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
+            {
+                Loader.LogVerbose($"Passenger car not full, remaining stopped");
+                __result = true;
+                return false;
+            }
         }
 
         return true;
-    }
-
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(AutoEngineerPassengerStopper), "_UpdateFor")]
-    private static void _UpdateFor(AutoEngineerPassengerStopper __instance)
-    {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
-        {
-            return;
-        }
-
-        BaseLocomotive _locomotive = typeof(AutoEngineerPassengerStopper).GetField("_locomotive", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(__instance) as BaseLocomotive;
-
-        if (_locomotive == null)
-        {
-            return;
-        }
-
-        if (_locomotive.VelocityMphAbs >= 5f)
-        {
-            PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_locomotive);
-
-            if (passengerLocomotive.TrainStatus.ReadyToDepart && passengerLocomotive.CurrentStation != null)
-            {
-                logger.Information("Train {0} has departed {1} at {2}.", passengerLocomotive._locomotive.DisplayName, passengerLocomotive.CurrentStation.DisplayName, TimeWeather.Now);
-                passengerLocomotive.TrainStatus.Arrived = false;
-                passengerLocomotive.TrainStatus.ReadyToDepart = false;
-                passengerLocomotive.TrainStatus.Departed = true;
-                passengerLocomotive.PreviousStation = passengerLocomotive.CurrentStation;
-                passengerLocomotive.CurrentStation = null;
-            }
-        }
     }
 }

@@ -3,12 +3,12 @@
     <GameAssembly Include="Assembly-CSharp" />
     <GameAssembly Include="UnityEngine.CoreModule" />
     <GameAssembly Include="0Harmony" />
-    <GameAssembly Include="Railloader.Interchange" />
-    <GameAssembly Include="Serilog" />
     <GameAssembly Include="Definition" />
     <GameAssembly Include="Core"/>
     <GameAssembly Include="KeyValue.Runtime"/>
     <GameAssembly Include="mscorlib"/>
+    <GameAssembly Include="System"/>
+    <GameAssembly Include="System.Core"/>
     <GameAssembly Include="Unity.TextMeshPro"/>
     <GameAssembly Include="UnityEngine.UI"/>
     <GameAssembly Include="UnityEngine.UIElementsModule"/>

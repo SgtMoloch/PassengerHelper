@@ -4,10 +4,12 @@
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>false</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -16,6 +18,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Definition.json" CopyToOutputDirectory="Always" />
+    <Content Include="Info.json" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="UnityModManager" Version="0.32.4" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 </Project>

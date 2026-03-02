@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Collections.Generic;
 using System.Linq;
@@ -8,25 +8,24 @@ using Model.AI;
 using Model.Definition;
 using Support;
 using RollingStock;
-using Serilog;
-using GameObjects;
 using Model.Ops;
 using System.Reflection;
 using Game;
 using Game.Messages;
 using Game.State;
+using PassengerHelper.Plugin;
 
 [HarmonyPatch]
 public static class PassengerExpirationPatches
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(PassengerExpirationPatches));
-
+    /* 
+    this patch will prevent expired passengers from poofing when the car is in motion and prevents expiring passengers when car is at a station
+     */
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
     private static void Tick(PassengerExpiration __instance)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
-        if (!plugin.IsEnabled)
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
@@ -34,7 +33,6 @@ public static class PassengerExpirationPatches
         /*
            Original Game code unless otherwise stated
         */
-
         IEnumerable<PassengerStop> enumerable = PassengerStop.FindAll();
         List<Car> list = TrainController.Shared.Cars.Where((Car car) => car.IsPassengerCar()).ToList();
         GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
@@ -72,7 +70,7 @@ public static class PassengerExpirationPatches
                     // start custom logic
                     if (!(passengerGroup.Boarded >= gameDateTime) && car.IsAtRest)
                     {
-                         //end custom logic
+                        //end custom logic
                         num += passengerGroup.Count;
                         valueOrDefault.Groups.RemoveAt(num2);
                         flag = true;
@@ -86,7 +84,7 @@ public static class PassengerExpirationPatches
 
             if (num > 0)
             {
-                Log.Information("Expired {count} passengers since {exp}.", num, gameDateTime);
+                Loader.Log($"Expired {num} passengers since {gameDateTime}.");
             }
         }
     }

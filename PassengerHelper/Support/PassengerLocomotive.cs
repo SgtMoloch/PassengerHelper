@@ -1,9 +1,10 @@
-namespace PassengerHelperPlugin.Support;
+namespace PassengerHelper.Support;
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game;
+using Game.AccessControl;
 using Game.Messages;
 using Game.Notices;
 using Game.State;
@@ -13,63 +14,17 @@ using Model.AI;
 using Model.Definition;
 using Model.Definition.Data;
 using Model.Ops;
+using Managers;
 using RollingStock;
-using Serilog;
 using UI.EngineControls;
 using static Model.Car;
-
+using System.Reflection;
+using PassengerHelper.Plugin;
 
 public class PassengerLocomotive
 {
-    readonly ILogger logger = Log.ForContext(typeof(PassengerLocomotive));
+    internal BaseLocomotive _locomotive;
 
-    internal readonly BaseLocomotive _locomotive;
-
-    public PassengerLocomotiveSettings Settings;
-
-    private PassengerStop? _currentStop = null;
-    private PassengerStop? _previousStop = null;
-    public PassengerStop? CurrentStation
-    {
-        get
-        {
-            return _currentStop;
-        }
-        set
-        {
-            _currentStop = value;
-            if (value != null)
-            {
-                TrainStatus.CurrentStation = value.identifier;
-            }
-            else
-            {
-                TrainStatus.CurrentStation = "";
-            }
-        }
-    }
-    public PassengerStop? PreviousStation
-    {
-        get
-        {
-            return _previousStop;
-        }
-        set
-        {
-            _previousStop = value;
-            if (value != null)
-            {
-                TrainStatus.PreviousStation = value.identifier;
-            }
-            else
-            {
-                TrainStatus.PreviousStation = "";
-            }
-        }
-    }
-    internal TrainStatus TrainStatus;
-
-    private readonly bool hasTender = false;
     private Car FuelCar;
     private int _dieselFuelSlotIndex;
     private float _dieselSlotMax;
@@ -78,386 +33,342 @@ public class PassengerLocomotive
     private int _waterSlotIndex;
     private float _waterSlotMax;
 
-    internal int settingsHash = 0;
-    internal int stationSettingsHash = 0;
+    public bool isDiesal;
+    public bool isSteam;
+    public bool hasTender;
 
-    private bool _selfSentOrders = false;
+    internal int _settingsHash = 0;
+    internal int settingsHash
+    {
+        get => _settingsHash;
+        set
+        {
+            if (_settingsHash == value)
+            {
+                return;
+            }
 
-    public PassengerLocomotive(BaseLocomotive _locomotive, PassengerLocomotiveSettings Settings)
+            _settingsHash = value;
+
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+    internal int _stationSettingsHash = 0;
+    internal int stationSettingsHash
+    {
+        get => _stationSettingsHash;
+        set
+        {
+            if (_stationSettingsHash == value)
+            {
+                return;
+            }
+
+            _stationSettingsHash = value;
+
+            TrainState state = trainStateManager.GetState(this);
+            state.OnStationSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+    internal int stateHash = 0;
+
+    private bool _selfSentStartOrders = false;
+    private bool _selfSentStopOrders = false;
+    private bool _selfSentRevOrders = false;
+    bool _didDotHandoffThisManualSession = false;
+
+    internal KeyValueObject _keyValueObject;
+
+    internal string KeyValueIdentifier_Settings => "moloch.passengerhelper.settings";
+    internal string KeyValueIdentifier_State => "moloch.passengerhelper.state";
+
+    internal TrainStateManager trainStateManager;
+    internal SettingsManager settingsManager;
+
+    internal int maxAESpeed = 45;
+
+    internal bool _gameLoadFlag = true;
+
+    private Orders prevOrders;
+
+    public PassengerLocomotive(BaseLocomotive _locomotive, TrainStateManager trainStateManager, SettingsManager settingsManager)
     {
         this._locomotive = _locomotive;
-        if (_locomotive.Archetype == CarArchetype.LocomotiveSteam)
-        {
-            hasTender = true;
-        }
+        this._keyValueObject = _locomotive.KeyValueObject;
+        this.trainStateManager = trainStateManager;
+        this.settingsManager = settingsManager;
 
-        this.Settings = Settings;
+        this.isDiesal = _locomotive.Archetype == CarArchetype.LocomotiveDiesel;
+        this.isSteam = hasTender = _locomotive.Archetype == CarArchetype.LocomotiveSteam;
+
+        this.FuelCar = GetFuelCar();
+
+        // StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_Settings, _keyValueObject, _locomotive);
+        // StateManager.Shared.RegisterPropertyObject(KeyValueIdentifier_State, _keyValueObject, _locomotive);
+
+        LoadSettings();
+        LoadState();
 
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
-        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-        LoadSettings(Settings);
-        this.FuelCar = GetFuelCar();
 
         persistence.ObserveOrders(delegate (Orders orders)
         {
-            logger.Information("Orders changed. Orders are now: {0} and selfSentOrders is: {1}", orders, _selfSentOrders);
-            if (!_selfSentOrders)
+            Loader.Log($"Orders changed for {_locomotive.DisplayName}. Orders are now: {orders} and selfSentStartOrders is: {_selfSentStartOrders} and selfSentStopOrders is: {_selfSentStopOrders} and selfSentRevOrders is: {_selfSentRevOrders}");
+            TrainState state = trainStateManager.GetState(this);
+
+
+            if (_selfSentStartOrders)
             {
-                // if it is the start up of the game, the game sends an updated order to get the train moving again, so ignore it
-                if (Settings.gameLoadFlag)
-                {
-                    Settings.gameLoadFlag = false;
-                    return;
-                }
-
-                // if we aren't locked, we shouldn't change to unknown
-                if (!Settings.DoTLocked)
-                {
-                    return;
-                }
-
-                Settings.DirectionOfTravel = DirectionOfTravel.UNKNOWN;
-                Settings.DoTLocked = false;
+                _selfSentStartOrders = false;
+                this.prevOrders = orders;
+                return;
             }
-            _selfSentOrders = false;
-        });
+
+            if (_selfSentStopOrders)
+            {
+                _selfSentStopOrders = false;
+                this.prevOrders = orders;
+                return;
+            }
+
+            if (_selfSentRevOrders)
+            {
+                _selfSentRevOrders = false;
+                this.prevOrders = orders;
+                return;
+            }
+
+            if (orders.Mode == AutoEngineerMode.Waypoint)
+            {
+                var pls = settingsManager.GetSettings(this);
+                if (state.InferredDirectionOfTravel != DirectionOfTravel.UNKNOWN && pls.UserDirectionOfTravel != state.InferredDirectionOfTravel)
+                {
+                    // Copy last inferred into user hint to avoid stale fallback.
+                    pls.UserDirectionOfTravel = state.InferredDirectionOfTravel;
+                    settingsManager.SaveSettings(this, pls, false);
+                }
+
+                this.prevOrders = orders;
+                return;
+            }
+
+            if (orders.Mode == AutoEngineerMode.Road)
+            {
+                if (this.prevOrders.Forward == orders.Forward)
+                {
+                    this.prevOrders = orders;
+                    return;
+                }
+            }
+
+            if (state.InferredDirectionOfTravel == DirectionOfTravel.UNKNOWN)
+            {
+                _didDotHandoffThisManualSession = false;
+                this.prevOrders = orders;
+                return;
+            }
+
+            DirectionOfTravel dot = state.InferredDirectionOfTravel;
+
+            if (!_didDotHandoffThisManualSession)
+            {
+                var pls = settingsManager.GetSettings(this);
+
+                // Copy last inferred into user hint to avoid stale fallback.
+                pls.UserDirectionOfTravel = state.InferredDirectionOfTravel;
+                settingsManager.SaveSettings(this, pls);
+
+                _didDotHandoffThisManualSession = true;
+            }
+
+            state.InferredDirectionOfTravel = DirectionOfTravel.UNKNOWN;
+            trainStateManager.SaveState(this, state);
+            this.prevOrders = orders;
+        }, callInitial: false);
     }
 
-    private void LoadSettings(PassengerLocomotiveSettings Settings)
+    public void LoadSettings()
     {
-        this.TrainStatus = Settings.TrainStatus;
-
-        IEnumerable<PassengerStop> stations = PassengerStop.FindAll();
-
-        if (TrainStatus.CurrentStation.Length > 0)
+        Value dictionaryValue = _keyValueObject[KeyValueIdentifier_Settings];
+        PassengerLocomotiveSettings pls;
+        if (dictionaryValue.IsNull || !_keyValueObject.Keys.Contains(KeyValueIdentifier_Settings))
         {
-            this.CurrentStation = stations.FirstOrDefault((PassengerStop stop) => stop.identifier == TrainStatus.CurrentStation);
+            Loader.LogVerbose($"Creating new settings for {_locomotive.DisplayName}");
+            pls = settingsManager.CreateNewSettings(this);
+        }
+        else
+        {
+            Loader.LogVerbose($"Loading existing settings for {_locomotive.DisplayName}");
+            pls = settingsManager.LoadSettings(this);
         }
 
-        if (TrainStatus.PreviousStation.Length > 0)
-        {
-            this.PreviousStation = stations.FirstOrDefault((PassengerStop stop) => stop.identifier == TrainStatus.PreviousStation);
-        }
-
-        if ((this.TrainStatus.Arrived || this.TrainStatus.ReadyToDepart) && this.CurrentStation != null)
-        {
-            logger.Information("Train did not depart yet, selecting current station on passenger cars");
-            _locomotive.velocity = 0;
-            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
-
-            foreach (Car coach in coaches)
-            {
-                PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
-
-                HashSet<string> destinations = marker.Destinations;
-
-                destinations.Add(TrainStatus.CurrentStation);
-                StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
-            }
-        }
-
-        if (this.TrainStatus.Departed && this.CurrentStation == null && this.PreviousStation != null)
-        {
-            logger.Information("Train is not at a station, but is in route, re-selecting stations to be safe");
-            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
-
-            foreach (Car coach in coaches)
-            {
-                PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
-
-                HashSet<string> destinations = marker.Destinations;
-
-                StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
-            }
-        }
-
-        if (Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
-        {
-            Settings.DoTLocked = false;
-        }
-
+        SetSettingsHash(pls.getSettingsHash(), false);
     }
 
-    private float GetDieselLevelForLoco()
+    public void LoadState()
+    {
+        Value dictionaryValue = _keyValueObject[KeyValueIdentifier_State];
+        TrainState state;
+        if (dictionaryValue.IsNull || !_keyValueObject.Keys.Contains(KeyValueIdentifier_State))
+        {
+            Loader.LogVerbose($"Creating new state for {_locomotive.DisplayName}");
+            state = trainStateManager.CreateNewState(this);
+        }
+        else
+        {
+            Loader.LogVerbose($"Loading existing state for {_locomotive.DisplayName}");
+            state = trainStateManager.LoadState(this);
+        }
+
+        if ((state.Arrived || state.ReadyToDepart) && state.CurrentStationId != null)
+        {
+            Loader.LogVerbose($"Train did not depart yet, selecting current station on passenger cars");
+            foreach (Car coach in GetCoaches())
+            {
+                PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
+
+                HashSet<string> destinations = marker.Destinations;
+
+                destinations.Add(state.CurrentStationId);
+                StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
+            }
+        }
+
+        if (state.Departed && state.CurrentStationId == null && state.PreviousStationId != null)
+        {
+            Loader.LogVerbose($"Train is not at a station, but is in route, re-selecting stations to be safe");
+
+            foreach (Car coach in GetCoaches())
+            {
+                PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
+
+                HashSet<string> destinations = marker.Destinations;
+
+                StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, destinations.ToList()));
+            }
+        }
+
+        stateHash = state.GetHashCode();
+    }
+
+    public List<Car> GetCoaches()
+    {
+        return _locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).ToList();
+    }
+
+    public float GetDieselLevelForLoco()
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_dieselFuelSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveDiesel)
         {
-            logger.Information("{0} has {1}gal of diesel fuel", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of diesel fuel");
             level = loadInfo.Value.Quantity;
         }
 
-        return level;
+        return level / _dieselSlotMax;
     }
 
-    public bool CheckDieselFuelLevel(out float level)
-    {
-        level = GetDieselLevelForLoco();
-        float minLevel = Settings.DieselLevel;
-        float actualLevel = level / _dieselSlotMax;
-        logger.Information("diesel: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _dieselSlotMax);
-
-        TrainStatus.StoppedForDiesel = _locomotive.Archetype == CarArchetype.LocomotiveDiesel && actualLevel < minLevel;
-
-        if (TrainStatus.StoppedForDiesel)
-        {
-            logger.Information("{0} is low on diesel", _locomotive.DisplayName);
-            TrainStatus.CurrentReasonForStop = "stopped for low diesel";
-            TrainStatus.CurrentlyStopped = true;
-        }
-        return TrainStatus.StoppedForDiesel;
-    }
-
-    private float GetCoalLevelForLoco()
+    public float GetCoalLevelForLoco()
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_coalSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}T of coal", _locomotive.DisplayName, loadInfo.Value.Quantity / 2000);
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity / 2000}T of coal");
             level = loadInfo.Value.Quantity;
         }
 
-        return level;
+        return level / _coalSlotMax;
     }
 
-    public bool CheckCoalLevel(out float level)
-    {
-        level = GetCoalLevelForLoco();
-        float minLevel = Settings.CoalLevel;
-        float actualLevel = level / _coalSlotMax;
-        logger.Information("coal: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _coalSlotMax);
-
-        TrainStatus.StoppedForCoal = hasTender && actualLevel < minLevel;
-
-        if (TrainStatus.StoppedForCoal)
-        {
-            logger.Information("{0} is low on coal", _locomotive.DisplayName);
-            TrainStatus.CurrentReasonForStop = "stopped for low coal";
-            TrainStatus.CurrentlyStopped = true;
-        }
-        return TrainStatus.StoppedForCoal;
-    }
-
-    private float GetWaterLevelForLoco()
+    public float GetWaterLevelForLoco()
     {
         float level = 0f;
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_waterSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            logger.Information("{0} has {1}gal of water", _locomotive.DisplayName, loadInfo.Value.Quantity);
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of water");
             level = loadInfo.Value.Quantity;
         }
 
-        return level;
+        return level / _waterSlotMax;
     }
 
-    public bool CheckWaterLevel(out float level)
+    public void StopAE()
     {
-        level = GetWaterLevelForLoco();
-        float minLevel = Settings.WaterLevel;
-        float actualLevel = level / _waterSlotMax;
-        logger.Information("water: min level is: {0}, actual level is: {1}, max quantity is: {2}", minLevel, actualLevel, _waterSlotMax);
-
-        TrainStatus.StoppedForWater = hasTender && actualLevel < minLevel;
-
-        if (TrainStatus.StoppedForWater)
-        {
-            logger.Information("{0} is low on water", _locomotive.DisplayName);
-            TrainStatus.CurrentReasonForStop = "stopped for low water";
-            TrainStatus.CurrentlyStopped = true;
-        }
-        return TrainStatus.StoppedForWater;
-    }
-
-    public void ResetStoppedFlags()
-    {
-        logger.Information("resetting Stop flags for {0}", _locomotive.DisplayName);
-        TrainStatus.ResetStoppedFlags();
-    }
-
-    public void ResetStatusFlags()
-    {
-        logger.Information("resetting Status flags for {0}", _locomotive.DisplayName);
-        TrainStatus.ResetStatusFlags();
-    }
-
-    public bool ShouldStayStopped()
-    {
-        logger.Information("checking if {0} should stay Stopped at current station", _locomotive.DisplayName);
+        if (_selfSentStopOrders) return;
+        Loader.LogVerbose($"PH established {_locomotive.DisplayName} should be stopped, setting AE speed to 0.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        AutoEngineerMode mode = helper.Mode;
 
-        if (TrainStatus.Continue)
-        {
-            logger.Information("Continue button clicked. Continuing", _locomotive.DisplayName);
-            ResetStoppedFlags();
+        if (mode == AutoEngineerMode.Off) return;
+        if (helper.Orders.MaxSpeedMph == 0) return;
 
-            return false;
-        }
-
-        bool stayStopped = false;
-
-        // train was requested to remain stopped
-        if (TrainStatus.StoppedNextStation && Settings.PauseAtNextStation)
-        {
-            logger.Information("StopAtNextStation is selected. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedNextStation = false;
-        }
-
-        if (TrainStatus.StoppedTerminusStation && Settings.PauseAtTerminusStation && Settings.StationSettings[CurrentStation.identifier].TerminusStation)
-        {
-            logger.Information("StopAtLastStation are selected. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedTerminusStation = false;
-        }
-
-        if (TrainStatus.StoppedStationPause && Settings.StationSettings[CurrentStation.identifier].PauseAtStation)
-        {
-            logger.Information("Requested Pause at this station. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedStationPause = false;
-        }
-
-        if (TrainStatus.StoppedUnknownDirection && Settings.DirectionOfTravel == DirectionOfTravel.UNKNOWN)
-        {
-            logger.Information("Direction of Travel is still unknown. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedUnknownDirection = false;
-        }
-
-        if (TrainStatus.StoppedInsufficientTerminusStations && Settings.StationSettings.Values.Where(s => s.TerminusStation).Count() != 2)
-        {
-            logger.Information("Still do not have 2 terminus stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedInsufficientTerminusStations = false;
-        }
-
-        if (TrainStatus.StoppedInsufficientStopAtStations && Settings.StationSettings.Values.Where(s => s.StopAtStation).Count() < 2)
-        {
-            logger.Information("Still do not have at least 2 stop at stations selected. {0} is remaining stopped.", _locomotive.DisplayName);
-        }
-        else
-        {
-            TrainStatus.StoppedInsufficientStopAtStations = false;
-        }
-
-        if (TrainStatus.StoppedWaitForFullLoad && Settings.WaitForFullPassengersTerminusStation)
-        {
-            List<Car> coaches = _locomotive.EnumerateCoupled().Where(car => car.Archetype == CarArchetype.Coach).ToList();
-            bool notFull = false;
-            foreach (Car coach in coaches)
-            {
-                PassengerMarker? marker = coach.GetPassengerMarker();
-                if (marker == null)
-                {
-                    logger.Information("Passenger car not full, remaining stopped");
-                    notFull = true;
-                    break;
-                }
-
-                LoadSlot loadSlot = coach.Definition.LoadSlots.FirstOrDefault((LoadSlot slot) => slot.RequiredLoadIdentifier == "passengers");
-                int maxCapacity = (int)loadSlot.MaximumCapacity;
-                PassengerMarker actualMarker = marker.Value;
-                bool containsPassengersForCurrentStation = actualMarker.Destinations.Contains(CurrentStation.identifier);
-                bool isNotAtMaxCapacity = actualMarker.TotalPassengers < maxCapacity;
-                if (containsPassengersForCurrentStation || isNotAtMaxCapacity)
-                {
-                    logger.Information("Passenger car not full, remaining stopped");
-                    notFull = true;
-                    break;
-                }
-            }
-
-            TrainStatus.StoppedWaitForFullLoad = notFull;
-        }
-
-        // train is stopped because of low diesel, coal or water
-        if (TrainStatus.StoppedForDiesel || TrainStatus.StoppedForCoal || TrainStatus.StoppedForWater)
-        {
-            logger.Information("Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
-            // first check if the setting has been set to false
-            if (TrainStatus.StoppedForDiesel)
-            {
-                if (!Settings.PauseForDiesel)
-                {
-                    logger.Information("StopForDiesel no longer selected, resetting flag.");
-                    TrainStatus.StoppedForDiesel = false;
-                }
-                else
-                {
-                    CheckDieselFuelLevel(out float level);
-                    logger.Information("StoppedForDiesel is now: {0}", TrainStatus.StoppedForDiesel);
-                }
-            }
-
-            if (TrainStatus.StoppedForCoal)
-            {
-                if (!Settings.PauseForCoal)
-                {
-                    logger.Information("StopForCoal no longer selected, resetting flag.");
-                    TrainStatus.StoppedForCoal = false;
-                }
-                else
-                {
-                    CheckCoalLevel(out float level);
-                    logger.Information("StoppedForCoal is now: {0}", TrainStatus.StoppedForCoal);
-                }
-
-            }
-
-            if (TrainStatus.StoppedForWater)
-            {
-                if (!Settings.PauseForWater)
-                {
-                    logger.Information("StopForWater no longer selected, resetting flag.");
-                    TrainStatus.StoppedForWater = false;
-                }
-                else
-                {
-                    CheckWaterLevel(out float level);
-                    logger.Information("StoppedForWater is now: {0}", TrainStatus.StoppedForWater);
-                }
-
-            }
-        }
-
-        stayStopped = TrainStatus.ShouldStayStopped();
-
-        if (stayStopped)
-        {
-            if (!TrainStatus.StoppedUnknownDirection && !TrainStatus.StoppedInsufficientTerminusStations && !TrainStatus.StoppedInsufficientStopAtStations)
-            {
-                persistence.PassengerModeStatus = "Paused";
-            }
-        }
-
-        Settings.TrainStatus = TrainStatus;
-
-        return stayStopped;
+        this._selfSentStopOrders = true;
+        helper.SetOrdersValue(null, null, 0);
     }
 
-    public void ReverseLocoDirection()
+    public void StartAE()
     {
-        _selfSentOrders = true;
-        logger.Information("reversing loco direction");
+        if (_selfSentStartOrders) return;
+        Loader.LogVerbose($"PH established {_locomotive.DisplayName} should no longer be stopped, setting AE speed to previous speed.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
-        logger.Information("Current direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
+        AutoEngineerMode mode = helper.Mode;
+
+        if (mode == AutoEngineerMode.Off) return;
+        if (helper.Orders.MaxSpeedMph > 0) return;
+
+        this._selfSentStartOrders = true;
+        helper.SetOrdersValue(null, null, 45);
+    }
+
+    public bool ReverseLocoDirection()
+    {
+        AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
+        AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
+        AutoEngineerMode mode = helper.Mode;
+
+        if (mode == AutoEngineerMode.Off) return false;
+        if (mode == AutoEngineerMode.Waypoint) return false;
+
+        Loader.LogVerbose($"reversing loco direction");
+
+        _selfSentRevOrders = true;
+        Loader.LogVerbose($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
-        logger.Information("new direction is {0}", persistence.Orders.Forward == true ? "forward" : "backward");
+        Loader.LogVerbose($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
+
+        return true;
+    }
+
+    public void SetStopOverrideActive()
+    {
+        TrainState state = this.trainStateManager.GetState(this);
+        state.StopOverrideActive = true;
+        state.StopOverrideStationId = state.CurrentStationId;
+        state.ResetStoppedFlags();
+        state.ReadyToDepart = true;
+        trainStateManager.SaveState(this, state);
+        StartAE();
+
+        PostNotice("ai-stop", "PassengerHelper: Continue requested");
+    }
+    public void ResetTrainState()
+    {
+        TrainState state = this.trainStateManager.GetState(this);
+
+        state.Reset();
+        ResetStateHash();
+
+        trainStateManager.SaveState(this, state);
+
+        PostNotice("ai-stop", $"PassengerHelper: Train State Reset Successful");
     }
 
     public void PostNotice(string key, string message)
@@ -468,7 +379,52 @@ public class PassengerLocomotive
     public void ResetSettingsHash()
     {
         this.settingsHash = 0;
-        this.stationSettingsHash = 0;
+    }
+
+    public void ResetStateHash()
+    {
+        this.stateHash = 0;
+    }
+
+    public void SetSettingsHash(int value, bool invalidateState = true)
+    {
+        if (_settingsHash == value)
+        {
+            return;
+        }
+
+        _settingsHash = value;
+
+        if (invalidateState)
+        {
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+
+    public void SetStationSettingsHash(int value, bool invalidateState = true)
+    {
+        if (_stationSettingsHash == value)
+        {
+            return;
+        }
+
+        _stationSettingsHash = value;
+
+        if (invalidateState)
+        {
+            TrainState state = trainStateManager.GetState(this);
+            state.OnSettingsChangedReset();
+            trainStateManager.SaveState(this, state);
+        }
+    }
+
+
+
+    public void ResetDOTHandoff()
+    {
+        this._didDotHandoffThisManualSession = false;
     }
 
     private Car GetFuelCar()

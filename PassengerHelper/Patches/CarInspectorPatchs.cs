@@ -1,4 +1,4 @@
-namespace PassengerHelperPlugin.Patches;
+namespace PassengerHelper.Patches;
 
 using System.Reflection;
 using Game.Messages;
@@ -6,7 +6,6 @@ using Support;
 using HarmonyLib;
 using Model;
 using Model.AI;
-using Serilog;
 using UI.Builder;
 using UI.CarInspector;
 using UI.EngineControls;
@@ -19,51 +18,74 @@ using TMPro;
 using UnityEngine.UI;
 using Model.Ops;
 using Model.Definition;
+using PassengerHelper.Support.GameObjects;
+using PassengerHelper.Plugin;
+using KeyValue.Runtime;
 
 [HarmonyPatch]
 public static class CarInspectorPatches
 {
-    static readonly Serilog.ILogger logger = Log.ForContext(typeof(CarInspectorPatches));
-
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CarInspector), "PopulateCarPanel")]
     private static void PopulateCarPanel(UIPanelBuilder builder, Car ____car)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
 
-        if (!plugin.IsEnabled)
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
 
-        if (____car.Archetype == CarArchetype.LocomotiveDiesel || ____car.Archetype == CarArchetype.LocomotiveSteam)
+        if (____car.IsLocomotive)
         {
-            BaseLocomotive _car = (BaseLocomotive)____car;
-
-            AutoEngineerPersistence persistence = new AutoEngineerPersistence(_car.KeyValueObject);
-            AutoEngineerOrdersHelper helper = new AutoEngineerOrdersHelper(_car as BaseLocomotive, persistence);
-            AutoEngineerMode mode2 = helper.Mode;
-
-            if (mode2 == AutoEngineerMode.Road && _car.EnumerateCoupled().Where(c => c.IsPassengerCar()).Any())
+            BaseLocomotive _locomotive = (BaseLocomotive)____car;
+            if (_locomotive.ControlProperties[PropertyChange.Control.Mu] == true)
             {
-                builder.Spacer(5f);
-                builder.HStack(delegate (UIPanelBuilder builder)
-                {
-                    builder.AddButton("PassengerSettings", delegate
-                    {
-                        plugin.settingsManager.ShowSettingsWindow(_car);
-                    }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
-
-                    PassengerLocomotive passengerLocomotive = plugin.trainManager.GetPassengerLocomotive(_car);
-                    if (passengerLocomotive.TrainStatus.CurrentlyStopped)
-                    {
-                        builder.AddButton("Continue", delegate
-                        {
-                            passengerLocomotive.TrainStatus.Continue = true;
-                        }).Tooltip("Resume travel", "Resume travel");
-                    }
-                });
+                return;
             }
+
+            if (_locomotive.EnumerateCoupled().Where(car => car.IsPassengerCar()).Count() == 0)
+            {
+                return;
+            }
+
+            Orders orders = Orders.FromPropertyValue(_locomotive.KeyValueObject["aiOrders"]) ?? Orders.Disabled;
+
+            bool AEMode = orders.Mode == AutoEngineerMode.Road || orders.Mode == AutoEngineerMode.Waypoint;
+
+            PassengerLocomotive pl = plugin.trainManager.GetPassengerLocomotive(_locomotive);
+            TrainState state = plugin.trainStateManager.GetState(pl);
+ 
+            builder.Spacer(5f);
+            builder.HStack(delegate (UIPanelBuilder hBuilder)
+            {
+                hBuilder.AddButton("PassengerSettings", delegate
+                {
+                    plugin.settingsManager.ShowSettingsWindow(pl);
+                }).Tooltip("Open Passenger Settings menu", "Open Passenger Settings menu");
+
+                if (AEMode && state.isStoppedOverrideable())
+                {
+                    hBuilder.AddButton("Continue", delegate
+                    {
+                        Loader.Log($"CONTINUE CLICK: loco={_locomotive.DisplayName} id={_locomotive.id} setting Continue=true");
+
+                        pl.SetStopOverrideActive();
+                        hBuilder.Rebuild();
+                    }).Tooltip("Resume travel", "Resume travel");
+                }
+
+                hBuilder.AddObserver(pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)
+                {
+                    TrainState state = plugin.trainStateManager.GetState(pl);
+
+                    if (state.StopOverrideActive && state.StopOverrideStationId != null)
+                    {
+                        hBuilder.Rebuild();
+                    }
+
+                }, callInitial: false));
+            });
         }
     }
 
@@ -73,9 +95,9 @@ public static class CarInspectorPatches
     [HarmonyPatch(typeof(CarInspector), "PopulatePanel")]
     private static void PopulatePanel(Window ____window)
     {
-        PassengerHelperPlugin plugin = PassengerHelperPlugin.Shared;
+        PassengerHelperPlugin plugin = Loader.PassengerHelper;
 
-        if (!plugin.IsEnabled)
+        if (!Loader.ModEntry.Enabled)
         {
             return;
         }
