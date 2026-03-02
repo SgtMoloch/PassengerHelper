@@ -299,7 +299,7 @@ public partial class StationManager
             return true;
         }
 
-        if (pls.PauseAtTerminusStation && curStationSettings.TerminusStation == true)
+        if (pls.PauseAtTerminusStation && curStationSettings.TerminusStation)
         {
             Loader.Log($"Pausing at {state.CurrentStation.DisplayName} due to setting");
             pl.PostNotice("ai-stop", $"Paused at terminus station {Hyperlink.To(state.CurrentStation)}.");
@@ -309,7 +309,7 @@ public partial class StationManager
             return true;
         }
 
-        if (pls.WaitForFullPassengersTerminusStation && curStationSettings.TerminusStation == true)
+        if (pls.WaitForFullPassengersTerminusStation && curStationSettings.TerminusStation)
         {
             Loader.Log($"Waiting For full Passengers at terminus.");
 
