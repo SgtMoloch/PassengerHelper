@@ -79,26 +79,76 @@ public class TrainManager
         Loader.LogVerbose($"Getting PassengerLocomotive coupled to {car.DisplayName}");
         pl = null;
 
-        // find all cars coupled to car
-        // filter to only locomotives
-        // filter out MU locomotives
-        List<Car> engines = car.EnumerateCoupled()
-        .Where(car => car.IsLocomotive)
-        .Where(loco => loco.ControlProperties[PropertyChange.Control.Mu] == false)
-        .ToList();
-
-        if (engines.Count == 0)
+        if (!TryGetPassengerLocomotive(car, new HashSet<string>(), out BaseLocomotive lm, out string failReason))
         {
+            Loader.LogError($"PassenegerHelperTick: skipping {car.DisplayName} because: {failReason}");
             return false;
         }
 
-        if (engines.Count > 1)
+        pl = GetPassengerLocomotive(lm);
+
+        return true;
+    }
+
+    public bool TryGetPassengerLocomotive(Car car, HashSet<string> visitedCarIds, out BaseLocomotive lm, out string failReason)
+    {
+        lm = null;
+        failReason = "";
+
+        string localFail = null;
+
+        BaseLocomotive found = null;
+
+        foreach (Car c in car.EnumerateCoupled())
         {
+            if (localFail != null) break;
+            Check(c);
+        }
+        foreach (Car c in car.EnumerateCoupled(Car.LogicalEnd.B))
+        {
+            if (localFail != null) break;
+            Check(c);
+        }
+
+        void Check(Car c)
+        {
+            if (c == null) return;
+
+            if (string.IsNullOrEmpty(c.id)) return;
+
+            if (!visitedCarIds.Add(c.id)) return;
+
+            if (c is not BaseLocomotive loco) return;
+
+            bool isMu = c.ControlProperties[PropertyChange.Control.Mu];
+
+            if (!isMu)
+            {
+                if (found == null)
+                {
+                    found = loco;
+                }
+                else if (found.id != loco.id)
+                {
+                    localFail = $"More than 1 engine is coupled to car: {car.DisplayName} and those additional engines are NOT mu, therefore unable to determine which engine is the actual passenger locomotive";
+                    return;
+                }
+            }
+        }
+
+        if (localFail != null)
+        {
+            failReason = localFail;
             return false;
         }
-        
-        pl = GetPassengerLocomotive((BaseLocomotive)engines[0]);
 
+        if (found == null)
+        {
+            failReason = $"No non-MU locomotive coupled to {car.DisplayName}";
+            return false;
+        }
+
+        lm = found;
         return true;
     }
 }
