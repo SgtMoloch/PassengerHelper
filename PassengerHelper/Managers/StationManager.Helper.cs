@@ -203,7 +203,7 @@ public partial class StationManager
 
         if (effectiveDir == DirectionOfTravel.UNKNOWN)
         {
-            if (PauseAlakraStation(pl, pls, state, reason, ctx))
+            if (PauseAlarkaStation(pl, pls, state, reason, ctx))
             {
                 return false;
             }
@@ -246,7 +246,7 @@ public partial class StationManager
         }
     }
 
-    private bool PauseAlakraStation(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, string reason, StationProcedureContext ctx)
+    private bool PauseAlarkaStation(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, string reason, StationProcedureContext ctx)
     {
         if (ctx.CurrentStation.identifier == cochranIdentifier && state.PreviousStationId == alarkaIdentifier && !ctx.OrderedTerminusStations.Contains(alarkaIdentifier))
         {
