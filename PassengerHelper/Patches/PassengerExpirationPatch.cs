@@ -84,7 +84,7 @@ public static class PassengerExpirationPatches
 
             if (num > 0)
             {
-                Loader.Log("Expired {num} passengers since {gameDateTime}.");
+                Loader.Log($"Expired {num} passengers since {gameDateTime}.");
             }
         }
     }
