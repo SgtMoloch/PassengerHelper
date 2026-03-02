@@ -18,7 +18,7 @@ public partial class StationManager
 
         if (state.CurrentlyStopped)
         {
-            Loader.Log($"Train is currently Stopped due to: {state.CurrentReasonForStop}. checking if {pl._locomotive.DisplayName} should stay Stopped at current station");
+            Loader.LogVerbose($"Train is currently Stopped due to: {state.CurrentReasonForStop}. checking if {pl._locomotive.DisplayName} should stay Stopped at current station");
 
             StayStoppedIncorrectStationSettings(pl, pls, state);
             StayStoppedStationPause(pl, pls, state, ctx);
@@ -132,7 +132,7 @@ public partial class StationManager
         // train is stopped because of low diesel, coal or water
         if (state.StoppedForDiesel || state.StoppedForCoal || state.StoppedForWater)
         {
-            Loader.Log($"Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
+            Loader.LogVerbose($"Locomotive is stopped due to either low diesel, coal or water. Rechecking settings to see if they have changed.");
             // first check if the setting has been set to false
             if (state.StoppedForDiesel)
             {

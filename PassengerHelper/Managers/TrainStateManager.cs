@@ -37,6 +37,7 @@ public class TrainStateManager
     {
         TrainState state = new();
         stateMap.Add(pl, state);
+        Loader.Log($"created state for {pl._locomotive.DisplayName}");
 
         SaveState(pl, state);
 
@@ -60,7 +61,7 @@ public class TrainStateManager
         Loader.Log($"loaded state for {pl._locomotive.DisplayName}");
         if (!stateMap.ContainsKey(pl))
         {
-            Loader.Log($"pass loco not in state map, adding observer");
+            Loader.LogVerbose($"pass loco not in state map, adding observer");
             stateMap.Add(pl, state);
 
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_State, delegate (Value val)

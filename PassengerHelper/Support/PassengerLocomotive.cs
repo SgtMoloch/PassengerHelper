@@ -225,7 +225,7 @@ public class PassengerLocomotive
 
         if ((state.Arrived || state.ReadyToDepart) && state.CurrentStationId != null)
         {
-            Loader.Log($"Train did not depart yet, selecting current station on passenger cars");
+            Loader.LogVerbose($"Train did not depart yet, selecting current station on passenger cars");
             foreach (Car coach in GetCoaches())
             {
                 PassengerMarker marker = coach.GetPassengerMarker() ?? new PassengerMarker();
@@ -239,7 +239,7 @@ public class PassengerLocomotive
 
         if (state.Departed && state.CurrentStationId == null && state.PreviousStationId != null)
         {
-            Loader.Log($"Train is not at a station, but is in route, re-selecting stations to be safe");
+            Loader.LogVerbose($"Train is not at a station, but is in route, re-selecting stations to be safe");
 
             foreach (Car coach in GetCoaches())
             {
@@ -265,7 +265,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_dieselFuelSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveDiesel)
         {
-            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of diesel fuel");
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of diesel fuel");
             level = loadInfo.Value.Quantity;
         }
 
@@ -278,7 +278,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_coalSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity / 2000}T of coal");
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity / 2000}T of coal");
             level = loadInfo.Value.Quantity;
         }
 
@@ -291,7 +291,7 @@ public class PassengerLocomotive
         CarLoadInfo? loadInfo = FuelCar.GetLoadInfo(_waterSlotIndex);
         if (loadInfo.HasValue && _locomotive.Archetype == CarArchetype.LocomotiveSteam)
         {
-            Loader.Log($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of water");
+            Loader.LogVerbose($"{_locomotive.DisplayName} has {loadInfo.Value.Quantity}gal of water");
             level = loadInfo.Value.Quantity;
         }
 
@@ -301,7 +301,7 @@ public class PassengerLocomotive
     public void StopAE()
     {
         if (_selfSentStopOrders) return;
-        Loader.Log($"PH established {_locomotive.DisplayName} should be stopped, setting AE speed to 0.");
+        Loader.LogVerbose($"PH established {_locomotive.DisplayName} should be stopped, setting AE speed to 0.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
@@ -316,7 +316,7 @@ public class PassengerLocomotive
     public void StartAE()
     {
         if (_selfSentStartOrders) return;
-        Loader.Log($"PH established {_locomotive.DisplayName} should no longer be stopped, setting AE speed to previous speed.");
+        Loader.LogVerbose($"PH established {_locomotive.DisplayName} should no longer be stopped, setting AE speed to previous speed.");
         AutoEngineerPersistence persistence = new(_locomotive.KeyValueObject);
         AutoEngineerOrdersHelper helper = new(_locomotive, persistence);
         AutoEngineerMode mode = helper.Mode;
@@ -337,12 +337,12 @@ public class PassengerLocomotive
         if (mode == AutoEngineerMode.Off) return false;
         if (mode == AutoEngineerMode.Waypoint) return false;
 
-        Loader.Log($"reversing loco direction");
+        Loader.LogVerbose($"reversing loco direction");
 
         _selfSentRevOrders = true;
-        Loader.Log($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
+        Loader.LogVerbose($"Current direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
         helper.SetOrdersValue(null, !persistence.Orders.Forward);
-        Loader.Log($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
+        Loader.LogVerbose($"new direction is {(persistence.Orders.Forward == true ? "forward" : "backward")}");
 
         return true;
     }

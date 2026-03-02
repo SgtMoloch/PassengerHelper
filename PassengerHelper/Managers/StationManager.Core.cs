@@ -230,7 +230,7 @@ public partial class StationManager
         }
         else
         {
-            Loader.Log($"Station Procedure already completed, skipping.");
+            Loader.LogVerbose($"Station Procedure already completed, skipping.");
         }
 
         /*
@@ -239,7 +239,7 @@ public partial class StationManager
          */
         if (!state.StopOverrideActive)
         {
-            Loader.Log($"Settings have changed, checking for pause conditions");
+            Loader.LogVerbose($"Settings have changed, checking for pause conditions");
             if (PauseAtCurrentStation(pl, pls, state))
             {
                 trainStateManager.SaveState(pl, state);
@@ -254,7 +254,7 @@ public partial class StationManager
         }
         else
         {
-            Loader.Log($"Settings have not changed, skipping check for pause conditions");
+            Loader.LogVerbose($"Settings have not changed, skipping check for pause conditions");
         }
 
         /*

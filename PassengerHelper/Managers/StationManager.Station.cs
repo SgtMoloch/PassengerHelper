@@ -23,7 +23,7 @@ public partial class StationManager
 
         HashSet<string> expectedSelectedDestinations = ComputeExpectedDestinations(pl, pls, state, ctx);
 
-        Loader.Log($"Expected selected stations are: {Dump(expectedSelectedDestinations)}");
+        Loader.LogVerbose($"Expected selected stations are: {Dump(expectedSelectedDestinations)}");
 
         // transfer station check
         int numTransferStations = ctx.OrderedTransferStations.Count();
@@ -31,14 +31,14 @@ public partial class StationManager
 
         if (transferStationSelected)
         {
-            Loader.Log($"Transfer station selected, checking direction and modifying expected selected stations. The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
+            Loader.LogVerbose($"Transfer station selected, checking direction and modifying expected selected stations. The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
 
             bool useNormalLogic = true;
             bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(StationIds.AlarkaJct, out _);
 
             if (hasAlarkaJctTransfer)
             {
-                Loader.Log($"Train has alarkajct as a transfer station");
+                Loader.LogVerbose($"Train has alarkajct as a transfer station");
                 useNormalLogic = RunAlarkaJctTransferStationProcedure(pls, expectedSelectedDestinations, ctx, DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel).Value);
             }
 
@@ -48,20 +48,20 @@ public partial class StationManager
             }
         }
 
-        Loader.Log($"Checking passenger cars to make sure they have the proper selected stations");
-        Loader.Log($"Setting the following stations: {expectedSelectedDestinations}");
+        Loader.LogVerbose($"Checking passenger cars to make sure they have the proper selected stations");
+        Loader.LogVerbose($"Setting the following stations: {expectedSelectedDestinations}");
 
         var expectedList = expectedSelectedDestinations.ToList();
 
         foreach (Car coach in ctx.Coaches)
         {
-            Loader.Log($"Checking Car {coach.DisplayName}");
+            Loader.LogVerbose($"Checking Car {coach.DisplayName}");
             PassengerMarker? marker = coach.GetPassengerMarker();
             if (marker != null && marker.HasValue)
             {
                 PassengerMarker actualMarker = marker.Value;
 
-                Loader.Log($"Current selected stations are: {actualMarker.Destinations}");
+                Loader.LogVerbose($"Current selected stations are: {actualMarker.Destinations}");
                 if (!actualMarker.Destinations.SetEquals(expectedSelectedDestinations))
                 {
                     StateManager.ApplyLocal(new SetPassengerDestinations(coach.id, expectedList));
@@ -69,14 +69,14 @@ public partial class StationManager
             }
         }
 
-        Loader.Log($"Checking if train is in alarka or cochran and Passenger Mode to see if we need to reverse engine direction");
+        Loader.LogVerbose($"Checking if train is in alarka or cochran and Passenger Mode to see if we need to reverse engine direction");
         if (pls.StationSettings[ctx.CurrentStation.identifier].PassengerMode != PassengerMode.Loop)
         {
             // we are in point to point mode at the current station
             if (state.AtAlarka)
             {
                 // train is at alarka, and this is not a terminus, so we need to reverse direction but NOT change cardinal direction
-                Loader.Log($"Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
+                Loader.LogVerbose($"Train is in Alarka, there are more stops, and loop mode is not activated. Reversing train.");
                 Say($"PH \"{Hyperlink.To(pl._locomotive)}: Arrived in Alarka, reversing direction to continue.\"");
                 pl.ReverseLocoDirection();
             }
@@ -84,7 +84,7 @@ public partial class StationManager
             if (state.AtCochran && !ctx.OrderedStopAtStations.Contains(StationIds.Alarka))
             {
                 // train is at cochran, train does not go to alarka, there are more stops, we need to reverse direction but NOT change cardinal direction
-                Loader.Log($"Train is in Cochran, there are more stops, loop mode is not activated and alarka is not a selected station. Reversing train.");
+                Loader.LogVerbose($"Train is in Cochran, there are more stops, loop mode is not activated and alarka is not a selected station. Reversing train.");
                 Say($"PH \"{Hyperlink.To(pl._locomotive)}: Arrived in Cochran, reversing direction to continue.\"");
                 pl.ReverseLocoDirection();
             }
@@ -97,17 +97,17 @@ public partial class StationManager
 
     private void NotAtASelectedStationProcedure(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, PassengerStop currentStation, Dictionary<string, int> orderIndex, List<string> orderedTerminusStations)
     {
-        Loader.Log($"[StationManager::NotAtASelectedStationProcedure] Train is at a station: {currentStation.identifier} that is not within the terminus bounds: {Dump(orderedTerminusStations)}");
+        Loader.LogVerbose($"[StationManager::NotAtASelectedStationProcedure] Train is at a station: {currentStation.identifier} that is not within the terminus bounds: {Dump(orderedTerminusStations)}");
 
         EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
         if (effectiveDOT.Value == DirectionOfTravel.UNKNOWN)
         {
-            Loader.Log($"[StationManager::NotAtASelectedStationProcedure] Travel direction is unknown, so unable to correct. Continuing in the current direction and will check again at the next station");
+            Loader.LogVerbose($"[StationManager::NotAtASelectedStationProcedure] Travel direction is unknown, so unable to correct. Continuing in the current direction and will check again at the next station");
             return;
         }
 
-        Loader.Log($"Travel direction is known.");
-        Loader.Log($"Getting direction train should continue in");
+        Loader.LogVerbose($"Travel direction is known.");
+        Loader.LogVerbose($"Getting direction train should continue in");
 
         bool goodCurr = orderIndex.TryGetValue(currentStation.identifier, out int currentStationIndex_All);
         bool goodWest = orderIndex.TryGetValue(orderedTerminusStations[1], out int indexWestTerminus_All);
@@ -115,7 +115,7 @@ public partial class StationManager
 
         if (!goodCurr || !goodWest || !goodEast)
         {
-            Loader.Log($"[StationManager::NotAtASelectedStationProcedure] Cannot correct out-of-bounds station because ordering index missing (cur={currentStationIndex_All}, eastTerminus={indexEastTerminus_All}, westTerminus={indexWestTerminus_All}).");
+            Loader.LogVerbose($"[StationManager::NotAtASelectedStationProcedure] Cannot correct out-of-bounds station because ordering index missing (cur={currentStationIndex_All}, eastTerminus={indexEastTerminus_All}, westTerminus={indexWestTerminus_All}).");
             return;
         }
 
@@ -125,12 +125,12 @@ public partial class StationManager
             // going west, towards east terminus, do nothing
             if (effectiveDOT.Value == DirectionOfTravel.WEST)
             {
-                Loader.Log($"[StationManager::NotAtASelectedStationProcedure] train is already going in right direction toward east terminus station {currentStation.identifier} -> {orderedTerminusStations[0]}");
+                Loader.LogVerbose($"[StationManager::NotAtASelectedStationProcedure] train is already going in right direction toward east terminus station {currentStation.identifier} -> {orderedTerminusStations[0]}");
             }
             // if going east, need to switch direction of travel to go west.
             else if (effectiveDOT.Value == DirectionOfTravel.EAST)
             {
-                Loader.Log($"[StationManager::NotAtASelectedStationProcedure] train is going wrong way from east terminus, revering direction");
+                Loader.LogVerbose($"[StationManager::NotAtASelectedStationProcedure] train is going wrong way from east terminus, revering direction");
                 state.InferredDirectionOfTravel = DirectionOfTravel.WEST;
                 pl.ReverseLocoDirection();
             }

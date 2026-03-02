@@ -21,18 +21,18 @@ public partial class StationManager
         bool atTerminusStationWest = ctx.WestTerminusId == state.CurrentStationId;
         bool atTerminusStationEast = ctx.EastTerminusId == state.CurrentStationId;
 
-        Loader.Log($"at west terminus: {atTerminusStationWest} at east terminus {atTerminusStationEast}");
-        Loader.Log($"passenger locomotive atTerminusWest settings: {state.AtTerminusStationWest}");
-        Loader.Log($"passenger locomotive atTerminusEast settings: {state.AtTerminusStationEast}");
+        Loader.LogVerbose($"at west terminus: {atTerminusStationWest} at east terminus {atTerminusStationEast}");
+        Loader.LogVerbose($"passenger locomotive atTerminusWest settings: {state.AtTerminusStationWest}");
+        Loader.LogVerbose($"passenger locomotive atTerminusEast settings: {state.AtTerminusStationEast}");
 
         EffectiveDOT effectiveDOT = DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel);
         DirectionOfTravel currentDOT = effectiveDOT.Value;
 
-        Loader.Log($"Checking to see if train is approaching terminus from outside of terminus bounds");
+        Loader.LogVerbose($"Checking to see if train is approaching terminus from outside of terminus bounds");
         if (atTerminusStationEast && currentDOT == DirectionOfTravel.EAST)
         {
             // arrived at east terminus, need to flip direction
-            Loader.Log($"The new direction of travel is opposite current direction of travel");
+            Loader.LogVerbose($"The new direction of travel is opposite current direction of travel");
             TerminusStationReverseDirectionProcedure(pl, pls, ctx.CurrentStation.identifier);
             state.InferredDirectionOfTravel = DirectionOfTravel.WEST;
             pl.ResetDOTHandoff();
@@ -42,7 +42,7 @@ public partial class StationManager
         else if (atTerminusStationWest && currentDOT == DirectionOfTravel.WEST)
         {
             // arrived at west terminus, need to flip direction
-            Loader.Log($"The new direction of travel is opposite current direction of travel");
+            Loader.LogVerbose($"The new direction of travel is opposite current direction of travel");
             TerminusStationReverseDirectionProcedure(pl, pls, ctx.CurrentStation.identifier);
             state.InferredDirectionOfTravel = DirectionOfTravel.EAST;
             pl.ResetDOTHandoff();
@@ -51,7 +51,7 @@ public partial class StationManager
         }
         else
         {
-            Loader.Log($"The current direction of travel is the same as the new direction of travel.");
+            Loader.LogVerbose($"The current direction of travel is the same as the new direction of travel.");
         }
 
         HashSet<string> expectedSelectedDestinations = new HashSet<string>(ctx.OrderedStopAtStations, StringComparer.Ordinal);
@@ -61,14 +61,14 @@ public partial class StationManager
 
         if (transferStationSelected)
         {
-            Loader.Log($"Transfer station selected, checking direction and modifying expected selected stations");
-            Loader.Log($"The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
+            Loader.LogVerbose($"Transfer station selected, checking direction and modifying expected selected stations");
+            Loader.LogVerbose($"The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
             bool useNormalLogic = true;
             bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(StationIds.AlarkaJct, out _);
 
             if (hasAlarkaJctTransfer)
             {
-                Loader.Log($"Train has alarkajct as a transfer station");
+                Loader.LogVerbose($"Train has alarkajct as a transfer station");
                 useNormalLogic = RunAlarkaJctTransferStationProcedure(pls, expectedSelectedDestinations, ctx, currentDOT);
             }
 
@@ -78,7 +78,7 @@ public partial class StationManager
             }
         }
 
-        Loader.Log($"Setting the following stations: {Dump(expectedSelectedDestinations)}");
+        Loader.LogVerbose($"Setting the following stations: {Dump(expectedSelectedDestinations)}");
         var expectedList = expectedSelectedDestinations.ToList();
         foreach (Car coach in ctx.Coaches)
         {
@@ -99,7 +99,7 @@ public partial class StationManager
 
     private void TerminusStationReverseDirectionProcedure(PassengerLocomotive pl, PassengerLocomotiveSettings pls, string currentStopIdentifier)
     {
-        Loader.Log($"Checking if in loop mode");
+        Loader.LogVerbose($"Checking if in loop mode");
 
         StationSetting curStationSettings = pls.StationSettings[currentStopIdentifier];
 

@@ -32,7 +32,7 @@ public partial class StationManager
 
     private Dictionary<string, int> BuildOrderIndex(List<string> orderedStations)
     {
-        Loader.Log($"StationManager: BuildOrderIndex for {Dump(orderedStations)}");
+        Loader.LogVerbose($"StationManager: BuildOrderIndex for {Dump(orderedStations)}");
 
         var dict = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < orderedStations.Count; i++)
@@ -125,38 +125,38 @@ public partial class StationManager
         {
             if (atEastTerminus && ctx.OrderedTransferStations.Contains(ctx.WestTerminusId))
             {
-                Loader.Log($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(westTerminusIndex_Pickup, ctx.OrderedPickupStations.Count - westTerminusIndex_Pickup))} that are further west of the west terminus station: {ctx.WestTerminusId}");
+                Loader.LogVerbose($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(westTerminusIndex_Pickup, ctx.OrderedPickupStations.Count - westTerminusIndex_Pickup))} that are further west of the west terminus station: {ctx.WestTerminusId}");
                 // select all to the west of the west terminus station
                 expected.UnionWith(ctx.OrderedPickupStations.GetRange(westTerminusIndex_Pickup, ctx.OrderedPickupStations.Count - westTerminusIndex_Pickup));
 
             }
             else if (currentIndex_Pickup + 1 < ctx.OrderedPickupStations.Count)
             {
-                Loader.Log($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(currentIndex_Pickup + 1, ctx.OrderedPickupStations.Count - (currentIndex_Pickup + 1)))} that are further west of the current station: {ctx.CurrentStation.DisplayName}");
+                Loader.LogVerbose($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(currentIndex_Pickup + 1, ctx.OrderedPickupStations.Count - (currentIndex_Pickup + 1)))} that are further west of the current station: {ctx.CurrentStation.DisplayName}");
                 expected.UnionWith(
                     ctx.OrderedPickupStations.GetRange(currentIndex_Pickup + 1, ctx.OrderedPickupStations.Count - (currentIndex_Pickup + 1)));
             }
             else
             {
-                Loader.Log($"skipping pickup range selection (WEST) due to next stop being past the end of the pickup list (currIndex + 1 > PickupStationCount)");
+                Loader.LogVerbose($"skipping pickup range selection (WEST) due to next stop being past the end of the pickup list (currIndex + 1 > PickupStationCount)");
             }
         }
         else if (effectiveDOT.Value == DirectionOfTravel.EAST)
         {
             if (atWestTerminus && ctx.OrderedTransferStations.Contains(ctx.EastTerminusId))
             {
-                Loader.Log($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(0, eastTerminusIndex_Pickup + 1))} that are further east of the east terminus station: {ctx.EastTerminusId}");
+                Loader.LogVerbose($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(0, eastTerminusIndex_Pickup + 1))} that are further east of the east terminus station: {ctx.EastTerminusId}");
                 // select all to the east of the east terminus station
                 expected.UnionWith(ctx.OrderedPickupStations.GetRange(0, eastTerminusIndex_Pickup + 1));
             }
             else if (currentIndex_Pickup - 1 >= 0)
             {
-                Loader.Log($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(0, currentIndex_Pickup))} that are further east of the current station: {ctx.CurrentStation.DisplayName}");
+                Loader.LogVerbose($"Selecting pickup stations {Dump(ctx.OrderedPickupStations.GetRange(0, currentIndex_Pickup))} that are further east of the current station: {ctx.CurrentStation.DisplayName}");
                 expected.UnionWith(ctx.OrderedPickupStations.GetRange(0, currentIndex_Pickup));
             }
             else
             {
-                Loader.Log($"skipping pickup range selection (EAST) due to next stop being past the end of the pickup list (currIndex - 1 < 0)");
+                Loader.LogVerbose($"skipping pickup range selection (EAST) due to next stop being past the end of the pickup list (currIndex - 1 < 0)");
             }
         }
 

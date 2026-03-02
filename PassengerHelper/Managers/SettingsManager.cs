@@ -55,6 +55,7 @@ public class SettingsManager
         PassengerLocomotiveSettings pls = new(this.getMainlineStations().Select(ps => ps.identifier).ToList());
         plsMap.Add(pl, pls);
 
+        Loader.Log($"created settings for {pl._locomotive.DisplayName}");
         SaveSettings(pl, pls);
 
         IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
@@ -89,7 +90,7 @@ public class SettingsManager
         Loader.Log($"loaded settings for {pl._locomotive.DisplayName}");
         if (!plsMap.ContainsKey(pl))
         {
-            Loader.Log($"pass loco not in settings map, adding observer");
+            Loader.LogVerbose($"pass loco not in settings map, adding observer");
             plsMap.Add(pl, pls);
             IDisposable plObv = pl._keyValueObject.Observe(pl.KeyValueIdentifier_Settings, delegate (Value val)
             {

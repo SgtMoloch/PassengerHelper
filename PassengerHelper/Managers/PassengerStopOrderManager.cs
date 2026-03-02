@@ -93,7 +93,7 @@ public sealed class PassengerStopOrderManager
             var s = orderedAll[i];
             if (s != null)
             {
-                Loader.Log($"[PassengerStopOrderManager::FilterUnlocked] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled} isUnlockedCB: {isUnlocked(s)}");
+                Loader.LogVerbose($"[PassengerStopOrderManager::FilterUnlocked] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled} isUnlockedCB: {isUnlocked(s)}");
                 if (isUnlocked(s))
                     result.Add(s);
             }
@@ -117,8 +117,8 @@ public sealed class PassengerStopOrderManager
             var s = stops[i];
             if (s == null) continue;
 
-            Loader.Log($"[PassengerStopOrderManager::ComputeTopologyFingerprint] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled}");
-            Loader.Log($"[PassengerStopOrderManager::ComputeTopologyFingerprint] stop neighbors: {string.Join(",", s.neighbors?.Select(n=>n?.identifier) ?? Enumerable.Empty<string>())}");
+            Loader.LogVerbose($"[PassengerStopOrderManager::ComputeTopologyFingerprint] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled}");
+            Loader.LogVerbose($"[PassengerStopOrderManager::ComputeTopologyFingerprint] stop neighbors: {string.Join(",", s.neighbors?.Select(n=>n?.identifier) ?? Enumerable.Empty<string>())}");
             hash = hash * 31 + (s.identifier?.GetHashCode() ?? 0);
             hash = hash * 31 + (s.ProgressionDisabled.GetHashCode());
 

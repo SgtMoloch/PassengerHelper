@@ -49,31 +49,6 @@ public class TrainManager
         return passengerLocomotives.TryGetValue(locoId, out var pl) ? pl : null;
     }
 
-    public PassengerLocomotive GetPassengerLocomotive(Car car)
-    {
-        Loader.LogVerbose($"Getting PassengerLocomotive coupled to {car.DisplayName}");
-
-        // find all cars coupled to car
-        // filter to only locomotives
-        // filter out MU locomotives
-        List<Car> engines = car.EnumerateCoupled()
-        .Where(car => car.IsLocomotive)
-        .Where(loco => loco.ControlProperties[PropertyChange.Control.Mu] == false)
-        .ToList();
-
-        if (engines.Count == 0)
-        {
-            throw new System.Exception($"No non-MU locomotive coupled to {car.DisplayName}");
-        }
-
-        if (engines.Count > 1)
-        {
-            throw new System.Exception("More than 1 engine is coupled to car: " + car.DisplayName + " and those additional engines are NOT mu, therefore unable to determine which engine is the actual passenger locomotive");
-        }
-
-        return GetPassengerLocomotive((BaseLocomotive)engines[0]);
-    }
-
     public bool TryGetPassengerLocomotive(Car car, out PassengerLocomotive pl)
     {
         Loader.LogVerbose($"Getting PassengerLocomotive coupled to {car.DisplayName}");
