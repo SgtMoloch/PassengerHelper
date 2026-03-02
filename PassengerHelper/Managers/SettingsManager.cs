@@ -110,16 +110,15 @@ public class SettingsManager
         if (!plsMap.ContainsKey(pl))
         {
             Value dictionaryValue = pl._keyValueObject[pl.KeyValueIdentifier_Settings];
-            PassengerLocomotiveSettings pls;
             if (dictionaryValue.IsNull || !pl._keyValueObject.Keys.Contains(pl.KeyValueIdentifier_Settings))
             {
                 Loader.LogVerbose($"Creating new settings for {pl._locomotive.DisplayName}");
-                pls = CreateNewSettings(pl);
+                return CreateNewSettings(pl);
             }
             else
             {
                 Loader.LogVerbose($"Loading existing settings for {pl._locomotive.DisplayName}");
-                pls = LoadSettings(pl);
+                return LoadSettings(pl);
             }
         }
 

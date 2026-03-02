@@ -82,16 +82,15 @@ public class TrainStateManager
         if (!stateMap.ContainsKey(pl))
         {
             Value dictionaryValue = pl._keyValueObject[pl.KeyValueIdentifier_State];
-            TrainState state;
             if (dictionaryValue.IsNull || !pl._keyValueObject.Keys.Contains(pl.KeyValueIdentifier_State))
             {
                 Loader.LogVerbose($"Creating new state for {pl._locomotive.DisplayName}");
-                state = CreateNewState(pl);
+                return CreateNewState(pl);
             }
             else
             {
                 Loader.LogVerbose($"Loading existing state for {pl._locomotive.DisplayName}");
-                state = LoadState(pl);
+                return LoadState(pl);
             }
         }
 
