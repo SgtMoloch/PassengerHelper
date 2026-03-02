@@ -23,7 +23,6 @@ public class PassengerHelperPlugin
     internal StationManager stationManager { get; }
     internal PassengerStopOrderManager passengerStopOrderManager { get; }
     internal UIHelper UIHelper { get; }
-    internal bool TestMode { get; } = true;
     internal Harmony harmony { get; }
     internal PassengerHelperRuntime runtime { get; set; }
 
