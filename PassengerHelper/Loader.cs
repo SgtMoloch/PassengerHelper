@@ -78,17 +78,6 @@ public static class Loader
                     Loader.Log(warn);
                 }
 
-                // TEMP DEBUG: dump ordering
-                for (int i = 0; i < orderedMainline.Count; i++)
-                {
-                    Loader.Log($"[Loader::OnMapDidLoad] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
-                }
-
-                for (int i = 0; i < orderedAll.Count; i++)
-                {
-                    Loader.Log($"[Loader::OnMapDidLoad] AllOrder[{i}] = {orderedAll[i].identifier}");
-                }
-
                 return new StopOrderResult { Mainline = orderedMainline, All = orderedAll, Warning = warn };
             }
 
@@ -96,12 +85,6 @@ public static class Loader
         });
 
         PassengerHelper.passengerStopOrderManager.RefreshUnlocked(stop => !stop.ProgressionDisabled);
-
-        // 🔍 TEMP sanity log — after RefreshUnlocked
-        var all = PassengerHelper.passengerStopOrderManager.OrderedAll;
-        var unlocked = PassengerHelper.passengerStopOrderManager.OrderedUnlockedAll;
-
-        Loader.Log($"[Loader::OnMapDidLoad] StopOrder: all={all.Count}, unlocked={unlocked.Count}");
     }
 
     public static void Log(string str)
