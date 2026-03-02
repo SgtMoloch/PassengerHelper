@@ -75,9 +75,9 @@ public partial class StationManager
                     currentIndex, westTerminusIndex - currentIndex + 1));
             }
 
-            if (state.CurrentStationId == cochranIdentifier && state.PreviousStationId == alarkaIdentifier)
+            if (state.CurrentStationId == StationIds.Cochran && state.PreviousStationId == StationIds.Alarka)
             {
-                expected.Remove(alarkaIdentifier);
+                expected.Remove(StationIds.Alarka);
             }
         }
         else if (effectiveDOT.Value == DirectionOfTravel.EAST)
@@ -87,15 +87,15 @@ public partial class StationManager
                 expected.UnionWith(ctx.OrderedStopAtStations.GetRange(0, currentIndex + 1));
             }
 
-            if (state.CurrentStationId == cochranIdentifier && state.PreviousStationId == almondIdentifier)
+            if (state.CurrentStationId == StationIds.Cochran && state.PreviousStationId == StationIds.Almond)
             {
-                expected.Add(alarkaIdentifier);
+                expected.Add(StationIds.Alarka);
             }
         }
 
-        if (state.CurrentStationId == alarkaIdentifier && ctx.OrderedStopAtStations.Contains(cochranIdentifier))
+        if (state.CurrentStationId == StationIds.Alarka && ctx.OrderedStopAtStations.Contains(StationIds.Cochran))
         {
-            expected.Add(cochranIdentifier);
+            expected.Add(StationIds.Cochran);
         }
 
         return expected;
@@ -248,7 +248,7 @@ public partial class StationManager
 
     private bool PauseAlarkaStation(PassengerLocomotive pl, PassengerLocomotiveSettings pls, TrainState state, string reason, StationProcedureContext ctx)
     {
-        if (ctx.CurrentStation.identifier == cochranIdentifier && state.PreviousStationId == alarkaIdentifier && !ctx.OrderedTerminusStations.Contains(alarkaIdentifier))
+        if (ctx.CurrentStation.identifier == StationIds.Cochran && state.PreviousStationId == StationIds.Alarka && !ctx.OrderedTerminusStations.Contains(StationIds.Alarka))
         {
             if (state.CurrentReasonForStop != reason)
             {
@@ -264,7 +264,7 @@ public partial class StationManager
 
             return true;
         }
-        else if (ctx.CurrentStation.identifier == alarkaIdentifier && state.PreviousStationId == cochranIdentifier)
+        else if (ctx.CurrentStation.identifier == StationIds.Alarka && state.PreviousStationId == StationIds.Cochran)
         {
             if (state.CurrentReasonForStop != reason)
             {

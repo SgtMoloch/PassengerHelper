@@ -11,19 +11,19 @@ public partial class StationManager
     private bool RunAlarkaJctTransferStationProcedure(PassengerLocomotiveSettings pls, HashSet<string> expectedSelectedDestinations, StationProcedureContext ctx, DirectionOfTravel directionOfTravel)
     {
         int currentIndex_Pickup = ctx.PickupIndex[ctx.CurrentStation.identifier];
-        int alarkaJctIndex_Pickup = ctx.PickupIndex[alarkajctIdentifier];
+        int alarkaJctIndex_Pickup = ctx.PickupIndex[StationIds.AlarkaJct];
  
-        bool hasAlarkaPickup = ctx.PickupIndex.TryGetValue(alarkaIdentifier, out _);
-        bool hasCochranPickup = ctx.PickupIndex.TryGetValue(cochranIdentifier, out _);
+        bool hasAlarkaPickup = ctx.PickupIndex.TryGetValue(StationIds.Alarka, out _);
+        bool hasCochranPickup = ctx.PickupIndex.TryGetValue(StationIds.Cochran, out _);
 
-        bool hasAlarkaStopAt = ctx.StopAtIndex.TryGetValue(alarkaIdentifier, out _);
-        bool hasCochranStopAt = ctx.StopAtIndex.TryGetValue(cochranIdentifier, out _);
+        bool hasAlarkaStopAt = ctx.StopAtIndex.TryGetValue(StationIds.Alarka, out _);
+        bool hasCochranStopAt = ctx.StopAtIndex.TryGetValue(StationIds.Cochran, out _);
 
-        bool jctIsWestTerminus = ctx.WestTerminusId == alarkajctIdentifier;
-        bool jctIsEastTerminus = ctx.EastTerminusId == alarkajctIdentifier;
+        bool jctIsWestTerminus = ctx.WestTerminusId == StationIds.AlarkaJct;
+        bool jctIsEastTerminus = ctx.EastTerminusId == StationIds.AlarkaJct;
 
-        bool alarkaIsWestTerminus = ctx.WestTerminusId == alarkaIdentifier;
-        bool alarkaIsEastTerminus = ctx.EastTerminusId == alarkaIdentifier;
+        bool alarkaIsWestTerminus = ctx.WestTerminusId == StationIds.Alarka;
+        bool alarkaIsEastTerminus = ctx.EastTerminusId == StationIds.Alarka;
 
         if (jctIsWestTerminus)
         {
@@ -45,7 +45,7 @@ public partial class StationManager
                 {
                     Loader.Log($"Train is heading East so selecting all pickup stations");
                     expectedSelectedDestinations.UnionWith(ctx.OrderedPickupStations);
-                    expectedSelectedDestinations.Remove(alarkaIdentifier);
+                    expectedSelectedDestinations.Remove(StationIds.Alarka);
                 }
 
                 if (directionOfTravel == DirectionOfTravel.WEST)
@@ -65,13 +65,13 @@ public partial class StationManager
                 if (hasAlarkaPickup)
                 {
                     Loader.Log($"adding alarka");
-                    expectedSelectedDestinations.Add(alarkaIdentifier);
+                    expectedSelectedDestinations.Add(StationIds.Alarka);
                 }
 
                 if (hasCochranPickup)
                 {
                     Loader.Log($"adding cochran");
-                    expectedSelectedDestinations.Add(cochranIdentifier);
+                    expectedSelectedDestinations.Add(StationIds.Cochran);
                 }
             }
 
@@ -93,7 +93,7 @@ public partial class StationManager
                     // if before jct, then select all stations except alarka. aka normal logic - alarka
                     Loader.Log($"Train is heading East, selecting all pickup stations except alarka");
                     expectedSelectedDestinations.UnionWith(ctx.OrderedPickupStations);
-                    expectedSelectedDestinations.Remove(alarkaIdentifier);
+                    expectedSelectedDestinations.Remove(StationIds.Alarka);
 
                     // special case, do not use normal logic
                     return false;
@@ -151,9 +151,9 @@ public partial class StationManager
             if (addAlarkaAndCochran)
             {
                 Loader.Log($"adding alarka");
-                expectedSelectedDestinations.Add(alarkaIdentifier);
+                expectedSelectedDestinations.Add(StationIds.Alarka);
                 Loader.Log($"adding cochran");
-                expectedSelectedDestinations.Add(cochranIdentifier);
+                expectedSelectedDestinations.Add(StationIds.Cochran);
             }
         }
 

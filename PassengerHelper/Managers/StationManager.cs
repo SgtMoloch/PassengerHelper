@@ -15,11 +15,6 @@ public partial class StationManager
 
     private readonly HashSet<string> _armedDepartures = new();
 
-    private const string cochranIdentifier = "cochran";
-    private const string alarkaIdentifier = "alarka";
-    private const string almondIdentifier = "almond";
-    private const string alarkajctIdentifier = "alarkajct";
-
     public StationManager(SettingsManager settingsManager, TrainManager trainManager, TrainStateManager trainStateManager, PassengerStopOrderManager passengerStopOrderManager)
     {
         this.trainManager = trainManager;

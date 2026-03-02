@@ -34,7 +34,7 @@ public partial class StationManager
             Loader.Log($"Transfer station selected, checking direction and modifying expected selected stations. The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
 
             bool useNormalLogic = true;
-            bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(alarkajctIdentifier, out _);
+            bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(StationIds.AlarkaJct, out _);
 
             if (hasAlarkaJctTransfer)
             {
@@ -81,7 +81,7 @@ public partial class StationManager
                 pl.ReverseLocoDirection();
             }
 
-            if (state.AtCochran && !ctx.OrderedStopAtStations.Contains(alarkaIdentifier))
+            if (state.AtCochran && !ctx.OrderedStopAtStations.Contains(StationIds.Alarka))
             {
                 // train is at cochran, train does not go to alarka, there are more stops, we need to reverse direction but NOT change cardinal direction
                 Loader.Log($"Train is in Cochran, there are more stops, loop mode is not activated and alarka is not a selected station. Reversing train.");

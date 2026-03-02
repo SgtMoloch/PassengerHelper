@@ -64,7 +64,7 @@ public partial class StationManager
             Loader.Log($"Transfer station selected, checking direction and modifying expected selected stations");
             Loader.Log($"The following stations are pickup stations: {Dump(ctx.OrderedPickupStations)}");
             bool useNormalLogic = true;
-            bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(alarkajctIdentifier, out _);
+            bool hasAlarkaJctTransfer = ctx.TransferIndex.TryGetValue(StationIds.AlarkaJct, out _);
 
             if (hasAlarkaJctTransfer)
             {
