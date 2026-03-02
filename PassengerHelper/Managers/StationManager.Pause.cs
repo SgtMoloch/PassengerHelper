@@ -313,7 +313,7 @@ public partial class StationManager
         {
             Loader.Log($"Waiting For full Passengers at terminus.");
 
-            if (pls.PauseAtNextStation || pls.PauseAtNextStation || pls.PauseAtTerminusStation)
+            if (pls.PauseAtNextStation || curStationSettings.PauseAtStation || pls.PauseAtTerminusStation)
             {
                 Say($"PH \"{Hyperlink.To(pl._locomotive)}: Ambiguous pause settings at {state.CurrentStation.DisplayName}. Check settings. Defaulting to Waiting for full load.\"");
             }
