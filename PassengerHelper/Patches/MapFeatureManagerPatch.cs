@@ -11,7 +11,7 @@ using RollingStock;
 using Support;
 
 [HarmonyPatch]
-public static class MapFeatureManagerPatches
+public static class MapFeatureManagerPatch
 {
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MapFeatureManager), "HandleFeatureEnablesChanged")]

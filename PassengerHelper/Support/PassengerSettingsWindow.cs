@@ -902,6 +902,20 @@ public class PassengerSettingsWindow
         .Width(25f);
             hBuilder.AddLabel("Wait For Full Load at Terminus Station").FlexibleWidth(1f);
         });
+         builder.HStack(delegate (UIPanelBuilder hBuilder)
+        {
+            hBuilder.AddToggle(() => settingsManager.GetSettings(pl).DepartStationsWhenFull, delegate (bool on)
+            {
+                Loader.LogVerbose($"Depart stations when full set to {on}");
+                PassengerLocomotiveSettings pls = settingsManager.GetSettings(pl);
+
+                pls.DepartStationsWhenFull = on;
+
+                settingsManager.SaveSettings(pl, pls);
+            }).Tooltip("Depart Stations When Full Toggle", $"Toggle whether the AI should depart as soon as the train is full at a station")
+        .Width(25f);
+            hBuilder.AddLabel("Depart Stations When Full").FlexibleWidth(1f);
+        });
         builder.HStack(delegate (UIPanelBuilder hBuilder)
         {
             string tooltipLocked = "The direction setting is currently disabled, as it is being controlled by PassengerHelper. " +

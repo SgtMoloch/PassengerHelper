@@ -13,6 +13,7 @@ public static class SettingKey
     public static string PauseAtTerminusStation = "pause_terminus_station";
     public static string PreventLoadWhenPausedAtStation = "prevent_load_when_paused";
     public static string WaitForFullPassengersTerminusStation = "wait_for_full_load_at_terminus_station";
+    public static string DepartStationsWhenFull = "depart_stations_when_full";
     public static string Disable = "disable";
     public static string DirectionOfTravel = "direction_of_travel";
     public static string DOTMode = "dot_mode";

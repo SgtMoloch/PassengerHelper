@@ -26,6 +26,7 @@ public class PassengerLocomotiveSettings
     public bool PauseAtTerminusStation { get; set; } = false;
     public bool PreventLoadWhenPausedAtStation { get; set; } = false;
     public bool WaitForFullPassengersTerminusStation { get; set; } = false;
+    public bool DepartStationsWhenFull { get; set; } = false;
     public bool Disable { get; set; } = true;
     public DirectionOfTravel UserDirectionOfTravel { get; set; } = DirectionOfTravel.UNKNOWN;
 
@@ -61,6 +62,7 @@ public class PassengerLocomotiveSettings
         result = prime * result + PauseAtTerminusStation.GetHashCode();
 
         result = prime * result + WaitForFullPassengersTerminusStation.GetHashCode();
+        result = prime * result + DepartStationsWhenFull.GetHashCode();
 
         result = prime * result + Disable.GetHashCode();
 
@@ -95,6 +97,8 @@ public class PassengerLocomotiveSettings
         sb.Append(PreventLoadWhenPausedAtStation + ", ");
         sb.Append("WaitForFullPassengersTerminusStation=");
         sb.Append(WaitForFullPassengersTerminusStation + ", ");
+        sb.Append("DepartStationsWhenFull=");
+        sb.Append(DepartStationsWhenFull + ", ");
         sb.Append("Disable=");
         sb.Append(Disable + ", ");
         sb.Append("DirectionOfTravel=");
@@ -162,6 +166,7 @@ public class PassengerLocomotiveSettings
             PauseAtTerminusStation = dictionaryValue[SettingKey.PauseAtTerminusStation].BoolValue,
             PreventLoadWhenPausedAtStation = dictionaryValue[SettingKey.PreventLoadWhenPausedAtStation].BoolValue,
             WaitForFullPassengersTerminusStation = dictionaryValue[SettingKey.WaitForFullPassengersTerminusStation].BoolValue,
+            DepartStationsWhenFull = dictionaryValue[SettingKey.DepartStationsWhenFull].BoolValue,
             Disable = dictionaryValue[SettingKey.Disable].BoolValue,
             UserDirectionOfTravel = (DirectionOfTravel)dictionaryValue[SettingKey.DirectionOfTravel].IntValue,
             StationSettings = stationSettingDict
@@ -184,6 +189,7 @@ public class PassengerLocomotiveSettings
         _settingsDict[SettingKey.PauseAtTerminusStation] = Value.Bool(PauseAtTerminusStation);
         _settingsDict[SettingKey.PreventLoadWhenPausedAtStation] = Value.Bool(PreventLoadWhenPausedAtStation);
         _settingsDict[SettingKey.WaitForFullPassengersTerminusStation] = Value.Bool(WaitForFullPassengersTerminusStation);
+        _settingsDict[SettingKey.DepartStationsWhenFull] = Value.Bool(DepartStationsWhenFull);
         _settingsDict[SettingKey.Disable] = Value.Bool(Disable);
         _settingsDict[SettingKey.DirectionOfTravel] = Value.Int((int)UserDirectionOfTravel);
         _createStationSettings(_settingsDict);
