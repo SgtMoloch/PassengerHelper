@@ -18,7 +18,7 @@ public static class PassengerMarkerPatch
         /* existing game logic unless otherwise indicated */
 
         // start custom logic
-        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
+        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-6.5f);
         // end custom logic
 
         for (int i = 0; i < ___Groups.Count; i++)
