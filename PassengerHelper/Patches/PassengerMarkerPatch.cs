@@ -3,44 +3,58 @@ using Game;
 using HarmonyLib;
 using JetBrains.Annotations;
 using Model.Ops;
+using PassengerHelper.Plugin;
 
 namespace PassengerHelper.Patches;
 
+[HarmonyPatch]
 public static class PassengerMarkerPatch
 {
     /* 
     this patch will unload experied passengers when at a station, paying for the distance.
      */
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(PassengerMarker), "TryRemovePassenger")]
-    private static bool TryRemovePassenger(ref bool __result, string destination, out string removedDestination, out string removedOrigin, out GameDateTime removedBoarded, List<PassengerGroup> ___Groups, HashSet<string> ___Destinations)
+    [HarmonyPatch(typeof(PassengerMarker), nameof(PassengerMarker.TryRemovePassenger))]
+    private static bool TryRemovePassenger(
+        ref PassengerMarker __instance,
+        ref bool __result,
+        string destination,
+        ref string removedDestination,
+        ref string removedOrigin,
+        ref GameDateTime removedBoarded)
     {
+        if (!Loader.ModEntry.Enabled)
+        {
+            return true;
+        }
+
         /* existing game logic unless otherwise indicated */
 
         // start custom logic
         GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-6.5f);
         // end custom logic
 
-        for (int i = 0; i < ___Groups.Count; i++)
+        for (int i = 0; i < __instance.Groups.Count; i++)
         {
-            PassengerGroup value = ___Groups[i];
+            PassengerGroup value = __instance.Groups[i];
             if (value.Count <= 0)
             {
                 continue;
             }
 
-            bool flag = ___Destinations.Contains(value.Destination);
+            bool flag = __instance.Destinations.Contains(value.Destination);
+
             if (!(!(value.Destination == destination) && flag))
             {
 
                 value.Count--;
                 if (value.Count > 0)
                 {
-                    ___Groups[i] = value;
+                    __instance.Groups[i] = value;
                 }
                 else
                 {
-                    ___Groups.RemoveAt(i);
+                    __instance.Groups.RemoveAt(i);
                     i--;
                 }
 
@@ -54,15 +68,21 @@ public static class PassengerMarkerPatch
             // If the passenger is expired, unload them here and pay to the current station.
             if (!(value.Boarded >= gameDateTime))
             {
-                // end custom logic
+                Loader.LogVerbose(
+                    $"[PassengerMarkerPatch::TryRemovePassenger] Removing expired passenger at {destination}. " +
+                    $"Original trip: {value.Origin} -> {value.Destination}. " +
+                    $"Paying as: {value.Origin} -> {destination}. " +
+                    $"Boarded={value.Boarded}, cutoff={gameDateTime}."
+                );
+
                 value.Count--;
                 if (value.Count > 0)
                 {
-                    ___Groups[i] = value;
+                    __instance.Groups[i] = value;
                 }
                 else
                 {
-                    ___Groups.RemoveAt(i);
+                    __instance.Groups.RemoveAt(i);
                     i--;
                 }
 
@@ -81,7 +101,7 @@ public static class PassengerMarkerPatch
         removedDestination = null;
         removedBoarded = default(GameDateTime);
         removedOrigin = null;
-        
+
         __result = false;
         return false;
     }
