@@ -18,74 +18,56 @@ using PassengerHelper.Plugin;
 [HarmonyPatch]
 public static class PassengerExpirationPatches
 {
-    /* 
-    this patch will prevent expired passengers from poofing when the car is in motion and prevents expiring passengers when car is at a station
-     */
+    private static MethodInfo FindCars = typeof(PassengerStop).GetMethod("FindCars", BindingFlags.NonPublic | BindingFlags.Instance);
+    /*
+        Replaces PassengerExpiration.Tick.
+
+        Changes passenger expiration from 4 hours to 6.5 hours for passengers
+        waiting at stations.
+
+        Waiting passengers at stations still expire normally.
+
+        Onboard passengers are never expired by this tick.
+        This prevents passengers from poofing mid-route before they can deboard
+        and generate payment.
+
+        Original game code unless otherwise stated.
+    */
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerExpiration), "Tick")]
-    private static void Tick(PassengerExpiration __instance)
+    private static bool Tick(PassengerExpiration __instance)
     {
         if (!Loader.ModEntry.Enabled)
         {
-            return;
+            return true;
         }
 
-        /*
-           Original Game code unless otherwise stated
-        */
         IEnumerable<PassengerStop> enumerable = PassengerStop.FindAll();
+
         List<Car> list = TrainController.Shared.Cars.Where((Car car) => car.IsPassengerCar()).ToList();
-        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
+
+        // -6.5f is custom
+        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-6.5f);
+
         using (StateManager.TransactionScope())
         {
-            int num = 0;
+            int expiredPassengerCount = 0;
+
             HashSet<Car> carsAtStation = new HashSet<Car>();
-            foreach (PassengerStop item in enumerable)
-            {
-                num += item.ExpirePassengers(gameDateTime);
 
-                // start custom logic
-                MethodInfo FindCars = typeof(PassengerStop).GetMethod("FindCars", BindingFlags.NonPublic | BindingFlags.Instance);
-                HashSet<Car> cars = (HashSet<Car>)FindCars.Invoke(item, new object[] { TrainController.Shared });
-                carsAtStation.UnionWith(cars);
-                //end custom logic
+            foreach (PassengerStop stop in enumerable)
+            {
+                expiredPassengerCount += stop.ExpirePassengers(gameDateTime);
             }
 
-            // start custom logic
-            list.RemoveAll(car => carsAtStation.Contains(car));
-            //end custom logic
+            // custom remove code to expire passengers in cars
 
-            foreach (Car car in list)
+            if (expiredPassengerCount > 0)
             {
-                PassengerMarker? passengerMarker = car.GetPassengerMarker();
-                if (!passengerMarker.HasValue)
-                {
-                    continue;
-                }
-                PassengerMarker valueOrDefault = passengerMarker.GetValueOrDefault();
-                bool flag = false;
-                for (int num2 = valueOrDefault.Groups.Count - 1; num2 >= 0; num2--)
-                {
-                    PassengerGroup passengerGroup = valueOrDefault.Groups[num2];
-                    // start custom logic
-                    if (!(passengerGroup.Boarded >= gameDateTime) && car.IsAtRest)
-                    {
-                        //end custom logic
-                        num += passengerGroup.Count;
-                        valueOrDefault.Groups.RemoveAt(num2);
-                        flag = true;
-                    }
-                }
-                if (flag)
-                {
-                    car.SetPassengerMarker(valueOrDefault);
-                }
-            }
-
-            if (num > 0)
-            {
-                Loader.Log($"Expired {num} passengers since {gameDateTime}.");
+                Loader.Log($"Expired {expiredPassengerCount} passengers since {gameDateTime}.");
             }
         }
+
+        return false;
     }
 }
