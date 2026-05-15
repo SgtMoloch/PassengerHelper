@@ -13,12 +13,12 @@ public static class PassengerMarkerPatch
      */
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PassengerMarker), "TryRemovePassenger")]
-    private static bool UnloadCar(ref bool __result, string destination, out string removedDestination, out string removedOrigin, out GameDateTime removedBoarded, List<PassengerGroup> ___Groups, HashSet<string> ___Destinations)
+    private static bool TryRemovePassenger(ref bool __result, string destination, out string removedDestination, out string removedOrigin, out GameDateTime removedBoarded, List<PassengerGroup> ___Groups, HashSet<string> ___Destinations)
     {
         /* existing game logic unless otherwise indicated */
 
         // start custom logic
-        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-4f);
+        GameDateTime gameDateTime = TimeWeather.Now.AddingHours(-6.5f);
         // end custom logic
 
         for (int i = 0; i < ___Groups.Count; i++)
@@ -51,7 +51,8 @@ public static class PassengerMarkerPatch
                 return false;
             }
             //start custom logic
-            if (value.Boarded >= gameDateTime)
+            // If the passenger is expired, unload them here and pay to the current station.
+            if (!(value.Boarded >= gameDateTime))
             {
                 // end custom logic
                 value.Count--;
@@ -67,6 +68,9 @@ public static class PassengerMarkerPatch
 
                 removedOrigin = value.Origin;
                 removedBoarded = value.Boarded;
+                // Important:
+                // Use the current station as the removed destination so payout is based
+                // on distance actually traveled, not the passenger's intended destination.
                 removedDestination = destination;
                 __result = true;
                 return false;
@@ -77,6 +81,7 @@ public static class PassengerMarkerPatch
         removedDestination = null;
         removedBoarded = default(GameDateTime);
         removedOrigin = null;
+        
         __result = false;
         return false;
     }
