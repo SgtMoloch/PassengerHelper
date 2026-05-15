@@ -17,7 +17,7 @@ public sealed class PassengerStopOrderManager
     private List<PassengerStop> _orderedUnlockedAll = new();
     private List<PassengerStop> _orderedUnlockedMainline = new();
 
-    
+
 
     public IReadOnlyList<PassengerStop> OrderedAll => _orderedAll;
     public IReadOnlyList<PassengerStop> OrderedMainline => _orderedMainline;
@@ -32,7 +32,7 @@ public sealed class PassengerStopOrderManager
     {
         Messenger.Default.Register<MapDidUnloadEvent>(this, OnMapDidUnload);
     }
-    
+
     private void OnMapDidUnload(MapDidUnloadEvent @event)
     {
         _orderedAll.Clear();
@@ -51,7 +51,12 @@ public sealed class PassengerStopOrderManager
         int fp = ComputeTopologyFingerprint(all.ToArray());
 
         if (fp == _topologyFingerprint && _orderedAll.Count > 0)
+        {
+            Loader.LogVerbose("[PassengerStopOrderManager::EnsureTopologyUpToDate] Topology unchanged; using cached station order.");
+            LogCurrentOrders();
             return;
+        }
+
 
         _topologyFingerprint = fp;
 
@@ -72,6 +77,21 @@ public sealed class PassengerStopOrderManager
         .Where(s => s != null && !string.IsNullOrEmpty(s.identifier))
         .Select(s => s.identifier)
         .ToList();
+
+        LogCurrentOrders();
+    }
+
+    private void LogCurrentOrders()
+    {
+        for (int i = 0; i < OrderedMainlineStopIds.Count; i++)
+        {
+            Loader.LogVerbose($"[PassengerStopOrderManager] MainlineOrder[{i}] = {OrderedMainlineStopIds[i]}");
+        }
+
+        for (int i = 0; i < OrderedAllStopIds.Count; i++)
+        {
+            Loader.LogVerbose($"[PassengerStopOrderManager] AllOrder[{i}] = {OrderedAllStopIds[i]}");
+        }
     }
 
     /// <summary>
@@ -118,7 +138,7 @@ public sealed class PassengerStopOrderManager
             if (s == null) continue;
 
             Loader.LogVerbose($"[PassengerStopOrderManager::ComputeTopologyFingerprint] station: {s.DisplayName} isUnlocked: {!s.ProgressionDisabled}");
-            Loader.LogVerbose($"[PassengerStopOrderManager::ComputeTopologyFingerprint] stop neighbors: {string.Join(",", s.neighbors?.Select(n=>n?.identifier) ?? Enumerable.Empty<string>())}");
+            Loader.LogVerbose($"[PassengerStopOrderManager::ComputeTopologyFingerprint] stop neighbors: {string.Join(",", s.neighbors?.Select(n => n?.identifier) ?? Enumerable.Empty<string>())}");
             hash = hash * 31 + (s.identifier?.GetHashCode() ?? 0);
             hash = hash * 31 + (s.ProgressionDisabled.GetHashCode());
 

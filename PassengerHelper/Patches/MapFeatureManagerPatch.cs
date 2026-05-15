@@ -39,17 +39,6 @@ public static class MapFeatureManagerPatch
                         Loader.Log(warn);
                     }
 
-                    // TEMP DEBUG: dump ordering
-                    for (int i = 0; i < orderedMainline.Count; i++)
-                    {
-                        Loader.Log($"[MapFeatureManagerPatch] MainlineOrder[{i}] = {orderedMainline[i].identifier}");
-                    }
-
-                    for (int i = 0; i < orderedAll.Count; i++)
-                    {
-                        Loader.Log($"[MapFeatureManagerPatch] AllOrder[{i}] = {orderedAll[i].identifier}");
-                    }
-
                     return new StopOrderResult{Mainline = orderedMainline, All = orderedAll, Warning = warn};
                 }
 

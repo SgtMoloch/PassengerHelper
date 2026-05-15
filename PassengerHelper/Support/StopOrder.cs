@@ -15,8 +15,8 @@ public sealed class StopOrderResult
 public static class StopOrder
 {
     // Anchors that DEFINE the mainline
-    private const string EastAnchorId = StationIds.Sylva;
-    private const string WestAnchorId = StationIds.Andrews;
+    private const string SylvaId = StationIds.Sylva;
+    private const string AndrewsId = StationIds.Andrews;
 
     // Known base-game branch
     private const string AlarkaJunctionId = StationIds.AlarkaJct;
@@ -44,8 +44,8 @@ public static class StopOrder
     }
 
     /// <summary>
-    /// Computes a deterministic station ordering.
-    /// - Mainline is ALWAYS the path sylva -> andrews
+    /// - Base mainline is the path sylva -> andrews
+    /// - Modded stations may extend the mainline beyond either endpoint
     /// - At alarkajct, the Alarka branch is traversed first
     /// </summary>
     public static bool TryComputeOrderedStopsAnchored(out List<PassengerStop> orderedMainline, out List<PassengerStop> orderedAll, out string warning)
@@ -83,8 +83,8 @@ public static class StopOrder
             byId[ps.identifier] = ps;
         }
 
-        if (!byId.TryGetValue(EastAnchorId, out var east) ||
-            !byId.TryGetValue(WestAnchorId, out var west))
+        if (!byId.TryGetValue(SylvaId, out var sylva) ||
+            !byId.TryGetValue(AndrewsId, out var andrews))
         {
             Loader.Log("[StopOrder::TryComputeOrderedStopsAnchored]Could not find sylva/andrews anchors. Falling back to canonical base-game ordering.");
             // Fallback: just return all stops in a stable-ish order (by canonical base-game ordering)
@@ -99,7 +99,7 @@ public static class StopOrder
         Dictionary<string, HashSet<string>> adj = BuildUndirectedAdjacency(byId);
 
         List<PassengerStop> spine;
-        if (!TryShortestPath(east, west, byId, adj, out spine))
+        if (!TryShortestPath(sylva, andrews, byId, adj, out spine))
         {
             Loader.Log("[StopOrder::TryComputeOrderedStopsAnchored]Could not find a path from sylva to andrews. Falling back to canonical base-game ordering.");
             warning = "Could not find a path from sylva to andrews. Falling back to canonical base-game ordering.";
@@ -107,6 +107,11 @@ public static class StopOrder
             orderedAll = SortByCanonicalOrderFirst(byId);
             return true;
         }
+
+        // Custom mainline extension support.
+        // Keep the canonical Sylva -> Andrews spine, but allow modded stations
+        // to extend beyond either endpoint.
+        spine = ExtendSpineFromEndpoints(spine, byId, adj);
 
         // Normal anchored build (no throws)
         orderedMainline = BuildOrderedFromSpine(spine, alarkaJct, byId, adj);
@@ -118,6 +123,282 @@ public static class StopOrder
     // ------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------
+
+    /// <summary>
+    /// Extends the canonical Sylva -> Andrews spine outward from either endpoint.
+    ///
+    /// This supports modded passenger stations that extend the mainline beyond
+    /// Sylva or Andrews without treating arbitrary mid-route branches as mainline.
+    /// </summary>
+    private static List<PassengerStop> ExtendSpineFromEndpoints(
+        List<PassengerStop> spine,
+        Dictionary<string, PassengerStop> byId,
+        Dictionary<string, HashSet<string>> adj)
+    {
+        if (spine == null || spine.Count == 0)
+        {
+            return spine ?? new List<PassengerStop>();
+        }
+
+        var spineIds = new HashSet<string>(
+            spine
+                .Where(s => s != null && !string.IsNullOrEmpty(s.identifier))
+                .Select(s => s.identifier),
+            StringComparer.Ordinal);
+
+        PassengerStop eastEnd = spine[0];
+        PassengerStop westEnd = spine[spine.Count - 1];
+
+        List<PassengerStop> eastExtension = BuildEndpointExtension(eastEnd, spineIds, byId, adj);
+        List<PassengerStop> westExtension = BuildEndpointExtension(westEnd, spineIds, byId, adj);
+
+        var result = new List<PassengerStop>();
+
+        // eastExtension is returned endpoint-outward:
+        // Sylva, Beta, Addie, ...
+        // For final order, we want:
+        // ..., Addie, Beta, Sylva
+        eastExtension.Reverse();
+
+        foreach (PassengerStop stop in eastExtension)
+        {
+            AddIfNotAlreadyPresent(result, stop);
+        }
+
+        foreach (PassengerStop stop in spine)
+        {
+            AddIfNotAlreadyPresent(result, stop);
+        }
+
+        foreach (PassengerStop stop in westExtension)
+        {
+            AddIfNotAlreadyPresent(result, stop);
+        }
+
+        Loader.LogVerbose(
+            $"[StopOrder] Extended mainline spine: {string.Join(", ", result.Select(s => s.identifier))}"
+        );
+
+        return result;
+    }
+
+    /// <summary>
+    /// Builds a linear extension starting at one endpoint of the existing spine.
+    ///
+    /// The returned list excludes the endpoint itself. For example, if called at Sylva
+    /// and the graph continues Sylva -> Beta -> Addie, this returns:
+    /// Beta, Addie, ...
+    /// </summary>
+    private static List<PassengerStop> BuildEndpointExtension(
+        PassengerStop endpoint,
+        HashSet<string> existingSpineIds,
+        Dictionary<string, PassengerStop> byId,
+        Dictionary<string, HashSet<string>> adj)
+    {
+        var extension = new List<PassengerStop>();
+
+        if (endpoint == null || string.IsNullOrEmpty(endpoint.identifier))
+        {
+            return extension;
+        }
+
+        string endpointId = endpoint.identifier;
+
+        if (!adj.TryGetValue(endpointId, out var endpointNeighbors))
+        {
+            return extension;
+        }
+
+        // Only consider neighbors outside the existing Sylva -> Andrews spine.
+        var candidates = endpointNeighbors
+            .Where(id => !existingSpineIds.Contains(id))
+            .Where(id => byId.ContainsKey(id))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return extension;
+        }
+
+        if (candidates.Count > 1)
+        {
+            Loader.Log(
+                $"[StopOrder] Endpoint {endpointId} has multiple possible mainline extensions: {string.Join(", ", candidates)}. " +
+                "Using the longest deterministic extension."
+            );
+        }
+
+        List<string> bestPath = null;
+
+        foreach (string candidate in candidates)
+        {
+            List<string> path = FindLongestEndpointExtensionPath(endpointId, candidate, existingSpineIds, byId, adj);
+
+            if (bestPath == null ||
+                path.Count > bestPath.Count ||
+                (path.Count == bestPath.Count && IsLexicographicallyEarlier(path, bestPath)))
+            {
+                bestPath = path;
+            }
+        }
+
+        if (bestPath == null || bestPath.Count == 0)
+        {
+            return extension;
+        }
+
+        foreach (string id in bestPath)
+        {
+            if (byId.TryGetValue(id, out var stop) && stop != null)
+            {
+                extension.Add(stop);
+            }
+        }
+
+        Loader.LogVerbose($"[StopOrder] Endpoint extension from {endpointId}: {string.Join(", ", bestPath ?? new List<string>())}");
+
+        return extension;
+    }
+
+    /// <summary>
+    /// Walks outward from a spine endpoint through a mostly-linear custom extension.
+    ///
+    /// This intentionally stops when the extension branches, loops back into the
+    /// existing spine, or hits a dead end.
+    /// </summary>
+
+    private static List<string> FindLongestEndpointExtensionPath(
+    string spineEndpointId,
+    string firstExtensionId,
+    HashSet<string> existingSpineIds,
+    Dictionary<string, PassengerStop> byId,
+    Dictionary<string, HashSet<string>> adj)
+    {
+        var bestPath = new List<string>();
+
+        var visited = new HashSet<string>(StringComparer.Ordinal)
+        {
+            spineEndpointId
+        };
+
+        void Dfs(string currentId, List<string> path)
+        {
+            if (string.IsNullOrEmpty(currentId))
+            {
+                return;
+            }
+
+            if (existingSpineIds.Contains(currentId))
+            {
+                return;
+            }
+
+            if (!byId.ContainsKey(currentId))
+            {
+                return;
+            }
+
+            if (!visited.Add(currentId))
+            {
+                return;
+            }
+
+            path.Add(currentId);
+
+            if (IsBetterExtensionPath(path, bestPath))
+            {
+                bestPath = new List<string>(path);
+            }
+
+            if (adj.TryGetValue(currentId, out var neighbors))
+            {
+                foreach (string nextId in neighbors.OrderBy(id => id, StringComparer.Ordinal))
+                {
+                    if (visited.Contains(nextId))
+                    {
+                        continue;
+                    }
+
+                    if (existingSpineIds.Contains(nextId))
+                    {
+                        continue;
+                    }
+
+                    if (!byId.ContainsKey(nextId))
+                    {
+                        continue;
+                    }
+
+                    Dfs(nextId, path);
+                }
+            }
+
+            path.RemoveAt(path.Count - 1);
+            visited.Remove(currentId);
+        }
+
+        Dfs(firstExtensionId, new List<string>());
+
+        return bestPath;
+    }
+
+    private static bool IsBetterExtensionPath(List<string> candidate, List<string> currentBest)
+    {
+        if (candidate.Count > currentBest.Count)
+        {
+            return true;
+        }
+
+        if (candidate.Count < currentBest.Count)
+        {
+            return false;
+        }
+
+        return IsLexicographicallyEarlier(candidate, currentBest);
+    }
+
+    private static void AddIfNotAlreadyPresent(List<PassengerStop> list, PassengerStop stop)
+    {
+        if (stop == null || string.IsNullOrEmpty(stop.identifier))
+        {
+            return;
+        }
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            PassengerStop existing = list[i];
+
+            if (existing != null &&
+                StringComparer.Ordinal.Equals(existing.identifier, stop.identifier))
+            {
+                return;
+            }
+        }
+
+        list.Add(stop);
+    }
+
+    private static bool IsLexicographicallyEarlier(List<string> left, List<string> right)
+    {
+        int count = Math.Min(left.Count, right.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            int compare = string.CompareOrdinal(left[i], right[i]);
+
+            if (compare < 0)
+            {
+                return true;
+            }
+
+            if (compare > 0)
+            {
+                return false;
+            }
+        }
+
+        return left.Count < right.Count;
+    }
 
     private static List<PassengerStop> BuildOrderedFromSpine(
         List<PassengerStop> spine,
