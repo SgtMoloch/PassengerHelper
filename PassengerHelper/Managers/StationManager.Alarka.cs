@@ -8,11 +8,13 @@ namespace PassengerHelper.Managers;
 //alarka
 public partial class StationManager
 {
-    private bool RunAlarkaJctTransferStationProcedure(PassengerLocomotiveSettings pls, HashSet<string> expectedSelectedDestinations, StationProcedureContext ctx, DirectionOfTravel directionOfTravel)
+    private bool RunAlarkaJctTransferStationProcedure(HashSet<string> expectedSelectedDestinations, StationProcedureContext ctx, DirectionOfTravel directionOfTravel)
     {
         int currentIndex_Pickup = ctx.PickupIndex[ctx.CurrentStation.identifier];
         int alarkaJctIndex_Pickup = ctx.PickupIndex[StationIds.AlarkaJct];
- 
+
+        bool currentStationIsJct = ctx.CurrentStation.identifier == StationIds.AlarkaJct;
+
         bool hasAlarkaPickup = ctx.PickupIndex.TryGetValue(StationIds.Alarka, out _);
         bool hasCochranPickup = ctx.PickupIndex.TryGetValue(StationIds.Cochran, out _);
 
@@ -23,67 +25,93 @@ public partial class StationManager
         bool jctIsEastTerminus = ctx.EastTerminusId == StationIds.AlarkaJct;
 
         bool alarkaIsWestTerminus = ctx.WestTerminusId == StationIds.Alarka;
-        bool alarkaIsEastTerminus = ctx.EastTerminusId == StationIds.Alarka;
 
-        if (jctIsWestTerminus)
-        {
-            // train is running from some east point <-> alarka jct
-            Loader.LogVerbose($"Train has alarkajct as the west terminus station");
-            // use normal logic
-            return true;
-        }
+        bool alarkaBranchOnly = jctIsEastTerminus && alarkaIsWestTerminus;
+        bool jctIsTerminus = jctIsWestTerminus || jctIsEastTerminus;
 
-        if (jctIsEastTerminus)
+        bool mainlineOnlyNoBranchStop = !hasCochranStopAt && !hasAlarkaStopAt;
+
+        if (alarkaBranchOnly)
         {
-            Loader.LogVerbose($"Train has alarkajct as the east terminus station");
-            if (alarkaIsWestTerminus)
+            // most common case
+            Loader.LogVerbose($"Train is doing the alarka branch only");
+            if (currentStationIsJct || directionOfTravel == DirectionOfTravel.WEST)
             {
-                // train is running jct <-> cochran <-> alarka; branch only
-                Loader.LogVerbose($"Train has alarka as the west terminus station; Train is doing the alarka branch only");
+                Loader.LogVerbose($"Train is at JCT or heading West on branch-only route");
 
-                if (directionOfTravel == DirectionOfTravel.EAST)
-                {
-                    Loader.LogVerbose($"Train is heading East so selecting all pickup stations");
-                    expectedSelectedDestinations.UnionWith(ctx.OrderedPickupStations);
-                    expectedSelectedDestinations.Remove(StationIds.Alarka);
-                }
-
-                if (directionOfTravel == DirectionOfTravel.WEST)
-                {
-                    Loader.LogVerbose($"Train is heading West, so selecting only cochran and alarka as normal");
-                }
-
-                // this is a special case, so do not use normal logic
+                // special case, do not use normal logic
                 return false;
             }
 
-            if (directionOfTravel == DirectionOfTravel.EAST)
+            Loader.LogVerbose($"Train is heading East to Jct so selecting all pickup stations except alarka");
+            expectedSelectedDestinations.UnionWith(ctx.OrderedPickupStations);
+            expectedSelectedDestinations.Remove(StationIds.Alarka);
+
+            // special case, do not use normal logic
+            return false;
+        }
+
+        if (jctIsTerminus)
+        {
+            // if train has arrived at jct and jct is terminus, direction is now the new direction before this gets called
+            // so just always use normal logic
+            Loader.LogVerbose($"Train has route with Alarka JCT as terminus");
+            if (currentStationIsJct && jctIsEastTerminus)
             {
-                // train is running jct <-> some west point
-                // in this case, train is going east but has not reached jct yet, so if alarka and cochran are stations, need to select them since they appear between almond and jct in the ordered list
-                Loader.LogVerbose($"Train is now heading East, so selecting alarka and cochran as pickup stations if needed");
+                Loader.LogVerbose("Train is at JCT and JCT is EAST terminus; selecting pickups west of JCT except Alarka/Cochran");
+
+                if (currentIndex_Pickup + 1 < ctx.OrderedPickupStations.Count)
+                {
+                    expectedSelectedDestinations.UnionWith(
+                        ctx.OrderedPickupStations.GetRange(
+                            currentIndex_Pickup + 1,
+                            ctx.OrderedPickupStations.Count - (currentIndex_Pickup + 1)));
+                }
+
+                expectedSelectedDestinations.Remove(StationIds.Alarka);
+                expectedSelectedDestinations.Remove(StationIds.Cochran);
+
+                // special case, do not use normal logic
+                return false;
+            }
+
+            // this is true, because JCT is a terminus, so we want all stations selected based on the direction of travel.
+            return true;
+        }
+
+        if (mainlineOnlyNoBranchStop)
+        {
+            // train is running from some east point <-> some west point and does not go to alarka
+            Loader.LogVerbose($"Train is mainline train with no alarka branch.");
+
+            Loader.LogVerbose($"Alarka is pickup station: {hasAlarkaPickup}");
+            Loader.LogVerbose($"Cochran is pickup station: {hasCochranPickup}");
+
+            bool beforeJct =
+            (directionOfTravel == DirectionOfTravel.WEST && currentIndex_Pickup < alarkaJctIndex_Pickup) ||
+            (directionOfTravel == DirectionOfTravel.EAST && currentIndex_Pickup > alarkaJctIndex_Pickup);
+
+            if (beforeJct)
+            {
                 if (hasAlarkaPickup)
                 {
-                    Loader.LogVerbose($"adding alarka");
                     expectedSelectedDestinations.Add(StationIds.Alarka);
                 }
 
                 if (hasCochranPickup)
                 {
-                    Loader.LogVerbose($"adding cochran");
                     expectedSelectedDestinations.Add(StationIds.Cochran);
                 }
             }
 
-            // use normal logic in this case
-            return true;
+            // use normal logic (for example, the case where route is bryson <-> almond where bryson almond and jct are all transfer stations, use normal logic for bryson and almond)
+            Loader.LogVerbose($"Mainline train, using normal transfer pass pickup logic if needed");
+            return ShouldRunNormalTransferPickupLogic(ctx);
         }
-
-        Loader.LogVerbose($"Train has a station other than alarkajct for the east terminus");
 
         if (alarkaIsWestTerminus)
         {
-            // train is running from some east point <-> alarka
+            // train has Alarka as west terminus, with JCT as an intermediate transfer point
             Loader.LogVerbose($"Train has alarka as the west terminus station");
             if (directionOfTravel == DirectionOfTravel.EAST)
             {
@@ -99,9 +127,9 @@ public partial class StationManager
                     return false;
                 }
 
-                // if train is going east and has past jct, then just use normal logic
-                Loader.LogVerbose($"Train is going east and is at or past alarkajct, using normal logic");
-                return true;
+                // if train is going east and is at or past jct, then just use normal transfer logic if needed
+                Loader.LogVerbose($"Train is going east and is at or past alarkajct, using normal transfer pass pickup logic if needed");
+                return ShouldRunNormalTransferPickupLogic(ctx);
             }
 
             if (directionOfTravel == DirectionOfTravel.WEST)
@@ -110,7 +138,7 @@ public partial class StationManager
                 if (currentIndex_Pickup < alarkaJctIndex_Pickup)
                 {
                     // if before jct, use normal logic
-                    Loader.LogVerbose($"Train is heading West, and is before jct, use normal logic");
+                    Loader.LogVerbose($"Train is heading West, and is before jct, using normal transfer pass pickup logic");
 
                     return true;
                 }
@@ -122,52 +150,16 @@ public partial class StationManager
             }
         }
 
-        // train is running from some east point <-> some west point and does not go to alarka
-        Loader.LogVerbose($"Train is long distance train with no alarka branch. Checking if alarka and cochran are pickup stations");
-
-        bool addAlarkaAndCochran = true;
-        bool pickUpContainsAlarkaAndCochran = hasAlarkaPickup && hasCochranPickup;
-        Loader.LogVerbose($"Alarka and cochran are pickup stations: {pickUpContainsAlarkaAndCochran}");
-
-        bool dotEastAndBeforeAlarkaJct = directionOfTravel == DirectionOfTravel.EAST;
-        bool dotWestAndBeforeAlarkaJct = directionOfTravel == DirectionOfTravel.WEST;
-
-        if (pickUpContainsAlarkaAndCochran)
-        {
-            // this is sanity check, really shouldn't have jct as a transfer without having cochran and alarka as pickups
-            Loader.LogVerbose($"Checking if train is before Alarka jct, based on current direction of travel");
-
-            dotEastAndBeforeAlarkaJct &= currentIndex_Pickup > alarkaJctIndex_Pickup;
-            dotWestAndBeforeAlarkaJct &= currentIndex_Pickup < alarkaJctIndex_Pickup;
-            Loader.LogVerbose($"train is heading west towards AlarkaJct: {dotWestAndBeforeAlarkaJct}, train is heading east towards AlarkaJct: {dotEastAndBeforeAlarkaJct}");
-
-            Loader.LogVerbose($"Ensuring that cochran and alarka are not stop at stations");
-            bool stopDoesNotIncludeAlarkaAndCochran = !hasAlarkaStopAt && !hasCochranStopAt;
-            Loader.LogVerbose($"cochran and alarka are not stop at stations: {stopDoesNotIncludeAlarkaAndCochran}");
-
-            // if we haven't arrived at jct yet, we want to add alarka and cochran if they are pickup stations
-            addAlarkaAndCochran &= stopDoesNotIncludeAlarkaAndCochran && (dotEastAndBeforeAlarkaJct || dotWestAndBeforeAlarkaJct);
-
-            if (addAlarkaAndCochran)
-            {
-                Loader.LogVerbose($"adding alarka");
-                expectedSelectedDestinations.Add(StationIds.Alarka);
-                Loader.LogVerbose($"adding cochran");
-                expectedSelectedDestinations.Add(StationIds.Cochran);
-            }
-        }
-
         // check here, because there can be at most 3 transfer stations. Each terminus plus jct.
         // prior to this method call, only jct was confirmed a transfer
-        int transferStationCount = ctx.OrderedTransferStations.Count;
+        // if jct is the only transfer, don't use normal logic
+        // otherwise, use normal logic (for example, the case where train is bryson <-> almond where bryson almond and jct are transfer stations, use normal logic for bryson and almond)
+        Loader.LogVerbose($"Weird condition encountered. JCT is transfer station, but it is not a terminus, not part of a mainline, not part of the alarka branch and Alarka is not the west terminus. Using normal logic if needed");
+        return ShouldRunNormalTransferPickupLogic(ctx);
+    }
 
-        if (transferStationCount == 1)
-        {
-            // if jct is the only transfer, don't use normal logic
-            return false;
-        }
-
-        // otherwise, use normal logic (for example, the case where tring is bryson <-> almond where bryson almon and jct are transfer stations, use normal logic for byrson and almond)
-        return true;
+    private bool ShouldRunNormalTransferPickupLogic(StationProcedureContext ctx)
+    {
+        return ctx.OrderedTransferStations.Count > 1;
     }
 }

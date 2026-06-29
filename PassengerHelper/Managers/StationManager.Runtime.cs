@@ -65,7 +65,7 @@ public partial class StationManager
                 {
                     if (car == null) continue;
 
-                    if (!visitedCarIds.Add(car.id)) continue;
+                    if (visitedCarIds.Contains(car.id)) continue;
 
                     if (!trainManager.TryGetPassengerLocomotive(car, visitedCarIds, out BaseLocomotive lm, out string failReason))
                     {

@@ -39,7 +39,7 @@ public partial class StationManager
             if (hasAlarkaJctTransfer)
             {
                 Loader.LogVerbose($"Train has alarkajct as a transfer station");
-                useNormalLogic = RunAlarkaJctTransferStationProcedure(pls, expectedSelectedDestinations, ctx, DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel).Value);
+                useNormalLogic = RunAlarkaJctTransferStationProcedure(expectedSelectedDestinations, ctx, DirectionOfTravelResolver.Compute(pls.UserDirectionOfTravel, state.InferredDirectionOfTravel).Value);
             }
 
             if (useNormalLogic)

@@ -8,7 +8,7 @@
   <PropertyGroup Condition="'$(AssemblyVersion)' == '' OR '$(MajorVersion)' != '' OR '$(MinorVersion)' != ''">
     <MajorVersion Condition="'$(MajorVersion)' == ''">2</MajorVersion>
     <MinorVersion Condition="'$(MinorVersion)' == ''">1</MinorVersion>
-    <PatchVersion Condition="'$(PatchVersion)' == ''">1</PatchVersion>
+    <PatchVersion Condition="'$(PatchVersion)' == ''">2</PatchVersion>
     <VersionSuffix Condition="'$(VersionSuffix)' == ''"></VersionSuffix>
 
     <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(PatchVersion)</AssemblyVersion>
@@ -74,8 +74,7 @@
     </ItemGroup>
 
     <Move SourceFiles="@(OutputFiles)" DestinationFolder="$(ModDirectory)" />
-
     <!-- Zip it up -->
-    <Exec Command="powershell -Command &quot;Compress-Archive -Path '$(ModDirectory)' -Destination '$(ZipName)'&quot;" />
+    <Exec Command="tar.exe -a -c -f &quot;$(ZipName)&quot; -C &quot;$(OutputPath).&quot; &quot;$(AssemblyName)&quot;" />
   </Target>
 </Project>

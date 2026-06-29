@@ -11,6 +11,7 @@ using Game.Messages;
 using static Model.Car;
 using Support.GameObjects;
 using PassengerHelper.Plugin;
+using Model.Ops;
 
 public class TrainManager
 {
